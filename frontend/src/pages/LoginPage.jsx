@@ -208,10 +208,10 @@ export const LoginPage = () => {
                   Welcome back
                 </Typography>
               </Stack>
-              <Typography variant="h2" component="h1" sx={{ fontSize: { xs: '1.75rem', sm: '2.125rem' }, letterSpacing: '-0.025em', mb: 1 }}>
+              <Typography variant="h2" component="h1" sx={{ fontSize: { xs: '1.75rem', sm: '1.95rem' }, letterSpacing: '-0.025em', mb: 1 }}>
                 Sign in to{' '}
                 <Box component="span" sx={{ background: 'linear-gradient(90deg, #4651DE, #7A4FD8)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
-                  EdunexusAI
+                  Demo University
                 </Box>
               </Typography>
               <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 400 }}>
