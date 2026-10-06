@@ -1,0 +1,578 @@
+[
+  {
+    "id": 7700,
+    "course_id": 1100,
+    "user_id": 3001,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098421",
+    "grades": {
+      "current_grade": "A",
+      "current_score": 95.2
+    },
+    "user": {
+      "id": 3001,
+      "name": "Amit Pathak",
+      "sis_user_id": "0098421"
+    }
+  },
+  {
+    "id": 7701,
+    "course_id": 1101,
+    "user_id": 3001,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098421",
+    "grades": {
+      "current_grade": "A-",
+      "current_score": 91.5
+    },
+    "user": {
+      "id": 3001,
+      "name": "Amit Pathak",
+      "sis_user_id": "0098421"
+    }
+  },
+  {
+    "id": 7702,
+    "course_id": 1102,
+    "user_id": 3001,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098421",
+    "grades": {
+      "current_grade": "B+",
+      "current_score": 88
+    },
+    "user": {
+      "id": 3001,
+      "name": "Amit Pathak",
+      "sis_user_id": "0098421"
+    }
+  },
+  {
+    "id": 7703,
+    "course_id": 1103,
+    "user_id": 3001,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098421",
+    "grades": {
+      "current_grade": "A",
+      "current_score": 94
+    },
+    "user": {
+      "id": 3001,
+      "name": "Amit Pathak",
+      "sis_user_id": "0098421"
+    }
+  },
+  {
+    "id": 7704,
+    "course_id": 1100,
+    "user_id": 3002,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098507",
+    "grades": {
+      "current_grade": "A",
+      "current_score": 95.8
+    },
+    "user": {
+      "id": 3002,
+      "name": "Maya Lin",
+      "sis_user_id": "0098507"
+    }
+  },
+  {
+    "id": 7705,
+    "course_id": 1101,
+    "user_id": 3002,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098507",
+    "grades": {
+      "current_grade": "A-",
+      "current_score": 91.4
+    },
+    "user": {
+      "id": 3002,
+      "name": "Maya Lin",
+      "sis_user_id": "0098507"
+    }
+  },
+  {
+    "id": 7706,
+    "course_id": 1103,
+    "user_id": 3002,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098507",
+    "grades": {
+      "current_grade": "B+",
+      "current_score": 88.2
+    },
+    "user": {
+      "id": 3002,
+      "name": "Maya Lin",
+      "sis_user_id": "0098507"
+    }
+  },
+  {
+    "id": 7707,
+    "course_id": 1100,
+    "user_id": 3003,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098520",
+    "grades": {
+      "current_grade": "A-",
+      "current_score": 91.4
+    },
+    "user": {
+      "id": 3003,
+      "name": "Devon Brooks",
+      "sis_user_id": "0098520"
+    }
+  },
+  {
+    "id": 7708,
+    "course_id": 1102,
+    "user_id": 3003,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098520",
+    "grades": {
+      "current_grade": "B+",
+      "current_score": 88.2
+    },
+    "user": {
+      "id": 3003,
+      "name": "Devon Brooks",
+      "sis_user_id": "0098520"
+    }
+  },
+  {
+    "id": 7709,
+    "course_id": 1100,
+    "user_id": 3004,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098533",
+    "grades": {
+      "current_grade": "B+",
+      "current_score": 88.2
+    },
+    "user": {
+      "id": 3004,
+      "name": "Sophia Martinez",
+      "sis_user_id": "0098533"
+    }
+  },
+  {
+    "id": 7710,
+    "course_id": 1101,
+    "user_id": 3004,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098533",
+    "grades": {
+      "current_grade": "A",
+      "current_score": 94.1
+    },
+    "user": {
+      "id": 3004,
+      "name": "Sophia Martinez",
+      "sis_user_id": "0098533"
+    }
+  },
+  {
+    "id": 7711,
+    "course_id": 1103,
+    "user_id": 3004,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098533",
+    "grades": {
+      "current_grade": "B",
+      "current_score": 84.6
+    },
+    "user": {
+      "id": 3004,
+      "name": "Sophia Martinez",
+      "sis_user_id": "0098533"
+    }
+  },
+  {
+    "id": 7712,
+    "course_id": 1100,
+    "user_id": 3005,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098546",
+    "grades": {
+      "current_grade": "A",
+      "current_score": 94.1
+    },
+    "user": {
+      "id": 3005,
+      "name": "Ethan Powell",
+      "sis_user_id": "0098546"
+    }
+  },
+  {
+    "id": 7713,
+    "course_id": 1102,
+    "user_id": 3005,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098546",
+    "grades": {
+      "current_grade": "B",
+      "current_score": 84.6
+    },
+    "user": {
+      "id": 3005,
+      "name": "Ethan Powell",
+      "sis_user_id": "0098546"
+    }
+  },
+  {
+    "id": 7714,
+    "course_id": 1100,
+    "user_id": 3006,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098559",
+    "grades": {
+      "current_grade": "B",
+      "current_score": 84.6
+    },
+    "user": {
+      "id": 3006,
+      "name": "Priya Raman",
+      "sis_user_id": "0098559"
+    }
+  },
+  {
+    "id": 7715,
+    "course_id": 1101,
+    "user_id": 3006,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098559",
+    "grades": {
+      "current_grade": "A-",
+      "current_score": 90.7
+    },
+    "user": {
+      "id": 3006,
+      "name": "Priya Raman",
+      "sis_user_id": "0098559"
+    }
+  },
+  {
+    "id": 7716,
+    "course_id": 1103,
+    "user_id": 3006,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098559",
+    "grades": {
+      "current_grade": "A",
+      "current_score": 95.8
+    },
+    "user": {
+      "id": 3006,
+      "name": "Priya Raman",
+      "sis_user_id": "0098559"
+    }
+  },
+  {
+    "id": 7717,
+    "course_id": 1100,
+    "user_id": 3007,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098572",
+    "grades": {
+      "current_grade": "A-",
+      "current_score": 90.7
+    },
+    "user": {
+      "id": 3007,
+      "name": "Jordan Okafor",
+      "sis_user_id": "0098572"
+    }
+  },
+  {
+    "id": 7718,
+    "course_id": 1102,
+    "user_id": 3007,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098572",
+    "grades": {
+      "current_grade": "A",
+      "current_score": 95.8
+    },
+    "user": {
+      "id": 3007,
+      "name": "Jordan Okafor",
+      "sis_user_id": "0098572"
+    }
+  },
+  {
+    "id": 7719,
+    "course_id": 1100,
+    "user_id": 3008,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098585",
+    "grades": {
+      "current_grade": "A",
+      "current_score": 95.8
+    },
+    "user": {
+      "id": 3008,
+      "name": "Hannah Kim",
+      "sis_user_id": "0098585"
+    }
+  },
+  {
+    "id": 7720,
+    "course_id": 1101,
+    "user_id": 3008,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098585",
+    "grades": {
+      "current_grade": "A-",
+      "current_score": 91.4
+    },
+    "user": {
+      "id": 3008,
+      "name": "Hannah Kim",
+      "sis_user_id": "0098585"
+    }
+  },
+  {
+    "id": 7721,
+    "course_id": 1103,
+    "user_id": 3008,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098585",
+    "grades": {
+      "current_grade": "B+",
+      "current_score": 88.2
+    },
+    "user": {
+      "id": 3008,
+      "name": "Hannah Kim",
+      "sis_user_id": "0098585"
+    }
+  },
+  {
+    "id": 7722,
+    "course_id": 1100,
+    "user_id": 3009,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098598",
+    "grades": {
+      "current_grade": "A-",
+      "current_score": 91.4
+    },
+    "user": {
+      "id": 3009,
+      "name": "Luis Fernandez",
+      "sis_user_id": "0098598"
+    }
+  },
+  {
+    "id": 7723,
+    "course_id": 1102,
+    "user_id": 3009,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098598",
+    "grades": {
+      "current_grade": "B+",
+      "current_score": 88.2
+    },
+    "user": {
+      "id": 3009,
+      "name": "Luis Fernandez",
+      "sis_user_id": "0098598"
+    }
+  },
+  {
+    "id": 7724,
+    "course_id": 1100,
+    "user_id": 3010,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098611",
+    "grades": {
+      "current_grade": "B+",
+      "current_score": 88.2
+    },
+    "user": {
+      "id": 3010,
+      "name": "Grace Oyelaran",
+      "sis_user_id": "0098611"
+    }
+  },
+  {
+    "id": 7725,
+    "course_id": 1101,
+    "user_id": 3010,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098611",
+    "grades": {
+      "current_grade": "A",
+      "current_score": 94.1
+    },
+    "user": {
+      "id": 3010,
+      "name": "Grace Oyelaran",
+      "sis_user_id": "0098611"
+    }
+  },
+  {
+    "id": 7726,
+    "course_id": 1103,
+    "user_id": 3010,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098611",
+    "grades": {
+      "current_grade": "B",
+      "current_score": 84.6
+    },
+    "user": {
+      "id": 3010,
+      "name": "Grace Oyelaran",
+      "sis_user_id": "0098611"
+    }
+  },
+  {
+    "id": 7727,
+    "course_id": 1100,
+    "user_id": 3011,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098624",
+    "grades": {
+      "current_grade": "A",
+      "current_score": 94.1
+    },
+    "user": {
+      "id": 3011,
+      "name": "Noah Bergstrom",
+      "sis_user_id": "0098624"
+    }
+  },
+  {
+    "id": 7728,
+    "course_id": 1102,
+    "user_id": 3011,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098624",
+    "grades": {
+      "current_grade": "B",
+      "current_score": 84.6
+    },
+    "user": {
+      "id": 3011,
+      "name": "Noah Bergstrom",
+      "sis_user_id": "0098624"
+    }
+  },
+  {
+    "id": 7729,
+    "course_id": 1100,
+    "user_id": 3012,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098637",
+    "grades": {
+      "current_grade": "B",
+      "current_score": 84.6
+    },
+    "user": {
+      "id": 3012,
+      "name": "Aisha Mahmood",
+      "sis_user_id": "0098637"
+    }
+  },
+  {
+    "id": 7730,
+    "course_id": 1101,
+    "user_id": 3012,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098637",
+    "grades": {
+      "current_grade": "A-",
+      "current_score": 90.7
+    },
+    "user": {
+      "id": 3012,
+      "name": "Aisha Mahmood",
+      "sis_user_id": "0098637"
+    }
+  },
+  {
+    "id": 7731,
+    "course_id": 1103,
+    "user_id": 3012,
+    "type": "StudentEnrollment",
+    "role": "StudentEnrollment",
+    "enrollment_state": "active",
+    "sis_user_id": "0098637",
+    "grades": {
+      "current_grade": "A",
+      "current_score": 95.8
+    },
+    "user": {
+      "id": 3012,
+      "name": "Aisha Mahmood",
+      "sis_user_id": "0098637"
+    }
+  }
+]

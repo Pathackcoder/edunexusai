@@ -1,0 +1,104 @@
+{
+  "initialCheckedOutBooks": [
+    {
+      "id": "lib-book-001",
+      "title": "Designing Data-Intensive Applications",
+      "author": "Martin Kleppmann",
+      "isbn": "978-1449373320",
+      "callNumber": "QA76.9.D3 K55 2017",
+      "checkoutDate": "2026-09-20",
+      "dueDate": "2026-10-18",
+      "status": "Due Soon",
+      "renewable": true,
+      "renewalsCount": 0,
+      "coverColor": "#1d4ed8",
+      "location": "Main Library Stack 4, 3rd Floor"
+    },
+    {
+      "id": "lib-book-002",
+      "title": "Artificial Intelligence: A Modern Approach (4th Edition)",
+      "author": "Stuart Russell & Peter Norvig",
+      "isbn": "978-0134610993",
+      "callNumber": "Q335 .R86 2020",
+      "checkoutDate": "2026-09-28",
+      "dueDate": "2026-11-04",
+      "status": "Active",
+      "renewable": true,
+      "renewalsCount": 0,
+      "coverColor": "#6d28d9",
+      "location": "Main Library Course Reserves"
+    },
+    {
+      "id": "lib-book-003",
+      "title": "Operating Systems: Three Easy Pieces",
+      "author": "Remzi H. Arpaci-Dusseau & Andrea C. Arpaci-Dusseau",
+      "isbn": "978-1985086593",
+      "callNumber": "QA76.76.O63 A77 2018",
+      "checkoutDate": "2026-09-15",
+      "dueDate": "2026-11-12",
+      "status": "Active",
+      "renewable": true,
+      "renewalsCount": 1,
+      "coverColor": "#059669",
+      "location": "Turing Science Library Stacks"
+    }
+  ],
+  "libraryAccountSummary": {
+    "booksCheckedOut": 3,
+    "dueSoon": 1,
+    "overdue": 0,
+    "overdueItems": 0,
+    "fines": 0,
+    "unpaidFines": 0,
+    "patronId": "LIB-984210",
+    "barcode": "LIB-984210",
+    "patronStatus": "Active Graduate Borrower",
+    "borrowingLimit": 15
+  },
+  "sampleLibraryCatalog": [
+    {
+      "id": "cat-001",
+      "title": "Computer Networks: A Systems Approach",
+      "author": "Larry L. Peterson & Bruce S. Davie",
+      "type": "Book",
+      "year": "2021",
+      "callNumber": "TK5105.5 .P479 2021",
+      "status": "Available",
+      "copies": 3,
+      "location": "Main Stacks, 4th Floor"
+    },
+    {
+      "id": "cat-002",
+      "title": "Introduction to Algorithms (4th Edition)",
+      "author": "Thomas H. Cormen, Charles E. Leiserson, Ronald L. Rivest, Clifford Stein",
+      "type": "Course Reserve",
+      "year": "2022",
+      "callNumber": "QA76.6 .I5858 2022",
+      "status": "Available",
+      "copies": 5,
+      "location": "Reserve Desk, 1st Floor"
+    },
+    {
+      "id": "cat-003",
+      "title": "IEEE Transactions on Pattern Analysis and Machine Intelligence",
+      "author": "IEEE Computer Society",
+      "type": "Journal / Electronic Resource",
+      "year": "2026",
+      "callNumber": "ELECTRONIC RESOURCE",
+      "status": "Online Access Available",
+      "copies": "Unlimited",
+      "location": "Digital Library Proxy"
+    },
+    {
+      "id": "cat-004",
+      "title": "Distributed Systems: Principles and Paradigms",
+      "author": "Maarten van Steen & Andrew S. Tanenbaum",
+      "type": "Book",
+      "year": "2023",
+      "callNumber": "QA76.9.D5 T36 2023",
+      "status": "Checked Out",
+      "copies": 0,
+      "location": "Main Stacks (Due Oct 24)"
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "groups": [
+    { "slug": "acm-chapter", "name": "ACM Student Chapter", "category": "Academic", "description": "The university chapter of the Association for Computing Machinery: tech talks, coding nights and industry mixers.", "meetingInfo": "Every other Tuesday, 6:00 PM", "location": "Technology Hall 220", "advisorName": "Dr. Sarah Mitchell", "colorHex": "#2563eb", "isOpen": true },
+    { "slug": "data-science-society", "name": "Data Science Society", "category": "Academic", "description": "Kaggle teams, paper-reading groups and data-for-good projects.", "meetingInfo": "Thursdays, 5:30 PM", "location": "Main Library 301", "advisorName": "Dr. Emily Watson", "colorHex": "#7c3aed", "isOpen": true },
+    { "slug": "cybersecurity-club", "name": "Cybersecurity Club", "category": "Technical", "description": "Capture-the-flag practice, security tooling workshops and CTF competition teams.", "meetingInfo": "Wednesdays, 7:00 PM", "location": "Science Building 108", "advisorName": "Dr. Robert Vance", "colorHex": "#dc2626", "isOpen": true },
+    { "slug": "robotics-club", "name": "Robotics Club", "category": "Technical", "description": "Design and build autonomous robots for regional competitions. Membership by application.", "meetingInfo": "Thursday build nights, 6:00 PM", "location": "Engineering Center 115", "advisorName": "Prof. Daniel Carter", "colorHex": "#ea580c", "isOpen": false },
+    { "slug": "women-in-computing", "name": "Women in Computing", "category": "Community", "description": "Mentorship, networking and outreach supporting women and non-binary students in computing.", "meetingInfo": "First Monday of the month, 5:00 PM", "location": "Student Union 150", "advisorName": "Dr. Sarah Mitchell", "colorHex": "#db2777", "isOpen": true },
+    { "slug": "engineering-student-council", "name": "Engineering Student Council", "category": "Governance", "description": "Elected student representatives for the School of Engineering. Organises the guest lecture series.", "meetingInfo": "Tuesdays, 6:00 PM", "location": "Student Union 150", "advisorName": "Dean's Office", "colorHex": "#0d9488", "isOpen": false },
+    { "slug": "graduate-student-association", "name": "Graduate Student Association", "category": "Community", "description": "Social events, professional development and advocacy for graduate students.", "meetingInfo": "Monthly socials", "location": "Student Union", "advisorName": "Graduate School", "colorHex": "#16a34a", "isOpen": true }
+  ],
+  "memberships": [
+    { "group": "acm-chapter", "email": "student@edunexus.ai", "role": "MEMBER" },
+    { "group": "data-science-society", "email": "student@edunexus.ai", "role": "MEMBER" },
+    { "group": "engineering-student-council", "email": "student.advanced@edunexus.ai", "role": "LEAD" },
+    { "group": "women-in-computing", "email": "student.advanced@edunexus.ai", "role": "OFFICER" },
+    { "group": "acm-chapter", "email": "student.advanced@edunexus.ai", "role": "MEMBER" },
+    { "group": "acm-chapter", "email": "p.raman@student.edunexus.ai", "role": "LEAD" },
+    { "group": "robotics-club", "email": "n.bergstrom@student.edunexus.ai", "role": "LEAD" },
+    { "group": "robotics-club", "email": "s.martinez@student.edunexus.ai", "role": "MEMBER" },
+    { "group": "cybersecurity-club", "email": "l.fernandez@student.edunexus.ai", "role": "LEAD" },
+    { "group": "cybersecurity-club", "email": "e.powell@student.edunexus.ai", "role": "MEMBER" },
+    { "group": "data-science-society", "email": "j.okafor@student.edunexus.ai", "role": "LEAD" },
+    { "group": "data-science-society", "email": "h.kim@student.edunexus.ai", "role": "MEMBER" },
+    { "group": "graduate-student-association", "email": "g.oyelaran@student.edunexus.ai", "role": "LEAD" },
+    { "group": "graduate-student-association", "email": "a.mahmood@student.edunexus.ai", "role": "MEMBER" },
+    { "group": "women-in-computing", "email": "h.kim@student.edunexus.ai", "role": "LEAD" }
+  ],
+  "events": [
+    { "group": "acm-chapter", "title": "Tech Talk: Building Search at Scale", "inDays": 5, "hour": 18, "location": "Technology Hall 220" },
+    { "group": "acm-chapter", "title": "Hack Night", "inDays": 19, "hour": 18, "location": "Technology Hall 220" },
+    { "group": "data-science-society", "title": "Kaggle Team Kickoff", "inDays": 3, "hour": 17, "location": "Main Library 301" },
+    { "group": "cybersecurity-club", "title": "Intro to Binary Exploitation", "inDays": 8, "hour": 19, "location": "Science Building 108" },
+    { "group": "robotics-club", "title": "Regional Qualifier Build Sprint", "inDays": 10, "hour": 18, "location": "Engineering Center 115" },
+    { "group": "women-in-computing", "title": "Mentorship Mixer", "inDays": 12, "hour": 17, "location": "Student Union 150" },
+    { "group": "engineering-student-council", "title": "Guest Lecture: AI Ethics in Robotics", "inDays": 15, "hour": 16, "location": "Student Union 150" },
+    { "group": "graduate-student-association", "title": "Fall Graduate Social", "inDays": 9, "hour": 19, "location": "Student Union" }
+  ],
+  "portfolio": {
+    "student@edunexus.ai": [
+      { "kind": "SKILL", "title": "Python", "level": 5, "tags": ["Programming"] },
+      { "kind": "SKILL", "title": "SQL", "level": 4, "tags": ["Databases"] },
+      { "kind": "SKILL", "title": "Distributed Systems", "level": 4, "tags": ["Systems"] },
+      { "kind": "SKILL", "title": "Machine Learning", "level": 4, "tags": ["AI"] },
+      { "kind": "SKILL", "title": "Kubernetes", "level": 3, "tags": ["Cloud"] },
+      { "kind": "PROJECT", "title": "Raft-based Key-Value Store", "subtitle": "CS 530 term project", "description": "Fault-tolerant key-value store in Go implementing Raft leader election and log replication, benchmarked on a 5-node cluster.", "tags": ["Go", "Distributed Systems", "Raft"], "url": "https://github.com/example/raft-kv", "startDate": "2025-09-01", "endDate": "2025-12-10" },
+      { "kind": "PROJECT", "title": "GPU-aware Training Scheduler", "subtitle": "CS 525 research project", "description": "Prototype scheduler that packs training jobs onto shared GPUs, cutting queue time by 31% in simulation.", "tags": ["Python", "Machine Learning", "Scheduling"], "startDate": "2025-10-01", "endDate": "2025-12-15" },
+      { "kind": "EXPERIENCE", "title": "Graduate Teaching Assistant", "subtitle": "CS 500 · Demo University", "description": "Led weekly lab sections for 40 students and held office hours.", "tags": ["Teaching"], "startDate": "2025-01-10", "endDate": "2025-05-10" },
+      { "kind": "ACHIEVEMENT", "title": "Dean's Honor List", "subtitle": "Fall 2024 & Fall 2025", "tags": ["Academic"] }
+    ],
+    "student.advanced@edunexus.ai": [
+      { "kind": "SKILL", "title": "React", "level": 4, "tags": ["Frontend"] },
+      { "kind": "SKILL", "title": "TypeScript", "level": 4, "tags": ["Programming"] },
+      { "kind": "SKILL", "title": "Accessibility", "level": 3, "tags": ["Design"] },
+      { "kind": "EXPERIENCE", "title": "Engineering Student Council President", "subtitle": "2026–2027", "tags": ["Leadership"], "startDate": "2026-05-01" }
+    ]
+  },
+  "preferences": {
+    "student@edunexus.ai": { "interests": ["Machine Learning", "Distributed Systems", "Cloud Computing"], "careerGoals": ["ML Engineer", "Cloud Architect"] },
+    "student.advanced@edunexus.ai": { "interests": ["HCI", "Software Engineering"], "careerGoals": ["Software Engineer", "Product Designer"] }
+  }
+}

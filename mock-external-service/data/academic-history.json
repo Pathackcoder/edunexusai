@@ -1,0 +1,22 @@
+{
+  "sis_student_id": "0098421",
+  "cumulative_gpa": 3.72,
+  "major_gpa": 3.85,
+  "term_gpa": 3.75,
+  "earned_credit_hours": 48,
+  "required_credit_hours": 64,
+  "academic_standing_desc": "Good Standing",
+  "honors_desc": "Dean's Honor List (Spring 2026)",
+  "prior_terms": [
+    {
+      "term_description": "Spring 2026",
+      "term_gpa": 3.8,
+      "term_credit_hours": 16
+    },
+    {
+      "term_description": "Fall 2025",
+      "term_gpa": 3.65,
+      "term_credit_hours": 16
+    }
+  ]
+}

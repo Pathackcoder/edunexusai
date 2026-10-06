@@ -1,0 +1,106 @@
+{
+  "catalog": [
+    { "code": "CS 500", "title": "Foundations of Computing Systems", "level": "Graduate", "topics": ["Systems", "Architecture"], "careerTags": ["Software Engineer"], "prerequisites": [], "termsOffered": ["Fall"], "description": "Core abstractions of modern computing systems." },
+    { "code": "CS 505", "title": "Advanced Analysis of Algorithms", "level": "Graduate", "topics": ["Algorithms", "Theory"], "careerTags": ["Software Engineer", "Researcher"], "prerequisites": [], "termsOffered": ["Fall"], "description": "Design and analysis of efficient algorithms." },
+    { "code": "CS 508", "title": "Computer Organization & Architecture", "level": "Graduate", "topics": ["Architecture", "Systems"], "careerTags": ["Systems Engineer"], "prerequisites": [], "termsOffered": ["Fall"], "description": "Processor design, memory hierarchy and parallelism." },
+    { "code": "CS 510", "title": "Advanced Operating Systems Design", "level": "Graduate", "topics": ["Systems", "Operating Systems"], "careerTags": ["Systems Engineer", "Cloud Architect"], "prerequisites": ["CS 500"], "termsOffered": ["Spring"], "description": "Kernel design, scheduling, virtual memory and file systems." },
+    { "code": "CS 515", "title": "Distributed Database Architecture", "level": "Graduate", "topics": ["Databases", "Distributed Systems"], "careerTags": ["Data Engineer", "Cloud Architect"], "prerequisites": [], "termsOffered": ["Spring"], "description": "Replication, partitioning and consistency in distributed databases." },
+    { "code": "CS 518", "title": "Applied Cryptography & Network Security", "level": "Graduate", "topics": ["Security", "Cryptography", "Networks"], "careerTags": ["Security Engineer"], "prerequisites": [], "termsOffered": ["Spring"], "description": "Cryptographic primitives and secure protocol design." },
+    { "code": "CS 520", "title": "Cloud Computing & Container Virtualization", "level": "Graduate", "topics": ["Cloud Computing", "Distributed Systems"], "careerTags": ["Cloud Architect", "DevOps Engineer"], "prerequisites": [], "termsOffered": ["Fall"], "description": "Virtualisation, containers and orchestration at scale." },
+    { "code": "CS 525", "title": "Machine Learning Systems & Optimization", "level": "Graduate", "topics": ["Machine Learning", "Optimization"], "careerTags": ["ML Engineer", "Data Scientist"], "prerequisites": [], "termsOffered": ["Fall"], "description": "Training and serving machine learning models efficiently." },
+    { "code": "CS 528", "title": "Software Verification & Testing", "level": "Graduate", "topics": ["Software Engineering", "Testing"], "careerTags": ["Software Engineer"], "prerequisites": [], "termsOffered": ["Fall"], "description": "Testing strategy, formal verification and program analysis." },
+    { "code": "CS 535", "title": "High-Speed Computer Networks", "level": "Graduate", "topics": ["Networks"], "careerTags": ["Network Engineer", "Cloud Architect"], "prerequisites": [], "termsOffered": ["Spring"], "description": "Data-centre networking and high-throughput transport." },
+    { "code": "CS 540", "title": "Cybersecurity & Penetration Testing", "level": "Graduate", "topics": ["Security", "Penetration Testing"], "careerTags": ["Security Engineer"], "prerequisites": ["CS 518"], "termsOffered": ["Spring"], "description": "Offensive security techniques and ethical hacking." },
+    { "code": "CS 542", "title": "Autonomous Robotics & Telemetry", "level": "Graduate", "topics": ["Robotics", "Machine Learning"], "careerTags": ["Robotics Engineer"], "prerequisites": [], "termsOffered": ["Spring"], "description": "Perception, control and telemetry for autonomous systems." },
+    { "code": "CS 501", "title": "Advanced Database Systems", "level": "Graduate", "topics": ["Databases"], "careerTags": ["Data Engineer", "Software Engineer"], "prerequisites": [], "termsOffered": ["Fall"], "description": "Query processing, indexing and transaction management." },
+    { "code": "CS 512", "title": "Software Engineering", "level": "Graduate", "topics": ["Software Engineering", "Architecture"], "careerTags": ["Software Engineer"], "prerequisites": [], "termsOffered": ["Fall"], "description": "Architecture, design patterns and team software process." },
+    { "code": "CS 530", "title": "Distributed Systems", "level": "Graduate", "topics": ["Distributed Systems", "Cloud Computing"], "careerTags": ["Cloud Architect", "Software Engineer"], "prerequisites": [], "termsOffered": ["Fall"], "description": "Consensus, fault tolerance and large-scale system design." },
+    { "code": "CS 545", "title": "Computer Networks", "level": "Graduate", "topics": ["Networks", "Artificial Intelligence"], "careerTags": ["Network Engineer"], "prerequisites": [], "termsOffered": ["Fall"], "description": "Protocols, routing and network programming." },
+    { "code": "CS 548", "title": "Reinforcement Learning", "level": "Graduate", "topics": ["Machine Learning", "Artificial Intelligence", "Robotics"], "careerTags": ["ML Engineer", "Robotics Engineer", "Researcher"], "prerequisites": ["CS 525"], "termsOffered": ["Spring"], "description": "Sequential decision making, policy gradients and deep RL." },
+    { "code": "CS 550", "title": "Deep Learning", "level": "Graduate", "topics": ["Machine Learning", "Artificial Intelligence"], "careerTags": ["ML Engineer", "Data Scientist", "Researcher"], "prerequisites": ["CS 525"], "termsOffered": ["Spring", "Fall"], "description": "Neural network architectures, training dynamics and applications." },
+    { "code": "CS 552", "title": "MLOps & Model Deployment", "level": "Graduate", "topics": ["Machine Learning", "Cloud Computing", "DevOps"], "careerTags": ["ML Engineer", "DevOps Engineer"], "prerequisites": [], "termsOffered": ["Spring"], "description": "Pipelines, feature stores, monitoring and serving ML in production." },
+    { "code": "CS 555", "title": "Natural Language Processing", "level": "Graduate", "topics": ["Artificial Intelligence", "Machine Learning", "Language"], "careerTags": ["ML Engineer", "Data Scientist"], "prerequisites": ["CS 525"], "termsOffered": ["Spring"], "description": "Language models, retrieval and text understanding." },
+    { "code": "CS 557", "title": "Cloud Security", "level": "Graduate", "topics": ["Security", "Cloud Computing"], "careerTags": ["Security Engineer", "Cloud Architect"], "prerequisites": ["CS 518"], "termsOffered": ["Spring"], "description": "Identity, isolation and threat models in public cloud." },
+    { "code": "CS 560", "title": "Cloud-Native Architecture", "level": "Graduate", "topics": ["Cloud Computing", "Distributed Systems", "Architecture"], "careerTags": ["Cloud Architect", "DevOps Engineer"], "prerequisites": ["CS 520"], "termsOffered": ["Spring"], "description": "Microservices, service mesh and resilient cloud design." },
+    { "code": "CS 562", "title": "Big Data Analytics", "level": "Graduate", "topics": ["Data", "Databases", "Distributed Systems"], "careerTags": ["Data Engineer", "Data Scientist"], "prerequisites": [], "termsOffered": ["Fall"], "description": "Batch and stream processing at scale." },
+    { "code": "CS 565", "title": "Advanced Cryptography", "level": "Graduate", "topics": ["Security", "Cryptography", "Theory"], "careerTags": ["Security Engineer", "Researcher"], "prerequisites": ["CS 518"], "termsOffered": ["Fall"], "description": "Zero-knowledge proofs, MPC and post-quantum schemes." },
+    { "code": "CS 570", "title": "Data Engineering Pipelines", "level": "Graduate", "topics": ["Data", "Databases", "Cloud Computing"], "careerTags": ["Data Engineer"], "prerequisites": ["CS 501"], "termsOffered": ["Spring"], "description": "Designing reliable ingestion, transformation and orchestration." },
+    { "code": "CS 575", "title": "Human-Computer Interaction", "level": "Graduate", "topics": ["HCI", "Design"], "careerTags": ["Software Engineer", "Product Designer"], "prerequisites": [], "termsOffered": ["Fall"], "description": "User research, prototyping and evaluation." },
+    { "code": "CS 580", "title": "Computer Vision", "level": "Graduate", "topics": ["Artificial Intelligence", "Machine Learning", "Robotics"], "careerTags": ["ML Engineer", "Robotics Engineer"], "prerequisites": [], "termsOffered": ["Spring"], "description": "Image formation, recognition and 3D vision." },
+    { "code": "CS 590", "title": "Capstone Project", "level": "Graduate", "credits": 4, "topics": ["Software Engineering", "Capstone"], "careerTags": ["Software Engineer", "ML Engineer", "Cloud Architect", "Security Engineer"], "prerequisites": [], "termsOffered": ["Spring", "Fall"], "description": "Team-based industry capstone." },
+    { "code": "CS 595", "title": "Master's Thesis Research", "level": "Graduate", "credits": 4, "topics": ["Research"], "careerTags": ["Researcher"], "prerequisites": [], "termsOffered": ["Spring", "Fall"], "description": "Supervised thesis research." }
+  ],
+  "requirements": [
+    { "program": "Master of Science in Computer Science", "category": "CORE", "title": "Core Foundations", "creditsRequired": 12, "courseCodes": ["CS 500", "CS 505", "CS 508"], "description": "Required graduate core." },
+    { "program": "Master of Science in Computer Science", "category": "SYSTEMS", "title": "Systems Breadth", "creditsRequired": 12, "courseCodes": ["CS 510", "CS 515", "CS 520", "CS 530", "CS 560"], "description": "Three courses from the systems area." },
+    { "program": "Master of Science in Computer Science", "category": "SOFTWARE_DATA", "title": "Software & Data Breadth", "creditsRequired": 8, "courseCodes": ["CS 501", "CS 512", "CS 528", "CS 562", "CS 570"], "description": "Two courses from software engineering or data." },
+    { "program": "Master of Science in Computer Science", "category": "SECURITY_NETWORKS", "title": "Security & Networks Breadth", "creditsRequired": 8, "courseCodes": ["CS 518", "CS 535", "CS 540", "CS 545", "CS 557", "CS 565"], "description": "Two courses from security or networking." },
+    { "program": "Master of Science in Computer Science", "category": "ELECTIVES", "title": "Graduate Electives", "creditsRequired": 16, "courseCodes": [], "description": "Any 500-level CS courses." },
+    { "program": "Master of Science in Computer Science", "category": "CAPSTONE", "title": "Capstone or Thesis", "creditsRequired": 8, "courseCodes": ["CS 590", "CS 595"], "description": "Capstone project or thesis research." },
+    { "program": "DEFAULT_GRADUATE", "category": "CORE", "title": "Program Core", "creditsRequired": 16, "courseCodes": ["CS 500", "CS 505", "CS 508", "CS 501"], "description": "Program core courses." },
+    { "program": "DEFAULT_GRADUATE", "category": "SPECIALIZATION", "title": "Specialization", "creditsRequired": 16, "courseCodes": ["CS 525", "CS 530", "CS 518", "CS 550", "CS 562"], "description": "Courses in the declared specialization." },
+    { "program": "DEFAULT_GRADUATE", "category": "ELECTIVES", "title": "Electives", "creditsRequired": 24, "courseCodes": [], "description": "Any approved graduate electives." },
+    { "program": "DEFAULT_GRADUATE", "category": "CAPSTONE", "title": "Capstone or Thesis", "creditsRequired": 8, "courseCodes": ["CS 590", "CS 595"], "description": "Culminating experience." },
+    { "program": "DEFAULT_UNDERGRADUATE", "category": "GENERAL", "title": "General Education", "creditsRequired": 40, "courseCodes": [], "description": "University general education." },
+    { "program": "DEFAULT_UNDERGRADUATE", "category": "MAJOR", "title": "Major Requirements", "creditsRequired": 60, "courseCodes": [], "description": "Major core and electives." },
+    { "program": "DEFAULT_UNDERGRADUATE", "category": "CAPSTONE", "title": "Senior Capstone", "creditsRequired": 20, "courseCodes": ["CS 590"], "description": "Senior design sequence." },
+    { "program": "DEFAULT_DOCTORAL", "category": "COURSEWORK", "title": "Doctoral Coursework", "creditsRequired": 48, "courseCodes": [], "description": "Graduate coursework." },
+    { "program": "DEFAULT_DOCTORAL", "category": "RESEARCH", "title": "Dissertation Research", "creditsRequired": 42, "courseCodes": ["CS 595"], "description": "Dissertation credits." }
+  ],
+  "learningPaths": [
+    {
+      "key": "ml-engineer", "title": "Machine Learning Engineer", "careerGoal": "ML Engineer",
+      "description": "From ML fundamentals to production model deployment.",
+      "steps": [
+        { "stage": "Foundations", "title": "Machine Learning Systems & Optimization", "kind": "COURSE", "courseCode": "CS 525", "estimatedHours": 120 },
+        { "stage": "Foundations", "title": "Python for data: NumPy & pandas refresher", "kind": "RESOURCE", "resourceUrl": "https://numpy.org/learn/", "estimatedHours": 8 },
+        { "stage": "Core", "title": "Deep Learning", "kind": "COURSE", "courseCode": "CS 550", "estimatedHours": 120 },
+        { "stage": "Core", "title": "Build and evaluate a model end-to-end", "kind": "SKILL", "description": "Train, evaluate and document a model on a public dataset; add it to your portfolio.", "estimatedHours": 20 },
+        { "stage": "Specialization", "title": "MLOps & Model Deployment", "kind": "COURSE", "courseCode": "CS 552", "estimatedHours": 120 },
+        { "stage": "Specialization", "title": "Natural Language Processing", "kind": "COURSE", "courseCode": "CS 555", "estimatedHours": 120 },
+        { "stage": "Career", "title": "Apply to an ML internship", "kind": "MILESTONE", "description": "Use Jobs & Internships to apply to at least one ML role.", "estimatedHours": 4 },
+        { "stage": "Career", "title": "Capstone Project with an ML focus", "kind": "COURSE", "courseCode": "CS 590", "estimatedHours": 150 }
+      ]
+    },
+    {
+      "key": "cloud-architect", "title": "Cloud & Distributed Systems Architect", "careerGoal": "Cloud Architect",
+      "description": "Design resilient, scalable systems on modern cloud platforms.",
+      "steps": [
+        { "stage": "Foundations", "title": "Advanced Operating Systems Design", "kind": "COURSE", "courseCode": "CS 510", "estimatedHours": 120 },
+        { "stage": "Foundations", "title": "Cloud Computing & Container Virtualization", "kind": "COURSE", "courseCode": "CS 520", "estimatedHours": 120 },
+        { "stage": "Core", "title": "Distributed Systems", "kind": "COURSE", "courseCode": "CS 530", "estimatedHours": 120 },
+        { "stage": "Core", "title": "Kubernetes fundamentals certification prep", "kind": "RESOURCE", "resourceUrl": "https://kubernetes.io/docs/tutorials/", "estimatedHours": 30 },
+        { "stage": "Specialization", "title": "Cloud-Native Architecture", "kind": "COURSE", "courseCode": "CS 560", "estimatedHours": 120 },
+        { "stage": "Specialization", "title": "Cloud Security", "kind": "COURSE", "courseCode": "CS 557", "estimatedHours": 120 },
+        { "stage": "Career", "title": "Publish a system design case study", "kind": "SKILL", "description": "Write up the architecture of a distributed project in your portfolio.", "estimatedHours": 12 },
+        { "stage": "Career", "title": "Capstone Project", "kind": "COURSE", "courseCode": "CS 590", "estimatedHours": 150 }
+      ]
+    },
+    {
+      "key": "security-engineer", "title": "Security Engineer", "careerGoal": "Security Engineer",
+      "description": "Applied cryptography, offensive security and secure cloud operations.",
+      "steps": [
+        { "stage": "Foundations", "title": "Applied Cryptography & Network Security", "kind": "COURSE", "courseCode": "CS 518", "estimatedHours": 120 },
+        { "stage": "Core", "title": "Cybersecurity & Penetration Testing", "kind": "COURSE", "courseCode": "CS 540", "estimatedHours": 120 },
+        { "stage": "Core", "title": "Compete in a capture-the-flag event", "kind": "MILESTONE", "description": "Join the Cybersecurity Club CTF team for one competition.", "estimatedHours": 16 },
+        { "stage": "Specialization", "title": "Advanced Cryptography", "kind": "COURSE", "courseCode": "CS 565", "estimatedHours": 120 },
+        { "stage": "Specialization", "title": "Cloud Security", "kind": "COURSE", "courseCode": "CS 557", "estimatedHours": 120 },
+        { "stage": "Career", "title": "OWASP Top 10 deep dive", "kind": "RESOURCE", "resourceUrl": "https://owasp.org/www-project-top-ten/", "estimatedHours": 10 },
+        { "stage": "Career", "title": "Apply to a security internship", "kind": "MILESTONE", "estimatedHours": 4 }
+      ]
+    },
+    {
+      "key": "data-engineer", "title": "Data Engineer", "careerGoal": "Data Engineer",
+      "description": "Databases, pipelines and analytics infrastructure.",
+      "steps": [
+        { "stage": "Foundations", "title": "Advanced Database Systems", "kind": "COURSE", "courseCode": "CS 501", "estimatedHours": 120 },
+        { "stage": "Foundations", "title": "Distributed Database Architecture", "kind": "COURSE", "courseCode": "CS 515", "estimatedHours": 120 },
+        { "stage": "Core", "title": "Big Data Analytics", "kind": "COURSE", "courseCode": "CS 562", "estimatedHours": 120 },
+        { "stage": "Core", "title": "SQL performance tuning workshop", "kind": "RESOURCE", "resourceUrl": "https://use-the-index-luke.com/", "estimatedHours": 10 },
+        { "stage": "Specialization", "title": "Data Engineering Pipelines", "kind": "COURSE", "courseCode": "CS 570", "estimatedHours": 120 },
+        { "stage": "Career", "title": "Build a streaming pipeline project", "kind": "SKILL", "estimatedHours": 25 },
+        { "stage": "Career", "title": "Capstone Project", "kind": "COURSE", "courseCode": "CS 590", "estimatedHours": 150 }
+      ]
+    }
+  ]
+}

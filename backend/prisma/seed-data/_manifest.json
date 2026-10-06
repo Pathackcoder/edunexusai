@@ -1,0 +1,61 @@
+{
+  "announcements": {
+    "initialAnnouncementsData": "array(3)"
+  },
+  "assignments": {
+    "assignmentsData": "array(5)"
+  },
+  "calendar": {
+    "academicCalendarEvents": "array(16)",
+    "calendarCategories": "array(6)"
+  },
+  "communicationPreferences": {
+    "defaultCommunicationPreferences": "array(6)"
+  },
+  "courses": {
+    "coursesData": "array(4)"
+  },
+  "directory": {
+    "directoryData": "array(11)",
+    "directoryDepartments": "array(7)"
+  },
+  "faqs": {
+    "faqCategories": "array(9)",
+    "faqData": "array(17)",
+    "supportContacts": "object"
+  },
+  "finance": {
+    "initialFinanceData": "object"
+  },
+  "financialAid": {
+    "financialAidData": "object"
+  },
+  "grades": {
+    "gradesSummaryData": "object"
+  },
+  "library": {
+    "initialCheckedOutBooks": "array(3)",
+    "libraryAccountSummary": "object",
+    "sampleLibraryCatalog": "array(4)"
+  },
+  "notifications": {
+    "initialNotificationsData": "array(5)"
+  },
+  "profileRequests": {
+    "defaultAddressChangeHistory": "array(1)",
+    "defaultNameChangeHistory": "array(0)"
+  },
+  "security": {
+    "campusSecurityContacts": "object",
+    "emergencyProcedures": "array(4)",
+    "safeWalkInfo": "object"
+  },
+  "studentData": {
+    "defaultStudentData": "object"
+  },
+  "transcript": {
+    "initialTranscriptRequests": "array(2)",
+    "transcriptSummary": "object",
+    "transcriptTerms": "array(5)"
+  }
+}

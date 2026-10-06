@@ -1,0 +1,152 @@
+[
+  {
+    "sis_course_id": "SIS-CRS-1000",
+    "crn": "20410",
+    "subject_code": "CS",
+    "catalog_number": "501",
+    "course_title": "Advanced Database Systems",
+    "credit_hours": 4,
+    "catalog_description": "In-depth study of relational query processing, transaction management, indexing techniques (B-trees, LSM trees), distributed databases, and modern NoSQL architectures.",
+    "term_code": "FALL2026",
+    "term_description": "Fall Semester 2026",
+    "academic_year": "2026-2027",
+    "meeting_pattern": {
+      "meeting_days": [
+        "M",
+        "W"
+      ],
+      "meeting_days_long": [
+        "Monday",
+        "Wednesday"
+      ],
+      "begin_time": "10:00",
+      "end_time": "11:30",
+      "time_display": "10:00 AM - 11:30 AM",
+      "building_room": "Science Building 204"
+    },
+    "instructor_of_record": {
+      "display_name": "Dr. Sarah Mitchell",
+      "institution_email": "s.mitchell@demouniversity.edu",
+      "scheduled_office_hours": "Wed 2:00 PM - 4:00 PM, Sci 204B"
+    },
+    "publication_attributes": {
+      "accent_color": "#2563eb",
+      "surface_color": "#eff6ff",
+      "outline_color": "#bfdbfe",
+      "syllabus_uri": "#"
+    },
+    "status": "ACTIVE"
+  },
+  {
+    "sis_course_id": "SIS-CRS-1001",
+    "crn": "20417",
+    "subject_code": "CS",
+    "catalog_number": "512",
+    "course_title": "Software Engineering",
+    "credit_hours": 4,
+    "catalog_description": "System design patterns, microservices architecture, CI/CD pipelines, modern agile product methodologies, code review standards, and enterprise test-driven development.",
+    "term_code": "FALL2026",
+    "term_description": "Fall Semester 2026",
+    "academic_year": "2026-2027",
+    "meeting_pattern": {
+      "meeting_days": [
+        "T",
+        "R"
+      ],
+      "meeting_days_long": [
+        "Tuesday",
+        "Thursday"
+      ],
+      "begin_time": "11:00",
+      "end_time": "12:30",
+      "time_display": "11:00 AM - 12:30 PM",
+      "building_room": "Technology Hall 310"
+    },
+    "instructor_of_record": {
+      "display_name": "Prof. Daniel Carter",
+      "institution_email": "d.carter@demouniversity.edu",
+      "scheduled_office_hours": "Thu 1:00 PM - 3:00 PM, Tech 312"
+    },
+    "publication_attributes": {
+      "accent_color": "#7c3aed",
+      "surface_color": "#f5f3ff",
+      "outline_color": "#ddd6fe",
+      "syllabus_uri": "#"
+    },
+    "status": "ACTIVE"
+  },
+  {
+    "sis_course_id": "SIS-CRS-1002",
+    "crn": "20424",
+    "subject_code": "CS",
+    "catalog_number": "530",
+    "course_title": "Distributed Systems",
+    "credit_hours": 4,
+    "catalog_description": "Consensus algorithms (Raft, Paxos), vector clocks, distributed shared memory, RPC paradigms, fault tolerance, replication, and cloud container orchestration.",
+    "term_code": "FALL2026",
+    "term_description": "Fall Semester 2026",
+    "academic_year": "2026-2027",
+    "meeting_pattern": {
+      "meeting_days": [
+        "M",
+        "W"
+      ],
+      "meeting_days_long": [
+        "Monday",
+        "Wednesday"
+      ],
+      "begin_time": "14:00",
+      "end_time": "15:30",
+      "time_display": "2:00 PM - 3:30 PM",
+      "building_room": "Engineering 115"
+    },
+    "instructor_of_record": {
+      "display_name": "Dr. Emily Watson",
+      "institution_email": "e.watson@demouniversity.edu",
+      "scheduled_office_hours": "Mon 4:00 PM - 5:30 PM, Eng 118"
+    },
+    "publication_attributes": {
+      "accent_color": "#059669",
+      "surface_color": "#ecfdf5",
+      "outline_color": "#a7f3d0",
+      "syllabus_uri": "#"
+    },
+    "status": "ACTIVE"
+  },
+  {
+    "sis_course_id": "SIS-CRS-1003",
+    "crn": "20431",
+    "subject_code": "CS",
+    "catalog_number": "545",
+    "course_title": "Computer Networks",
+    "credit_hours": 4,
+    "catalog_description": "Packet switching architectures, TCP/IP congestion control, BGP routing, SDN (Software Defined Networking), network security protocols, and TLS handshakes.",
+    "term_code": "FALL2026",
+    "term_description": "Fall Semester 2026",
+    "academic_year": "2026-2027",
+    "meeting_pattern": {
+      "meeting_days": [
+        "F"
+      ],
+      "meeting_days_long": [
+        "Friday"
+      ],
+      "begin_time": "13:00",
+      "end_time": "15:30",
+      "time_display": "1:00 PM - 3:30 PM",
+      "building_room": "Science Building 108"
+    },
+    "instructor_of_record": {
+      "display_name": "Dr. Robert Vance",
+      "institution_email": "r.vance@demouniversity.edu",
+      "scheduled_office_hours": "Fri 10:00 AM - 12:00 PM, Sci 109"
+    },
+    "publication_attributes": {
+      "accent_color": "#d97706",
+      "surface_color": "#fffbeb",
+      "outline_color": "#fde68a",
+      "syllabus_uri": "#"
+    },
+    "status": "ACTIVE"
+  }
+]

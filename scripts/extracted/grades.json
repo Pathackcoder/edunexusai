@@ -1,0 +1,81 @@
+{
+  "gradesSummaryData": {
+    "cumulativeGpa": 3.72,
+    "majorGpa": 3.85,
+    "semesterGpa": 3.75,
+    "creditsCompleted": 48,
+    "creditsRequired": 64,
+    "academicStanding": "Good Standing",
+    "honors": "Dean's Honor List (Spring 2026)",
+    "currentCourses": [
+      {
+        "courseCode": "CS 501",
+        "courseName": "Advanced Database Systems",
+        "credits": 4,
+        "letterGrade": "A",
+        "gradePoints": 4,
+        "percentage": 95.2,
+        "instructor": "Dr. Sarah Mitchell",
+        "breakdown": {
+          "assignments": "96%",
+          "midterm": "94%",
+          "participation": "98%"
+        }
+      },
+      {
+        "courseCode": "CS 512",
+        "courseName": "Software Engineering",
+        "credits": 4,
+        "letterGrade": "A-",
+        "gradePoints": 3.7,
+        "percentage": 91.5,
+        "instructor": "Prof. Daniel Carter",
+        "breakdown": {
+          "assignments": "92%",
+          "projectMilestones": "91%",
+          "quizzes": "90%"
+        }
+      },
+      {
+        "courseCode": "CS 530",
+        "courseName": "Distributed Systems",
+        "credits": 4,
+        "letterGrade": "B+",
+        "gradePoints": 3.3,
+        "percentage": 88,
+        "instructor": "Dr. Emily Watson",
+        "breakdown": {
+          "labs": "89%",
+          "midtermExam": "86%",
+          "readingReports": "90%"
+        }
+      },
+      {
+        "courseCode": "CS 545",
+        "courseName": "Computer Networks",
+        "credits": 4,
+        "letterGrade": "A",
+        "gradePoints": 4,
+        "percentage": 94,
+        "instructor": "Dr. Robert Vance",
+        "breakdown": {
+          "homework": "95%",
+          "labSimulations": "93%",
+          "participation": "95%"
+        }
+      }
+    ],
+    "pastTerms": [
+      {
+        "term": "Spring 2026",
+        "gpa": 3.8,
+        "credits": 16
+      },
+      {
+        "term": "Fall 2025",
+        "gpa": 3.65,
+        "credits": 16
+      }
+    ]
+  }
+}

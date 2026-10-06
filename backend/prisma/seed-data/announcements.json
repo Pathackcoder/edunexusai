@@ -1,0 +1,52 @@
+{
+  "initialAnnouncementsData": [
+    {
+      "id": "ANN-501-1",
+      "courseId": "CS501",
+      "courseCode": "CS 501",
+      "courseName": "Advanced Database Systems",
+      "title": "Midterm examination schedule has been posted.",
+      "author": "Dr. Sarah Mitchell",
+      "postedAt": "2 hours ago",
+      "date": "2026-09-24 14:00",
+      "isRead": false,
+      "content": "The midterm examination will take place on Wednesday, October 14, from 10:00 AM to 11:30 AM in Science Building 204. The exam covers query optimization, B+ trees, concurrency control, and two-phase locking. You may bring one double-sided 8.5x11 inch handwritten cheat sheet. Review session details will be sent next Monday.",
+      "tags": [
+        "Exam",
+        "Important"
+      ]
+    },
+    {
+      "id": "ANN-512-1",
+      "courseId": "CS512",
+      "courseCode": "CS 512",
+      "courseName": "Software Engineering",
+      "title": "Project submission rubric has been updated.",
+      "author": "Prof. Daniel Carter",
+      "postedAt": "Yesterday",
+      "date": "2026-09-23 09:30",
+      "isRead": false,
+      "content": "Please review the revised grading rubric for Sprint 2 deliverables uploaded under the Syllabus & Course Resources module. We have added specific evaluation criteria for CI/CD test coverage (minimum 80% branch coverage required) and Docker containerization benchmarks.",
+      "tags": [
+        "Grading",
+        "Rubric"
+      ]
+    },
+    {
+      "id": "ANN-530-1",
+      "courseId": "CS530",
+      "courseCode": "CS 530",
+      "courseName": "Distributed Systems",
+      "title": "Next week's lab session will be held in Lab 3.",
+      "author": "Dr. Emily Watson",
+      "postedAt": "2 days ago",
+      "date": "2026-09-22 16:15",
+      "isRead": true,
+      "content": "Due to scheduled network maintenance in Engineering 115, our scheduled hands-on session next Wednesday will take place in Computing Lab 3 (Engineering 220). Ensure your Docker runtime is updated to version 27.x before arriving so you can run the multi-node Raft testbed.",
+      "tags": [
+        "Lab",
+        "Location"
+      ]
+    }
+  ]
+}

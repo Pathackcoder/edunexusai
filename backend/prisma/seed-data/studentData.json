@@ -1,0 +1,31 @@
+{
+  "defaultStudentData": {
+    "id": "ENX-984210",
+    "firstName": "Amit",
+    "lastName": "Pathak",
+    "fullName": "Amit Pathak",
+    "email": "student@edunexus.ai",
+    "phone": "(555) 234-5678",
+    "address": "42 Campus Way, Apt 3B",
+    "city": "Boston",
+    "state": "MA",
+    "zipCode": "02115",
+    "institution": "Demo University",
+    "degree": "Master of Science in Computer Science",
+    "department": "Department of Computer Science & Engineering",
+    "academicStanding": "Good Standing",
+    "admitTerm": "Fall 2025",
+    "currentTerm": "Fall 2026",
+    "creditsCompleted": 48,
+    "totalCreditsRequired": 64,
+    "cumulativeGpa": 3.72,
+    "majorGpa": 3.85,
+    "emergencyContact": {
+      "name": "Vivek Pathak",
+      "relationship": "Father",
+      "phone": "(555) 876-5432",
+      "altPhone": "(555) 876-5433",
+      "email": "vivek.pathak@example.com"
+    }
+  }
+}

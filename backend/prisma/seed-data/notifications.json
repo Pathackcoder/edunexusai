@@ -1,0 +1,59 @@
+{
+  "initialNotificationsData": [
+    {
+      "id": "NOTIF-001",
+      "title": "Tuition payment deadline is approaching.",
+      "category": "finance",
+      "message": "Your Fall 2026 tuition balance of $4,280.00 is due on October 15, 2026. Avoid late fees by paying online or enrolling in an installment plan.",
+      "timeAgo": "2 hours ago",
+      "timestamp": "2026-09-24 14:15",
+      "isRead": false,
+      "link": "/finance",
+      "priority": "high"
+    },
+    {
+      "id": "NOTIF-002",
+      "title": "New announcement posted in CS 501.",
+      "category": "academic",
+      "message": "Dr. Sarah Mitchell posted 'Midterm examination schedule has been posted.' with review details and exam date.",
+      "timeAgo": "3 hours ago",
+      "timestamp": "2026-09-24 13:00",
+      "isRead": false,
+      "link": "/academics",
+      "priority": "normal"
+    },
+    {
+      "id": "NOTIF-003",
+      "title": "Assignment due tomorrow: Database Schema Design",
+      "category": "academic",
+      "message": "CS 501 - Database Schema Design is due on Sep 28 at 11:59 PM. Please verify your ER diagram and DDL attachments.",
+      "timeAgo": "1 day ago",
+      "timestamp": "2026-09-23 11:00",
+      "isRead": false,
+      "link": "/academics",
+      "priority": "high"
+    },
+    {
+      "id": "NOTIF-004",
+      "title": "Financial aid application has been approved.",
+      "category": "financial-aid",
+      "message": "Your 2026-2027 Financial Aid award package has been confirmed. $7,220 total aid has been credited to your student account.",
+      "timeAgo": "2 days ago",
+      "timestamp": "2026-09-22 09:45",
+      "isRead": true,
+      "link": "/financial-aid",
+      "priority": "normal"
+    },
+    {
+      "id": "NOTIF-005",
+      "title": "Registration reminder: Spring 2027 course selection",
+      "category": "administrative",
+      "message": "Priority registration for graduate students opens October 25 at 8:00 AM. Review course prerequisites with your department advisor.",
+      "timeAgo": "4 days ago",
+      "timestamp": "2026-09-20 16:30",
+      "isRead": true,
+      "link": "/academics",
+      "priority": "low"
+    }
+  ]
+}

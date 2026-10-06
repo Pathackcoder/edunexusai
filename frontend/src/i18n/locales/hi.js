@@ -1,0 +1,22 @@
+/** Hindi. Keys are the English source strings (gettext style). */
+export default {
+  Dashboard: 'डैशबोर्ड', Academics: 'शैक्षणिक', Finance: 'वित्त', Campus: 'परिसर', Profile: 'प्रोफ़ाइल',
+  'Help & Support': 'सहायता और समर्थन', Notifications: 'सूचनाएँ', 'Communication Center': 'संचार केंद्र',
+  'Career & Community': 'करियर और समुदाय', Teaching: 'शिक्षण', 'Access Control': 'पहुँच नियंत्रण', Integrations: 'एकीकरण',
+  'Student workspace': 'छात्र कार्यक्षेत्र', 'Teaching workspace': 'शिक्षण कार्यक्षेत्र', Administration: 'प्रशासन',
+  'Academic Overview': 'शैक्षणिक अवलोकन', 'Course Schedule': 'पाठ्यक्रम समय-सारणी', 'Assignments & Deadlines': 'असाइनमेंट और समय-सीमा',
+  'Grades & GPA': 'ग्रेड और GPA', Announcements: 'घोषणाएँ', 'Academic Calendar': 'शैक्षणिक कैलेंडर', Transcripts: 'प्रतिलेख',
+  'Canvas LMS': 'Canvas LMS', 'Degree Progress': 'डिग्री प्रगति', 'Course Recommendations': 'पाठ्यक्रम सुझाव',
+  'Learning Path': 'सीखने का मार्ग', 'Performance Insights': 'प्रदर्शन विश्लेषण', Advising: 'शैक्षणिक परामर्श',
+  'Tuition & Payments': 'शुल्क और भुगतान', 'Financial Aid': 'वित्तीय सहायता', 'Campus Overview': 'परिसर अवलोकन',
+  'People Search': 'व्यक्ति खोज', Library: 'पुस्तकालय', 'Campus Security': 'परिसर सुरक्षा', 'Campus Map': 'परिसर मानचित्र',
+  'Classroom Availability': 'कक्षा उपलब्धता', 'Jobs & Internships': 'नौकरियाँ और इंटर्नशिप', 'Skills Portfolio': 'कौशल पोर्टफ़ोलियो',
+  'Groups & Clubs': 'समूह और क्लब', Achievements: 'उपलब्धियाँ', 'Profile Hub': 'प्रोफ़ाइल केंद्र', 'Personal Information': 'व्यक्तिगत जानकारी',
+  'Emergency Contact': 'आपातकालीन संपर्क', 'Privacy & Preferences': 'गोपनीयता और प्राथमिकताएँ', 'Communication Preferences': 'संचार प्राथमिकताएँ',
+  'Requests & Changes': 'अनुरोध और परिवर्तन', FAQs: 'सामान्य प्रश्न', 'Help Desk': 'हेल्प डेस्क', 'My Requests': 'मेरे अनुरोध',
+  Forms: 'फ़ॉर्म', Resources: 'संसाधन', 'My Courses': 'मेरे पाठ्यक्रम', 'Teaching Schedule': 'शिक्षण समय-सारणी',
+  'Student Follow-ups': 'छात्र फ़ॉलो-अप', Users: 'उपयोगकर्ता', 'Roles & Permissions': 'भूमिकाएँ और अनुमतियाँ', 'Widget Entitlements': 'विजेट अधिकार',
+  'Sign Out': 'साइन आउट', 'Install Portal App': 'ऐप इंस्टॉल करें', Language: 'भाषा',
+  'Customize layout': 'लेआउट अनुकूलित करें', 'Reset layout': 'लेआउट रीसेट करें', 'Drag to reorder': 'क्रम बदलने के लिए खींचें',
+  'Ask EdunexusAI': 'EdunexusAI से पूछें', 'Ask a question…': 'प्रश्न लिखें…', Send: 'भेजें',
+};

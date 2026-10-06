@@ -1,0 +1,70 @@
+[
+  {
+    "id": 1100,
+    "sis_course_id": "CS501-FALL2026",
+    "name": "Advanced Database Systems",
+    "course_code": "CS 501",
+    "workflow_state": "available",
+    "enrollment_term_id": 42,
+    "start_at": "2026-09-02T08:00:00Z",
+    "end_at": "2026-12-18T17:00:00Z",
+    "teachers": [
+      {
+        "id": 900,
+        "display_name": "Dr. Sarah Mitchell"
+      }
+    ],
+    "total_students": 12
+  },
+  {
+    "id": 1101,
+    "sis_course_id": "CS512-FALL2026",
+    "name": "Software Engineering",
+    "course_code": "CS 512",
+    "workflow_state": "available",
+    "enrollment_term_id": 42,
+    "start_at": "2026-09-02T08:00:00Z",
+    "end_at": "2026-12-18T17:00:00Z",
+    "teachers": [
+      {
+        "id": 901,
+        "display_name": "Prof. Daniel Carter"
+      }
+    ],
+    "total_students": 7
+  },
+  {
+    "id": 1102,
+    "sis_course_id": "CS530-FALL2026",
+    "name": "Distributed Systems",
+    "course_code": "CS 530",
+    "workflow_state": "available",
+    "enrollment_term_id": 42,
+    "start_at": "2026-09-02T08:00:00Z",
+    "end_at": "2026-12-18T17:00:00Z",
+    "teachers": [
+      {
+        "id": 902,
+        "display_name": "Dr. Emily Watson"
+      }
+    ],
+    "total_students": 6
+  },
+  {
+    "id": 1103,
+    "sis_course_id": "CS545-FALL2026",
+    "name": "Computer Networks",
+    "course_code": "CS 545",
+    "workflow_state": "available",
+    "enrollment_term_id": 42,
+    "start_at": "2026-09-02T08:00:00Z",
+    "end_at": "2026-12-18T17:00:00Z",
+    "teachers": [
+      {
+        "id": 903,
+        "display_name": "Dr. Robert Vance"
+      }
+    ],
+    "total_students": 7
+  }
+]

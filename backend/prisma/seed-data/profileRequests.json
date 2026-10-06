@@ -1,0 +1,14 @@
+{
+  "defaultAddressChangeHistory": [
+    {
+      "id": "ADR-2025-1102",
+      "requestDate": "2025-08-20",
+      "oldAddress": "128 Beacon St, Apt 4, Boston, MA 02116",
+      "newAddress": "42 Campus Way, Apt 3B, Boston, MA 02115",
+      "status": "Approved",
+      "effectiveDate": "2025-09-01",
+      "reviewerNotes": "Verified via utility statement. Address updated in university registrar system."
+    }
+  ],
+  "defaultNameChangeHistory": []
+}

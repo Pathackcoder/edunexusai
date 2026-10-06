@@ -1,0 +1,13 @@
+/*
+ * Global styles are defined by the MUI theme (src/theme/theme.js) and applied through
+ * <CssBaseline />. Keep this file for the few rules the theme cannot express.
+ */
+
+/* Printing the unofficial transcript should not include the application chrome. */
+@media print {
+  aside,
+  header.MuiAppBar-root,
+  nav[aria-label='Breadcrumb'] {
+    display: none !important;
+  }
+}

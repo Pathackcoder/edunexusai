@@ -1,0 +1,87 @@
+[
+  {
+    "lms_assignment_id": "LMS-ASG-7000",
+    "sis_course_id": "SIS-CRS-1000",
+    "assignment_name": "Database Schema Design",
+    "assignment_description": "Design a 3NF normalized schema for a high-concurrency healthcare EHR system. Provide ER diagrams, DDL scripts, and index justification.",
+    "due_at": "2026-09-28T23:59:00Z",
+    "due_time_display": "11:59 PM",
+    "points_possible": 100,
+    "submission_types": "File Upload (.sql, .pdf)",
+    "grade_weight_display": "15% of final grade",
+    "published": true,
+    "grader_summary": {
+      "sis_student_id": "0098421",
+      "workflow_state": "unsubmitted",
+      "entered_score": null
+    }
+  },
+  {
+    "lms_assignment_id": "LMS-ASG-7001",
+    "sis_course_id": "SIS-CRS-1001",
+    "assignment_name": "Software Architecture Report",
+    "assignment_description": "Synthesize an architecture trade-off analysis method (ATAM) document comparing event-driven microservices vs. monolithic modular architecture.",
+    "due_at": "2026-09-30T23:59:00Z",
+    "due_time_display": "11:59 PM",
+    "points_possible": 100,
+    "submission_types": "Document Upload (.pdf)",
+    "grade_weight_display": "20% of final grade",
+    "published": true,
+    "grader_summary": {
+      "sis_student_id": "0098421",
+      "workflow_state": "unsubmitted",
+      "entered_score": null
+    }
+  },
+  {
+    "lms_assignment_id": "LMS-ASG-7002",
+    "sis_course_id": "SIS-CRS-1002",
+    "assignment_name": "Distributed Systems Lab",
+    "assignment_description": "Implement a fault-tolerant leader election algorithm using the Raft consensus protocol in Go or Python. Validate network partition recovery.",
+    "due_at": "2026-10-02T23:59:00Z",
+    "due_time_display": "5:00 PM",
+    "points_possible": 100,
+    "submission_types": "Git Repository URL & Report",
+    "grade_weight_display": "25% of final grade",
+    "published": true,
+    "grader_summary": {
+      "sis_student_id": "0098421",
+      "workflow_state": "unsubmitted",
+      "entered_score": null
+    }
+  },
+  {
+    "lms_assignment_id": "LMS-ASG-7003",
+    "sis_course_id": "SIS-CRS-1003",
+    "assignment_name": "Network Protocol Analysis",
+    "assignment_description": "Analyze Wireshark packet captures of TLS 1.3 handshakes and HTTP/2 multiplexing frames under simulated packet loss.",
+    "due_at": "2026-10-08T23:59:00Z",
+    "due_time_display": "11:59 PM",
+    "points_possible": 75,
+    "submission_types": "Lab Archive (.pcapng, .pdf)",
+    "grade_weight_display": "10% of final grade",
+    "published": true,
+    "grader_summary": {
+      "sis_student_id": "0098421",
+      "workflow_state": "unsubmitted",
+      "entered_score": null
+    }
+  },
+  {
+    "lms_assignment_id": "LMS-ASG-7004",
+    "sis_course_id": "SIS-CRS-1000",
+    "assignment_name": "B+ Tree Indexing Optimization Quiz",
+    "assignment_description": "Online quiz on B+ tree page splitting, node coalescing, and concurrent latch crabbing protocols.",
+    "due_at": "2026-09-20T23:59:00Z",
+    "due_time_display": "11:59 PM",
+    "points_possible": 100,
+    "submission_types": "Online Submission",
+    "grade_weight_display": "10% of final grade",
+    "published": true,
+    "grader_summary": {
+      "sis_student_id": "0098421",
+      "workflow_state": "graded",
+      "entered_score": 98
+    }
+  }
+]

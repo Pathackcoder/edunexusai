@@ -1,0 +1,217 @@
+{
+  "academicCalendarEvents": [
+    {
+      "id": "cal-001",
+      "title": "First Day of Fall 2026 Classes",
+      "date": "2026-09-02",
+      "startTime": "08:00 AM",
+      "endTime": "05:00 PM",
+      "category": "academic",
+      "location": "Campus-wide",
+      "description": "Official commencement of Fall semester undergraduate and graduate lectures.",
+      "isImportant": true
+    },
+    {
+      "id": "cal-002",
+      "title": "Fall 2026 Course Add/Drop Deadline",
+      "date": "2026-09-15",
+      "startTime": "11:59 PM",
+      "endTime": "11:59 PM",
+      "category": "registration",
+      "location": "Online via Student Portal",
+      "description": "Last day to add, drop, or change course grading options (Pass/Fail) without transcript notation.",
+      "isImportant": true
+    },
+    {
+      "id": "cal-003",
+      "title": "Career & Internship Fair 2026",
+      "date": "2026-09-24",
+      "startTime": "10:00 AM",
+      "endTime": "04:00 PM",
+      "category": "academic",
+      "location": "University Sports Arena",
+      "description": "Annual multi-industry technology and engineering recruitment fair with over 140 employers.",
+      "isImportant": false
+    },
+    {
+      "id": "cal-004",
+      "title": "Fall Recess (No Classes)",
+      "date": "2026-10-12",
+      "startTime": "All Day",
+      "endTime": "All Day",
+      "category": "holiday",
+      "location": "Campus Closed",
+      "description": "University holiday. Library open on adjusted holiday weekend hours.",
+      "isImportant": true
+    },
+    {
+      "id": "cal-005",
+      "title": "Tuition Balance Settlement Deadline",
+      "date": "2026-10-15",
+      "startTime": "05:00 PM",
+      "endTime": "05:00 PM",
+      "category": "administrative",
+      "location": "Office of the Bursar / Finance Portal",
+      "description": "Fall 2026 tuition balance and mandatory student fees must be paid in full or enrolled in an installment plan.",
+      "isImportant": true
+    },
+    {
+      "id": "cal-006",
+      "title": "Graduate Midterm Examination Week",
+      "date": "2026-10-19",
+      "startTime": "08:00 AM",
+      "endTime": "08:00 PM",
+      "category": "examination",
+      "location": "Designated Examination Halls",
+      "description": "Departmental midterm exams for Computer Science and Engineering courses.",
+      "isImportant": true
+    },
+    {
+      "id": "cal-007",
+      "title": "Mid-Term Grade Advisory Posting",
+      "date": "2026-10-26",
+      "startTime": "12:00 PM",
+      "endTime": "12:00 PM",
+      "category": "academic",
+      "location": "Portal Academics Tab",
+      "description": "Faculty submit mid-semester performance indicators and academic standing reviews.",
+      "isImportant": false
+    },
+    {
+      "id": "cal-008",
+      "title": "Spring 2027 Course Schedule Published",
+      "date": "2026-10-30",
+      "startTime": "09:00 AM",
+      "endTime": "09:00 AM",
+      "category": "registration",
+      "location": "University Catalog & Registrar",
+      "description": "Spring 2027 timetable, lecture sections, and faculty assignments published for review.",
+      "isImportant": false
+    },
+    {
+      "id": "cal-009",
+      "title": "Spring 2027 Priority Graduate Registration",
+      "date": "2026-11-09",
+      "startTime": "07:00 AM",
+      "endTime": "11:59 PM",
+      "category": "registration",
+      "location": "Student Enrollment Portal",
+      "description": "Registration opens for graduate students, veterans, and graduating seniors.",
+      "isImportant": true
+    },
+    {
+      "id": "cal-010",
+      "title": "Course Withdrawal Deadline ('W' Grade)",
+      "date": "2026-11-16",
+      "startTime": "11:59 PM",
+      "endTime": "11:59 PM",
+      "category": "registration",
+      "location": "Registrar Services",
+      "description": "Final deadline to withdraw from a 15-week fall semester course with an approved 'W' grade.",
+      "isImportant": true
+    },
+    {
+      "id": "cal-011",
+      "title": "Thanksgiving Recess",
+      "date": "2026-11-25",
+      "startTime": "All Day",
+      "endTime": "All Day",
+      "category": "holiday",
+      "location": "Campus Closed",
+      "description": "Thanksgiving campus holiday through Sunday, November 29. Regular classes resume Monday.",
+      "isImportant": true
+    },
+    {
+      "id": "cal-012",
+      "title": "Last Day of Fall 2026 Classes",
+      "date": "2026-12-09",
+      "startTime": "05:00 PM",
+      "endTime": "05:00 PM",
+      "category": "academic",
+      "location": "Campus-wide",
+      "description": "Official end of regular instructional class meetings for the semester.",
+      "isImportant": true
+    },
+    {
+      "id": "cal-013",
+      "title": "Reading & Study Days",
+      "date": "2026-12-10",
+      "startTime": "All Day",
+      "endTime": "All Day",
+      "category": "academic",
+      "location": "Libraries & Study Commons",
+      "description": "Designated quiet study preparation days prior to final examinations. No mandatory classes.",
+      "isImportant": false
+    },
+    {
+      "id": "cal-014",
+      "title": "Fall 2026 Final Examination Period",
+      "date": "2026-12-14",
+      "startTime": "08:00 AM",
+      "endTime": "09:00 PM",
+      "category": "examination",
+      "location": "University Exam Centers",
+      "description": "Official university comprehensive final examinations week through December 18.",
+      "isImportant": true
+    },
+    {
+      "id": "cal-015",
+      "title": "Final Grades Due from Faculty",
+      "date": "2026-12-22",
+      "startTime": "05:00 PM",
+      "endTime": "05:00 PM",
+      "category": "administrative",
+      "location": "Registrar Portal",
+      "description": "Official term grades and updated cumulative GPA calculation recorded on student transcripts.",
+      "isImportant": true
+    },
+    {
+      "id": "cal-016",
+      "title": "Winter Recess Begins",
+      "date": "2026-12-24",
+      "startTime": "All Day",
+      "endTime": "All Day",
+      "category": "holiday",
+      "location": "Campus Closed",
+      "description": "Campus administrative offices closed for winter recess through January 3, 2027.",
+      "isImportant": true
+    }
+  ],
+  "calendarCategories": [
+    {
+      "id": "all",
+      "label": "All Categories",
+      "color": "var(--primary)"
+    },
+    {
+      "id": "academic",
+      "label": "Academic",
+      "color": "#1d4ed8",
+      "bg": "#eff6ff"
+    },
+    {
+      "id": "registration",
+      "label": "Registration",
+      "color": "#6d28d9",
+      "bg": "#f5f3ff"
+    },
+    {
+      "id": "examination",
+      "label": "Examination",
+      "color": "#dc2626",
+      "bg": "#fef2f2"
+    },
+    {
+      "id": "holiday",
+      "label": "Holiday & Recess",
+      "color": "#059669",
+      "bg": "#ecfdf5"
+    },
+    {
+      "id": "administrative",
+      "label": "Administrative",
+      "color": "#d97706",
+      "bg": "#fffbeb"
+    }
+  ]
+}

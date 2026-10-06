@@ -1,0 +1,104 @@
+{
+  "campusSecurityContacts": {
+    "items": [
+      {
+        "title": "Campus Security 24/7 Dispatch",
+        "phone": "(555) 010-4357",
+        "description": "General campus safety, facility security, lockouts, and emergency dispatch.",
+        "available": "24/7/365",
+        "isPrimary": true
+      },
+      {
+        "title": "SafeWalk Escort Service",
+        "phone": "(555) 010-WALK",
+        "description": "Student safety escorts across campus between 6:00 PM and 3:00 AM daily.",
+        "available": "Daily 6PM-3AM",
+        "isPrimary": false
+      },
+      {
+        "title": "Campus Safety Office & Administration",
+        "phone": "(555) 010-4350",
+        "description": "Student Services Building Suite 102. Captain Donald Walsh, Director.",
+        "available": "Mon-Fri 8AM-5PM",
+        "isPrimary": false
+      },
+      {
+        "title": "University Counseling & Crisis Support",
+        "phone": "(555) 010-CARE",
+        "description": "Confidential mental health, crisis de-escalation, and wellness consultation.",
+        "available": "24/7 Hotline",
+        "isPrimary": false
+      }
+    ],
+    "emergency": "911",
+    "dispatch": "(555) 010-4357",
+    "safeWalk": "(555) 010-WALK",
+    "officeLocation": "Student Services Building, Suite 102",
+    "hours": "24 Hours / 7 Days a Week / 365 Days a Year",
+    "leadOfficial": "Captain Donald Walsh, Director of Campus Safety",
+    "email": "campus-safety@edunexus.ai"
+  },
+  "emergencyProcedures": [
+    {
+      "id": "proc-medical",
+      "title": "Medical Emergency",
+      "icon": "HeartPulse",
+      "urgencyColor": "#dc2626",
+      "summary": "Immediate protocol for severe illness, injury, or unconscious individual.",
+      "steps": [
+        "Call 911 immediately and notify Campus Security Dispatch at (555) 010-4357.",
+        "Do NOT move the injured person unless there is immediate danger (fire, toxic fumes).",
+        "Send someone to meet first responders at the building entrance.",
+        "Automated External Defibrillators (AEDs) are stationed adjacent to elevators on each floor.",
+        "Stay on the line with emergency dispatch until medical personnel arrive on scene."
+      ]
+    },
+    {
+      "id": "proc-fire",
+      "title": "Fire & Building Evacuation",
+      "icon": "Flame",
+      "urgencyColor": "#ea580c",
+      "summary": "Immediate steps upon hearing the alarm or detecting smoke/fire.",
+      "steps": [
+        "Activate the nearest pull station alarm immediately.",
+        "Evacuate via the nearest marked emergency stairwell. NEVER use elevators during a fire alarm.",
+        "Close doors behind you to compartmentalize smoke and flames.",
+        "Assemble at the designated outdoor assembly point at least 150 feet away from the structure.",
+        "Do not re-enter the facility until the campus fire marshal issues an official all-clear."
+      ]
+    },
+    {
+      "id": "proc-weather",
+      "title": "Severe Weather & Shelter-in-Place",
+      "icon": "CloudLightning",
+      "urgencyColor": "#d97706",
+      "summary": "Procedures for tornadic activity, severe storm warnings, or flash flooding.",
+      "steps": [
+        "Move to the lowest interior level of the building away from external windows, glass doors, and skylights.",
+        "Restrooms, interior basements, and reinforced central stairwells offer maximum shelter.",
+        "Monitor university emergency SMS alerts for radar updates and campus operational status.",
+        "Remain in shelter until the emergency broadcast system declares the storm warning expired."
+      ]
+    },
+    {
+      "id": "proc-security",
+      "title": "Security Concern & Active Threat",
+      "icon": "ShieldAlert",
+      "urgencyColor": "#7c2d12",
+      "summary": "Protocol for suspicious activity, trespass, or active campus threats.",
+      "steps": [
+        "RUN: If an accessible escape path exists, evacuate the area immediately.",
+        "HIDE: If escape is not possible, lock and barricade the door, turn off lights, and silence mobile phones.",
+        "FIGHT: As an absolute last resort when your life is in imminent danger, attempt to disrupt or incapacitate the threat.",
+        "Use campus Blue Light emergency poles located every 100 yards for 1-touch police dispatch.",
+        "Call (555) 010-4357 or text university silent dispatch if you cannot speak safely."
+      ]
+    }
+  ],
+  "safeWalkInfo": {
+    "hours": "Daily from 6:00 PM – 3:00 AM",
+    "coverage": "All university campus buildings, residence halls, library, and adjacent perimeter parking structures.",
+    "averageResponseTime": "5 to 8 minutes",
+    "dispatchLine": "(555) 010-WALK"
+  }
+}

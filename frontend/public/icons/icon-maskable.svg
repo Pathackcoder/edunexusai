@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="m-bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E1B4B" />
+      <stop offset="50%" stop-color="#0F172A" />
+      <stop offset="100%" stop-color="#090D16" />
+    </linearGradient>
+    <linearGradient id="m-pill-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00E5FF" />
+      <stop offset="30%" stop-color="#0091FF" />
+      <stop offset="70%" stop-color="#7C3AED" />
+      <stop offset="100%" stop-color="#D946EF" />
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#m-bg-grad)" />
+
+  <g transform="translate(256, 256) scale(0.8) rotate(45) translate(-256, -256)">
+    <rect x="170" y="185" width="46" height="150" rx="23" fill="url(#m-pill-grad)" />
+    <rect x="233" y="130" width="46" height="255" rx="23" fill="url(#m-pill-grad)" />
+    <rect x="296" y="185" width="46" height="150" rx="23" fill="url(#m-pill-grad)" />
+  </g>
+</svg>

@@ -1,0 +1,81 @@
+{
+  "financialAidData": {
+    "status": "Approved",
+    "applicationStatus": "Complete",
+    "awardYear": "2026-2027",
+    "lastUpdated": "September 10, 2026",
+    "totalAidAwarded": 7220,
+    "formattedTotalAid": "$7,220.00",
+    "summary": {
+      "totalAwarded": 7220,
+      "disbursed": 3610,
+      "scheduled": 3610
+    },
+    "awards": [
+      {
+        "id": "AID-SCHOLARSHIP-01",
+        "name": "Dean's Merit Scholarship",
+        "category": "Scholarship",
+        "amount": 3500,
+        "formattedAmount": "$3,500.00",
+        "term": "Fall 2026 / Spring 2027",
+        "status": "Accepted & Disbursed",
+        "renewable": "Yes (Requires GPA >= 3.50)",
+        "description": "Merit-based institutional award recognizing exceptional graduate academic achievement."
+      },
+      {
+        "id": "AID-GRANT-02",
+        "name": "Federal Pell Grant",
+        "category": "Federal Grant",
+        "amount": 2000,
+        "formattedAmount": "$2,000.00",
+        "term": "Fall 2026",
+        "status": "Disbursed",
+        "renewable": "Annual FAFSA Renewal Required",
+        "description": "Federal need-based undergraduate/graduate grant program via Title IV."
+      },
+      {
+        "id": "AID-INST-03",
+        "name": "School of Computing Graduate Fellowship",
+        "category": "Institutional Grant",
+        "amount": 1720,
+        "formattedAmount": "$1,720.00",
+        "term": "Fall 2026",
+        "status": "Disbursed",
+        "renewable": "Yes",
+        "description": "Departmental grant supported by the Computer Science Endowed Research Fund."
+      }
+    ],
+    "disbursements": [
+      {
+        "date": "Aug 28, 2026",
+        "amount": "$3,610.00",
+        "status": "Processed",
+        "appliedTo": "Fall 2026 Tuition & Fees"
+      },
+      {
+        "date": "Jan 12, 2027",
+        "amount": "$3,610.00",
+        "status": "Scheduled",
+        "appliedTo": "Spring 2027 Tuition & Fees"
+      }
+    ],
+    "requirements": [
+      {
+        "title": "2026-2027 FAFSA Form",
+        "status": "Completed",
+        "date": "May 14, 2026"
+      },
+      {
+        "title": "Master Promissory Note (MPN)",
+        "status": "Completed",
+        "date": "June 02, 2026"
+      },
+      {
+        "title": "Financial Aid Terms & Conditions Acceptance",
+        "status": "Signed & Accepted",
+        "date": "July 20, 2026"
+      }
+    ]
+  }
+}

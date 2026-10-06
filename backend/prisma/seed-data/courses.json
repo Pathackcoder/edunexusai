@@ -1,0 +1,126 @@
+{
+  "coursesData": [
+    {
+      "id": "CS501",
+      "code": "CS 501",
+      "courseCode": "CS 501",
+      "name": "Advanced Database Systemssssssss",
+      "courseName": "Advanced Database Systems",
+      "instructor": "Dr. Sarah Mitchell",
+      "instructorEmail": "s.mitchell@demouniversity.edu",
+      "officeHours": "Wed 2:00 PM - 4:00 PM, Sci 204B",
+      "room": "Science Building 204",
+      "credits": 4,
+      "days": [
+        "Monday",
+        "Wednesday"
+      ],
+      "dayCodes": [
+        "M",
+        "W"
+      ],
+      "time": "10:00 AM - 11:30 AM",
+      "startTime": "10:00",
+      "endTime": "11:30",
+      "color": "#2563eb",
+      "bgColor": "#eff6ff",
+      "borderColor": "#bfdbfe",
+      "syllabusUrl": "#",
+      "currentGrade": "A",
+      "letterGrade": "A",
+      "percentage": 95,
+      "description": "In-depth study of relational query processing, transaction management, indexing techniques (B-trees, LSM trees), distributed databases, and modern NoSQL architectures."
+    },
+    {
+      "id": "CS512",
+      "code": "CS 512",
+      "courseCode": "CS 512",
+      "name": "Software Engineering",
+      "courseName": "Software Engineering",
+      "instructor": "Prof. Daniel Carter",
+      "instructorEmail": "d.carter@demouniversity.edu",
+      "officeHours": "Thu 1:00 PM - 3:00 PM, Tech 312",
+      "room": "Technology Hall 310",
+      "credits": 4,
+      "days": [
+        "Tuesday",
+        "Thursday"
+      ],
+      "dayCodes": [
+        "T",
+        "R"
+      ],
+      "time": "11:00 AM - 12:30 PM",
+      "startTime": "11:00",
+      "endTime": "12:30",
+      "color": "#7c3aed",
+      "bgColor": "#f5f3ff",
+      "borderColor": "#ddd6fe",
+      "syllabusUrl": "#",
+      "currentGrade": "A-",
+      "letterGrade": "A-",
+      "percentage": 91,
+      "description": "System design patterns, microservices architecture, CI/CD pipelines, modern agile product methodologies, code review standards, and enterprise test-driven development."
+    },
+    {
+      "id": "CS530",
+      "code": "CS 530",
+      "courseCode": "CS 530",
+      "name": "Distributed Systems",
+      "courseName": "Distributed Systems",
+      "instructor": "Dr. Emily Watson",
+      "instructorEmail": "e.watson@demouniversity.edu",
+      "officeHours": "Mon 4:00 PM - 5:30 PM, Eng 118",
+      "room": "Engineering 115",
+      "credits": 4,
+      "days": [
+        "Monday",
+        "Wednesday"
+      ],
+      "dayCodes": [
+        "M",
+        "W"
+      ],
+      "time": "2:00 PM - 3:30 PM",
+      "startTime": "14:00",
+      "endTime": "15:30",
+      "color": "#059669",
+      "bgColor": "#ecfdf5",
+      "borderColor": "#a7f3d0",
+      "syllabusUrl": "#",
+      "currentGrade": "B+",
+      "letterGrade": "B+",
+      "percentage": 88,
+      "description": "Consensus algorithms (Raft, Paxos), vector clocks, distributed shared memory, RPC paradigms, fault tolerance, replication, and cloud container orchestration."
+    },
+    {
+      "id": "CS545",
+      "code": "CS 545",
+      "courseCode": "CS 545",
+      "name": "Computer Networks",
+      "courseName": "Computer Networks",
+      "instructor": "Dr. Robert Vance",
+      "instructorEmail": "r.vance@demouniversity.edu",
+      "officeHours": "Fri 10:00 AM - 12:00 PM, Sci 109",
+      "room": "Science Building 108",
+      "credits": 4,
+      "days": [
+        "Friday"
+      ],
+      "dayCodes": [
+        "F"
+      ],
+      "time": "1:00 PM - 3:30 PM",
+      "startTime": "13:00",
+      "endTime": "15:30",
+      "color": "#d97706",
+      "bgColor": "#fffbeb",
+      "borderColor": "#fde68a",
+      "syllabusUrl": "#",
+      "currentGrade": "A",
+      "letterGrade": "A",
+      "percentage": 94,
+      "description": "Packet switching architectures, TCP/IP congestion control, BGP routing, SDN (Software Defined Networking), network security protocols, and TLS handshakes."
+    }
+  ]
+}

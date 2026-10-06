@@ -1,0 +1,55 @@
+{
+  "initialFinanceData": {
+    "currentBalance": 4280,
+    "formattedBalance": "$4,280.00",
+    "dueDate": "October 15, 2026",
+    "dueDateIso": "2026-10-15",
+    "status": "Due in 20 days",
+    "academicYear": "2026-2027",
+    "term": "Fall Semester 2026",
+    "breakdown": [
+      {
+        "label": "Tuition (16 Graduate Credits)",
+        "amount": 7500
+      },
+      {
+        "label": "Campus & Technology Fees",
+        "amount": 650
+      },
+      {
+        "label": "Student Health Insurance Plan",
+        "amount": 850
+      },
+      {
+        "label": "University Housing & Dining",
+        "amount": 2500
+      },
+      {
+        "label": "Financial Aid Applied (Scholarships & Grants)",
+        "amount": -7220
+      }
+    ],
+    "transactions": [
+      {
+        "id": "TX-2026-0901-7891",
+        "receiptNumber": "ENX-9821",
+        "date": "Sep 01, 2026",
+        "description": "Fall 2026 Semester Installment #1",
+        "amount": 3000,
+        "paymentMethod": "Visa ending in 4242",
+        "status": "Completed",
+        "type": "Payment"
+      },
+      {
+        "id": "TX-2026-0815-4421",
+        "receiptNumber": "ENX-8102",
+        "date": "Aug 15, 2026",
+        "description": "Graduate Housing & Meal Security Deposit",
+        "amount": 500,
+        "paymentMethod": "ACH Direct Debit (Chase ****8912)",
+        "status": "Completed",
+        "type": "Deposit"
+      }
+    ]
+  }
+}

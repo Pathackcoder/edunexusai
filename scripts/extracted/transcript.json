@@ -1,0 +1,210 @@
+{
+  "initialTranscriptRequests": [
+    {
+      "id": "TR-2026-1042",
+      "requestDate": "2026-08-14",
+      "deliveryType": "Electronic PDF (Secure Parchment)",
+      "recipient": "TechCorp University Recruiting",
+      "recipientEmail": "admissions@techcorp.example.com",
+      "copies": 1,
+      "status": "Delivered",
+      "fee": "$0.00 (Student Waiver)"
+    },
+    {
+      "id": "TR-2025-7821",
+      "requestDate": "2025-12-18",
+      "deliveryType": "Paper Official Copy (Mailed)",
+      "recipient": "National Science Foundation Fellowship Committee",
+      "recipientEmail": "fellowships@nsf.gov.example",
+      "copies": 2,
+      "status": "Completed",
+      "fee": "$0.00 (Student Waiver)"
+    }
+  ],
+  "transcriptSummary": {
+    "studentName": "Amit Pathak",
+    "studentId": "ENX-984210",
+    "institution": "Demo University",
+    "degree": "Master of Science in Computer Science",
+    "program": "Department of Computer Science & Engineering",
+    "admitTerm": "Fall 2024",
+    "cumulativeGpa": 3.72,
+    "majorGpa": 3.85,
+    "creditsAttempted": 48,
+    "creditsEarned": 48,
+    "creditsInProgress": 16,
+    "totalDegreeRequirement": 64,
+    "academicStanding": "Good Standing (Dean's Honor List)",
+    "conferralDate": "Expected May 2027"
+  },
+  "transcriptTerms": [
+    {
+      "term": "Fall 2024",
+      "level": "Graduate",
+      "termGpa": 3.85,
+      "cumulativeGpa": 3.85,
+      "creditsAttempted": 12,
+      "creditsEarned": 12,
+      "academicStanding": "Dean's Honor List",
+      "courses": [
+        {
+          "code": "CS 500",
+          "title": "Foundations of Computing Systems",
+          "credits": 4,
+          "grade": "A",
+          "points": 4
+        },
+        {
+          "code": "CS 505",
+          "title": "Advanced Analysis of Algorithms",
+          "credits": 4,
+          "grade": "A-",
+          "points": 3.7
+        },
+        {
+          "code": "CS 508",
+          "title": "Computer Organization & Architecture",
+          "credits": 4,
+          "grade": "A",
+          "points": 4
+        }
+      ]
+    },
+    {
+      "term": "Spring 2025",
+      "level": "Graduate",
+      "termGpa": 3.65,
+      "cumulativeGpa": 3.75,
+      "creditsAttempted": 12,
+      "creditsEarned": 12,
+      "academicStanding": "Good Standing",
+      "courses": [
+        {
+          "code": "CS 510",
+          "title": "Advanced Operating Systems Design",
+          "credits": 4,
+          "grade": "A",
+          "points": 4
+        },
+        {
+          "code": "CS 515",
+          "title": "Distributed Database Architecture",
+          "credits": 4,
+          "grade": "B+",
+          "points": 3.3
+        },
+        {
+          "code": "CS 518",
+          "title": "Applied Cryptography & Network Security",
+          "credits": 4,
+          "grade": "A-",
+          "points": 3.7
+        }
+      ]
+    },
+    {
+      "term": "Fall 2025",
+      "level": "Graduate",
+      "termGpa": 3.9,
+      "cumulativeGpa": 3.8,
+      "creditsAttempted": 12,
+      "creditsEarned": 12,
+      "academicStanding": "Dean's Honor List",
+      "courses": [
+        {
+          "code": "CS 520",
+          "title": "Cloud Computing & Container Virtualization",
+          "credits": 4,
+          "grade": "A",
+          "points": 4
+        },
+        {
+          "code": "CS 525",
+          "title": "Machine Learning Systems & Optimization",
+          "credits": 4,
+          "grade": "A",
+          "points": 4
+        },
+        {
+          "code": "CS 528",
+          "title": "Software Verification & Testing",
+          "credits": 4,
+          "grade": "A-",
+          "points": 3.7
+        }
+      ]
+    },
+    {
+      "term": "Spring 2026",
+      "level": "Graduate",
+      "termGpa": 3.5,
+      "cumulativeGpa": 3.72,
+      "creditsAttempted": 12,
+      "creditsEarned": 12,
+      "academicStanding": "Good Standing",
+      "courses": [
+        {
+          "code": "CS 535",
+          "title": "High-Speed Computer Networks",
+          "credits": 4,
+          "grade": "B+",
+          "points": 3.3
+        },
+        {
+          "code": "CS 540",
+          "title": "Cybersecurity & Penetration Testing",
+          "credits": 4,
+          "grade": "A-",
+          "points": 3.7
+        },
+        {
+          "code": "CS 542",
+          "title": "Autonomous Robotics & Telemetry",
+          "credits": 4,
+          "grade": "A-",
+          "points": 3.7
+        }
+      ]
+    },
+    {
+      "term": "Fall 2026 (Current Term)",
+      "level": "Graduate",
+      "termGpa": "In Progress",
+      "cumulativeGpa": 3.72,
+      "creditsAttempted": 16,
+      "creditsEarned": "In Progress",
+      "academicStanding": "Enrolled in Good Standing",
+      "isInProgress": true,
+      "courses": [
+        {
+          "code": "CS 501",
+          "title": "Advanced Database Systems",
+          "credits": 4,
+          "grade": "IP",
+          "points": "—"
+        },
+        {
+          "code": "CS 512",
+          "title": "Software Architecture & Design Patterns",
+          "credits": 4,
+          "grade": "IP",
+          "points": "—"
+        },
+        {
+          "code": "CS 530",
+          "title": "Distributed Systems & Cloud Computing",
+          "credits": 4,
+          "grade": "IP",
+          "points": "—"
+        },
+        {
+          "code": "CS 545",
+          "title": "Artificial Intelligence Principles",
+          "credits": 4,
+          "grade": "IP",
+          "points": "—"
+        }
+      ]
+    }
+  ]
+}

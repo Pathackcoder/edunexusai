@@ -1,0 +1,70 @@
+{
+  "defaultCommunicationPreferences": [
+    {
+      "id": "security",
+      "title": "Campus Security & Emergency Alerts",
+      "description": "Urgent safety warnings, severe weather closures, and active campus safety alerts.",
+      "isMandatory": true,
+      "channels": {
+        "email": true,
+        "sms": true,
+        "push": true
+      }
+    },
+    {
+      "id": "academic",
+      "title": "Academic Updates & Coursework",
+      "description": "New grade postings, assignment deadline reminders, and instructor syllabus changes.",
+      "isMandatory": false,
+      "channels": {
+        "email": true,
+        "sms": true,
+        "push": true
+      }
+    },
+    {
+      "id": "finance",
+      "title": "Billing & Financial Aid Notices",
+      "description": "Tuition billing statements, payment receipts, and scholarship disbursement alerts.",
+      "isMandatory": false,
+      "channels": {
+        "email": true,
+        "sms": true,
+        "push": false
+      }
+    },
+    {
+      "id": "services",
+      "title": "Student Services & Library Reminders",
+      "description": "Library loan due date notices, academic advising appointments, and registrar updates.",
+      "isMandatory": false,
+      "channels": {
+        "email": true,
+        "sms": false,
+        "push": true
+      }
+    },
+    {
+      "id": "events",
+      "title": "Campus Events & Student Life",
+      "description": "Guest lecture invitations, hackathons, career workshops, and student union activities.",
+      "isMandatory": false,
+      "channels": {
+        "email": false,
+        "sms": false,
+        "push": true
+      }
+    },
+    {
+      "id": "marketing",
+      "title": "Promotional & Bookstore Communications",
+      "description": "Campus bookstore discounts, alumni association previews, and non-essential surveys.",
+      "isMandatory": false,
+      "channels": {
+        "email": false,
+        "sms": false,
+        "push": false
+      }
+    }
+  ]
+}

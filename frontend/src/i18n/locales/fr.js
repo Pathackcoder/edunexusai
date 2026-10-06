@@ -1,0 +1,22 @@
+/** French. Keys are the English source strings (gettext style). */
+export default {
+  Dashboard: 'Tableau de bord', Academics: 'Études', Finance: 'Finances', Campus: 'Campus', Profile: 'Profil',
+  'Help & Support': 'Aide et support', Notifications: 'Notifications', 'Communication Center': 'Centre de communication',
+  'Career & Community': 'Carrière et communauté', Teaching: 'Enseignement', 'Access Control': "Contrôle d'accès", Integrations: 'Intégrations',
+  'Student workspace': 'Espace étudiant', 'Teaching workspace': 'Espace enseignant', Administration: 'Administration',
+  'Academic Overview': 'Aperçu académique', 'Course Schedule': 'Emploi du temps', 'Assignments & Deadlines': 'Devoirs et échéances',
+  'Grades & GPA': 'Notes et moyenne', Announcements: 'Annonces', 'Academic Calendar': 'Calendrier universitaire', Transcripts: 'Relevés de notes',
+  'Canvas LMS': 'Canvas LMS', 'Degree Progress': 'Progression du diplôme', 'Course Recommendations': 'Cours recommandés',
+  'Learning Path': "Parcours d'apprentissage", 'Performance Insights': 'Analyse des résultats', Advising: 'Conseil pédagogique',
+  'Tuition & Payments': 'Frais et paiements', 'Financial Aid': 'Aide financière', 'Campus Overview': 'Aperçu du campus',
+  'People Search': 'Annuaire', Library: 'Bibliothèque', 'Campus Security': 'Sécurité du campus', 'Campus Map': 'Plan du campus',
+  'Classroom Availability': 'Disponibilité des salles', 'Jobs & Internships': 'Emplois et stages', 'Skills Portfolio': 'Portfolio de compétences',
+  'Groups & Clubs': 'Groupes et clubs', Achievements: 'Réussites', 'Profile Hub': 'Espace profil', 'Personal Information': 'Informations personnelles',
+  'Emergency Contact': "Contact d'urgence", 'Privacy & Preferences': 'Confidentialité et préférences', 'Communication Preferences': 'Préférences de communication',
+  'Requests & Changes': 'Demandes et modifications', FAQs: 'FAQ', 'Help Desk': "Service d'assistance", 'My Requests': 'Mes demandes',
+  Forms: 'Formulaires', Resources: 'Ressources', 'My Courses': 'Mes cours', 'Teaching Schedule': "Emploi du temps d'enseignement",
+  'Student Follow-ups': 'Suivi des étudiants', Users: 'Utilisateurs', 'Roles & Permissions': 'Rôles et permissions', 'Widget Entitlements': 'Droits des widgets',
+  'Sign Out': 'Se déconnecter', 'Install Portal App': "Installer l'application", Language: 'Langue',
+  'Customize layout': 'Personnaliser la disposition', 'Reset layout': 'Réinitialiser', 'Drag to reorder': 'Glisser pour réorganiser',
+  'Ask EdunexusAI': 'Demander à EdunexusAI', 'Ask a question…': 'Posez une question…', Send: 'Envoyer',
+};

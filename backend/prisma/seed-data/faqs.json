@@ -1,0 +1,168 @@
+{
+  "faqCategories": [
+    {
+      "id": "all",
+      "label": "All Questions"
+    },
+    {
+      "id": "account",
+      "label": "Account & Login"
+    },
+    {
+      "id": "academics",
+      "label": "Academics"
+    },
+    {
+      "id": "finance",
+      "label": "Finance & Bursar"
+    },
+    {
+      "id": "financial-aid",
+      "label": "Financial Aid"
+    },
+    {
+      "id": "lms",
+      "label": "LMS & Canvas"
+    },
+    {
+      "id": "library",
+      "label": "Library Services"
+    },
+    {
+      "id": "profile",
+      "label": "Profile & Records"
+    },
+    {
+      "id": "support",
+      "label": "General Campus Support"
+    }
+  ],
+  "faqData": [
+    {
+      "id": "faq-001",
+      "category": "account",
+      "question": "How do I reset my university portal or SSO password?",
+      "answer": "You can reset your institutional password through the Identity Self-Service Management tool. If you have multi-factor authentication (MFA) enabled via Duo or Authenticator, approve the verification challenge to set a new 16-character alphanumeric passphrase. For locked accounts, contact the IT Help Desk."
+    },
+    {
+      "id": "faq-002",
+      "category": "account",
+      "question": "What should I do if my multi-factor authentication (Duo/Okta) device is lost or replaced?",
+      "answer": "Visit the IT Help Desk in the Student Services Building with a valid government or university photo ID to receive a temporary bypass code and pair your new mobile device."
+    },
+    {
+      "id": "faq-003",
+      "category": "academics",
+      "question": "How do I register for courses for the upcoming term?",
+      "answer": "Course registration takes place in the Academics tab during your assigned priority enrollment window. Review course prerequisites, consult your academic advisor, and add approved CRNs directly to your semester schedule."
+    },
+    {
+      "id": "faq-004",
+      "category": "academics",
+      "question": "How can I request an official or unofficial transcript?",
+      "answer": "Navigate to Academics → Transcripts in this portal. You can view and download your full unofficial transcript instantly, or submit an official certified transcript order (Electronic PDF or Mailed paper copy) through the official request workflow."
+    },
+    {
+      "id": "faq-005",
+      "category": "academics",
+      "question": "What is the policy for dropping a course versus withdrawing with a 'W' grade?",
+      "answer": "Courses dropped before the add/drop deadline (typically the first two weeks of instruction) are removed from your permanent record without fee obligation. Withdrawals processed after this date but prior to the withdrawal deadline result in a non-punitive 'W' grade notation on your transcript."
+    },
+    {
+      "id": "faq-006",
+      "category": "finance",
+      "question": "When is the tuition settlement due date and how can I pay?",
+      "answer": "Tuition for the Fall semester is due on October 15. Electronic payments via credit/debit card or direct ACH bank transfer can be made directly under the Finance → Tuition & Payments tab. An automated itemized receipt is generated upon payment completion."
+    },
+    {
+      "id": "faq-007",
+      "category": "finance",
+      "question": "Are payment plans available for students unable to pay the full balance at once?",
+      "answer": "Yes, Demo University offers a 3-month or 4-month deferred payment plan administered by the Bursar's Office with a $45 administrative enrollment fee. You can select an installment option during checkout."
+    },
+    {
+      "id": "faq-008",
+      "category": "financial-aid",
+      "question": "How do my scholarships and federal grants get applied to my balance?",
+      "answer": "Approved financial aid packages (including Dean's Merit Scholarships and Federal Pell Grants) automatically disburse directly to your student billing account approximately 10 days before the start of the semester. Any excess credit balance is refunded via direct deposit."
+    },
+    {
+      "id": "faq-009",
+      "category": "financial-aid",
+      "question": "What are the Satisfactory Academic Progress (SAP) requirements to maintain aid?",
+      "answer": "To maintain institutional and federal aid eligibility, graduate students must maintain a minimum cumulative GPA of 3.00 and complete at least 67% of attempted credit hours."
+    },
+    {
+      "id": "faq-010",
+      "category": "lms",
+      "question": "How do I access Canvas LMS for course readings and submissions?",
+      "answer": "You can launch your Canvas session directly from the Academics → LMS tab or the Quick Links card on your Dashboard. Your single sign-on authentication automatically syncs your enrolled courses within 24 hours of registration."
+    },
+    {
+      "id": "faq-011",
+      "category": "lms",
+      "question": "Why is an enrolled course not appearing on my Canvas dashboard?",
+      "answer": "Course shells remain in an unpublished draft state until the instructor makes them active (typically 48 hours prior to the first class meeting). If the course has commenced and remains missing, contact your course instructor."
+    },
+    {
+      "id": "faq-012",
+      "category": "library",
+      "question": "How do I renew my borrowed library books?",
+      "answer": "Go to Campus → Library in this portal. Your active book loans are listed under 'Books Checked Out'. Click the 'Renew Loan' button next to any title to extend the return due date by an additional two weeks."
+    },
+    {
+      "id": "faq-013",
+      "category": "library",
+      "question": "Can I access online research databases (IEEE Xplore, ACM, JSTOR) from off-campus?",
+      "answer": "Yes. When accessing library research links while off-campus, you will be prompted to authenticate with your university email credentials to establish an authenticated proxy session."
+    },
+    {
+      "id": "faq-014",
+      "category": "profile",
+      "question": "How do I submit an address change or legal name change?",
+      "answer": "Navigate to the Profile → Personal Information section. You can submit an official Address Change Request or a Legal Name Change Request with supporting court/marriage documentation for registrar verification."
+    },
+    {
+      "id": "faq-015",
+      "category": "profile",
+      "question": "Who can see my selected preferred pronouns?",
+      "answer": "Under Profile → Pronouns & Privacy, you can select your preferred pronouns and toggle whether they are shared with faculty course rosters in Canvas and academic advising records."
+    },
+    {
+      "id": "faq-016",
+      "category": "support",
+      "question": "How do I request a campus security walking escort at night?",
+      "answer": "Demo University provides a free SafeWalk safety escort program operated 24/7 by Campus Security. You can request an escort via Campus → Campus Security in this portal or call (555) 010-WALK directly from any campus blue-light emergency station."
+    },
+    {
+      "id": "faq-017",
+      "category": "support",
+      "question": "Where is the university lost-and-found repository located?",
+      "answer": "The central university Lost and Found is managed by Campus Security located in the Student Services Building, Suite 102. Unclaimed items are held for up to 60 calendar days."
+    }
+  ],
+  "supportContacts": {
+    "studentServices": {
+      "title": "Student Services Center",
+      "office": "Student Services Pavilion, Ground Floor",
+      "hours": "Monday – Friday: 8:00 AM – 5:00 PM",
+      "email": "studentservices@edunexus.ai",
+      "phone": "(555) 019-2000"
+    },
+    "itHelpDesk": {
+      "title": "IT Help Desk & Tech Support",
+      "office": "Turing Science Tower, Room 104",
+      "hours": "24/7 Phone & Virtual Ticket Support",
+      "email": "ithelpdesk@edunexus.ai",
+      "phone": "(555) 019-4357"
+    },
+    "campusSafety": {
+      "title": "Campus Security & Emergency Dispatch",
+      "office": "Student Services Building, Suite 102",
+      "hours": "24/7 Immediate Response",
+      "emergencyPhone": "911",
+      "dispatchPhone": "(555) 010-4357",
+      "safeWalkPhone": "(555) 010-WALK"
+    }
+  }
+}

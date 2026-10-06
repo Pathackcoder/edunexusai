@@ -1,0 +1,67 @@
+[
+  {
+    "id": 5200,
+    "course_id": 1100,
+    "name": "Database Schema Design",
+    "description": "Design a 3NF normalized schema for a high-concurrency healthcare EHR system. Provide ER diagrams, DDL scripts, and index justification.",
+    "due_at": "2026-09-28T23:59:00Z",
+    "points_possible": 100,
+    "submission_types": [
+      "online_upload"
+    ],
+    "published": true,
+    "html_url": "https://canvas.example.edu/courses/1100/assignments/5200"
+  },
+  {
+    "id": 5201,
+    "course_id": 1101,
+    "name": "Software Architecture Report",
+    "description": "Synthesize an architecture trade-off analysis method (ATAM) document comparing event-driven microservices vs. monolithic modular architecture.",
+    "due_at": "2026-09-30T23:59:00Z",
+    "points_possible": 100,
+    "submission_types": [
+      "online_upload"
+    ],
+    "published": true,
+    "html_url": "https://canvas.example.edu/courses/1101/assignments/5201"
+  },
+  {
+    "id": 5202,
+    "course_id": 1102,
+    "name": "Distributed Systems Lab",
+    "description": "Implement a fault-tolerant leader election algorithm using the Raft consensus protocol in Go or Python. Validate network partition recovery.",
+    "due_at": "2026-10-02T23:59:00Z",
+    "points_possible": 100,
+    "submission_types": [
+      "online_upload"
+    ],
+    "published": true,
+    "html_url": "https://canvas.example.edu/courses/1102/assignments/5202"
+  },
+  {
+    "id": 5203,
+    "course_id": 1103,
+    "name": "Network Protocol Analysis",
+    "description": "Analyze Wireshark packet captures of TLS 1.3 handshakes and HTTP/2 multiplexing frames under simulated packet loss.",
+    "due_at": "2026-10-08T23:59:00Z",
+    "points_possible": 75,
+    "submission_types": [
+      "online_upload"
+    ],
+    "published": true,
+    "html_url": "https://canvas.example.edu/courses/1103/assignments/5203"
+  },
+  {
+    "id": 5204,
+    "course_id": 1100,
+    "name": "B+ Tree Indexing Optimization Quiz",
+    "description": "Online quiz on B+ tree page splitting, node coalescing, and concurrent latch crabbing protocols.",
+    "due_at": "2026-09-20T23:59:00Z",
+    "points_possible": 100,
+    "submission_types": [
+      "online_upload"
+    ],
+    "published": true,
+    "html_url": "https://canvas.example.edu/courses/1100/assignments/5204"
+  }
+]
