@@ -5,7 +5,6 @@ import { SortableDashboard, useDashboardLayout } from '../../components/dashboar
 import { useToast } from '../../components/common/Toast';
 import { useI18n } from '../../i18n';
 import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
-import MuiButton from '@mui/material/Button';
 import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -24,8 +23,20 @@ import { useAuth } from '../../context/AuthContext';
 import { WidgetCard } from '../../components/common/WidgetCard';
 import { Badge } from '../../components/common/Badge';
 import { StatCard } from '../../components/common/StatCard';
-import { PageHeader } from '../../components/common/PageHeader';
 import { DataState } from '../../components/common/DataState';
+import { DashboardSkeleton, HeroBanner, heroChipSx } from '../../components/dashboard/HeroBanner';
+import Chip from '@mui/material/Chip';
+
+/** Placeholder composition that mirrors the default faculty layout. */
+const FACULTY_SKELETON = [
+  { kind: 'list', rows: 1 },
+  { kind: 'list', rows: 2 },
+  { kind: 'list', rows: 2 },
+  { kind: 'list', rows: 1 },
+  { kind: 'list', rows: 1 },
+  { kind: 'list', rows: 3, span: { md: 12, lg: 8 } },
+  { kind: 'list', rows: 2 },
+];
 
 const InlineEmpty = ({ children }) => (
   <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
@@ -69,15 +80,8 @@ export const FacultyDashboardPage = () => {
 
 
   const widgetItems = [
-    { key: 'faculty.summary', label: 'Teaching overview', span: { md: 12 }, node: (<Box sx={{ width: '100%', '& > div': { height: '100%' } }}><Box
-              aria-label="Teaching summary"
-              sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', lg: 'repeat(4, minmax(0, 1fr))' }, gap: { xs: 1.5, sm: 2 } }}
-            >
-              {stats.map((stat) => (
-                <StatCard key={stat.label} title={stat.label} value={stat.value} subtitle={stat.hint} icon={stat.icon} tone={stat.tone} />
-              ))}
-            </Box></Box>) },
     { key: 'faculty.courses', label: 'My courses', span: { md: 6, lg: 4 }, node: (<WidgetCard
+                  variant="featured"
                   title="My courses"
                   subtitle="Select a course to open its roster"
                   icon={MenuBookOutlinedIcon}
@@ -199,21 +203,30 @@ export const FacultyDashboardPage = () => {
       onRetry={refetch}
       loadingLabel="Loading your teaching dashboard…"
       minHeight={400}
+      skeleton={<DashboardSkeleton widgets={FACULTY_SKELETON} />}
     >
       {() => (
-        <Box>
-          <PageHeader
+        <Stack spacing={{ xs: 2, md: 2.25 }}>
+          <HeroBanner
             eyebrow="Teaching workspace"
-            title={`Welcome back, ${user?.firstName ?? ''}`}
+            title={<>Welcome back, </>}
+            highlight={user?.firstName ?? ''}
             description={`${user?.title ? `${user.title} · ` : ''}${user?.department ?? ''}`}
-            actions={
+            chips={
               layout.isCustomised ? (
-                <MuiButton size="small" startIcon={<RestartAltRoundedIcon />} onClick={layout.reset}>
-                  {t('Reset layout')}
-                </MuiButton>
+                <Chip icon={<RestartAltRoundedIcon />} label={t('Reset layout')} onClick={layout.reset} sx={heroChipSx} />
               ) : null
             }
-          />
+          >
+            {/* Teaching overview (faculty.summary entitlement) */}
+            {enabled('summary') && (
+              <Box aria-label="Teaching summary" sx={{ mt: 2.25, display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', lg: 'repeat(4, minmax(0, 1fr))' }, gap: 1.5 }}>
+                {stats.map((stat) => (
+                  <StatCard key={stat.label} title={stat.label} value={stat.value} subtitle={stat.hint} icon={stat.icon} tone={stat.tone} />
+                ))}
+              </Box>
+            )}
+          </HeroBanner>
 
           <SortableDashboard
             ariaLabel="Teaching dashboard widgets"
@@ -224,7 +237,7 @@ export const FacultyDashboardPage = () => {
               if (!saved) showToast('Layout saved on this device only — the server could not be reached.', 'info');
             }}
           />
-        </Box>
+        </Stack>
       )}
     </DataState>
   );

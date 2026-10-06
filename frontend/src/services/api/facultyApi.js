@@ -1,7 +1,7 @@
 import { apiClient } from './client.js';
 
 export const facultyApi = {
-  getDashboard: () => apiClient.get('/faculty/dashboard'),
+  getDashboard: () => apiClient.get('/faculty/dashboard', { demoLatency: true }),
   getCourses: () => apiClient.get('/faculty/courses'),
   getRoster: (courseId) => apiClient.get(`/faculty/courses/${courseId}/students`),
   sendClassNotification: (courseId, payload) =>

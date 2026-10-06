@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import Box from '@mui/material/Box';
-import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
@@ -31,16 +30,29 @@ import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import { MetricLabel, CardFootnote } from '../../components/common/Section';
 import { SortableDashboard, useDashboardLayout } from '../../components/dashboard/SortableDashboard';
+import { DashboardSkeleton, HeroBanner, heroChipSx } from '../../components/dashboard/HeroBanner';
 import { buildAdvancedItems } from '../../components/dashboard/StudentAdvancedWidgets';
 import { useI18n } from '../../i18n';
 import { SubmitModal } from '../../components/assignments/SubmitModal';
 import { AnnouncementModal } from '../../components/announcements/AnnouncementModal';
 import { PaymentModal } from '../../components/finance/PaymentModal';
 import { useToast } from '../../components/common/Toast';
+import { NotificationTicker } from '../../components/dashboard/NotificationTicker';
 import { CampusHeroIllustration } from '../../assets/illustrations/CampusHeroIllustration';
 import { DataState, ErrorPanel, StaleDataNotice } from '../../components/common/DataState';
 
 const ACCENTS = ['primary.main', 'secondary.main', 'info.main'];
+
+/** Placeholder composition that mirrors the default student layout. */
+const STUDENT_SKELETON = [
+  { kind: 'list', rows: 1 },
+  { kind: 'ring' },
+  { kind: 'metric' },
+  { kind: 'list', rows: 3, span: { md: 12, lg: 8 } },
+  { kind: 'metric' },
+  { kind: 'list', rows: 2 },
+  { kind: 'list', rows: 2 },
+]
 
 /** Muted inline note used where a panel has nothing to list. */
 const InlineEmpty = ({ children }) => (
@@ -163,73 +175,54 @@ export const StudentDashboard = () => {
       onRetry={refetch}
       loadingLabel="Loading your dashboard…"
       minHeight={420}
+      skeleton={<DashboardSkeleton widgets={STUDENT_SKELETON} />}
     >
       {() => (
         <Stack spacing={{ xs: 2, md: 2.25 }}>
+          {/* Compact notification bar: shown only when there are notifications */}
+          <NotificationTicker />
           {/* Welcome banner */}
-          <Card
-            sx={(theme) => ({
-              position: 'relative',
-              overflow: 'hidden',
-              px: { xs: 2.5, sm: 3.5 },
-              py: { xs: 2.5, sm: 2.75 },
-              background: `linear-gradient(115deg, ${alpha(theme.palette.primary.main, 0.07)} 0%, ${theme.palette.background.paper} 58%)`,
-            })}
-          >
-            <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ md: 'center' }} spacing={3}>
-              <Box sx={{ flex: 1, minWidth: 0, position: 'relative', zIndex: 1 }}>
+          <HeroBanner
+            eyebrow={data?.term ?? user?.currentTerm ?? 'Current term'}
+            title={<>Good Morning, </>}
+            highlight={`${data?.greetingName || user?.firstName || ''}`}
+            description="Here’s what matters today — from your next class to the moments that keep campus moving."
+            chips={
+              <>
                 <Chip
-                  label={data?.term ?? user?.currentTerm ?? 'Current term'}
-                  sx={{ bgcolor: 'primary.main', color: '#fff', mb: 1.25 }}
+                  icon={
+                    <Box
+                      component="span"
+                      sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        bgcolor: todayClasses.length > 0 ? '#34D399' : 'rgba(255,255,255,0.4)',
+                        boxShadow: todayClasses.length > 0 ? '0 0 0 3px rgba(52, 211, 153, 0.25)' : 'none',
+                      }}
+                    />
+                  }
+                  label={todayClasses.length > 0 ? 'On campus today' : 'No classes today'}
+                  sx={{ ...heroChipSx, '& .MuiChip-icon': { ml: 1.25 } }}
                 />
-                <Typography variant="h2" component="h1" sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem', lg: '1.875rem' } }}>
-                  Good Morning, {data?.greetingName || user?.firstName} <span aria-hidden="true">!</span>
-                </Typography>
-                <Typography variant="body1" color="text.secondary" sx={{ mt: 0.75, maxWidth: 520 }}>
-                  Here’s what matters today — from your next class to the moments that keep campus moving.
-                </Typography>
-                <Stack direction="row" useFlexGap flexWrap="wrap" spacing={1} sx={{ mt: 1.75 }}>
+                {(user?.degree || data?.tier) && (
                   <Chip
-                    variant="outlined"
-                    icon={
-                      <Box
-                        component="span"
-                        sx={(theme) => ({
-                          width: 8,
-                          height: 8,
-                          borderRadius: '50%',
-                          bgcolor: todayClasses.length > 0 ? 'success.main' : 'grey.400',
-                          boxShadow: todayClasses.length > 0 ? `0 0 0 3px ${alpha(theme.palette.success.main, 0.18)}` : 'none',
-                        })}
-                      />
-                    }
-                    label={todayClasses.length > 0 ? 'On campus today' : 'No classes today'}
-                    sx={{ bgcolor: 'background.paper', borderColor: 'divider', '& .MuiChip-icon': { ml: 1.25 } }}
+                    icon={<SchoolOutlinedIcon />}
+                    label={`${user?.degree ?? ''}${data?.tier ? ` · ${data.tier.name} experience` : ''}`}
+                    sx={{ ...heroChipSx, maxWidth: '100%' }}
                   />
-                  {(user?.degree || data?.tier) && (
-                    <Chip
-                      variant="outlined"
-                      icon={<SchoolOutlinedIcon />}
-                      label={`${user?.degree ?? ''}${data?.tier ? ` · ${data.tier.name} experience` : ''}`}
-                      sx={{ bgcolor: 'background.paper', borderColor: 'divider', maxWidth: '100%' }}
-                    />
-                  )}
-                  {layout.isCustomised && (
-                    <Chip
-                      variant="outlined"
-                      icon={<RestartAltRoundedIcon />}
-                      label={t('Reset layout')}
-                      onClick={layout.reset}
-                      sx={{ bgcolor: 'background.paper', borderColor: 'divider' }}
-                    />
-                  )}
-                </Stack>
-              </Box>
-              <Box sx={{ display: { xs: 'none', sm: 'block' }, width: { sm: 260, lg: 300 }, flexShrink: 0, my: { md: -1.5 } }}>
+                )}
+                {layout.isCustomised && (
+                  <Chip icon={<RestartAltRoundedIcon />} label={t('Reset layout')} onClick={layout.reset} sx={heroChipSx} />
+                )}
+              </>
+            }
+            aside={
+              <Box sx={{ display: { xs: 'none', sm: 'block' }, width: { sm: 240, lg: 264 }, my: { md: -2 }, filter: 'drop-shadow(0 20px 30px rgba(10, 6, 50, 0.45))' }}>
                 <CampusHeroIllustration style={{ width: '100%', height: 'auto', display: 'block' }} />
               </Box>
-            </Stack>
-          </Card>
+            }
+          />
 
           <SortableDashboard
             ariaLabel="Dashboard widgets"
@@ -302,6 +295,7 @@ export const StudentDashboard = () => {
             ) },
             { key: 'dashboard.progress', label: "Academic momentum", span: { md: 6, lg: 4 }, node: (
 <WidgetCard
+                  variant="featured"
                   title="Academic momentum"
                   subtitle={`${data?.term ?? ''} standing`}
                   icon={SchoolOutlinedIcon}

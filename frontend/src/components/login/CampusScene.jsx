@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { keyframes } from '@emotion/react';
 import Box from '@mui/material/Box';
 import GlobalStyles from '@mui/material/GlobalStyles';
@@ -101,7 +101,12 @@ const solid = {
  * A positioned element: an outer layer for parallax (depth in px), an inner layer that
  * enters and then floats. Separate layers so the transforms never fight.
  */
-function Floating({ sx, depth = 8, delay = 0, period = 7, children, hide }) {
+// Extra entrance delay (ms) for the scene's elements, so the login intro can hold them
+// back until the scene is actually on screen. Zero for a normal load.
+const EntranceDelay = createContext(0);
+
+function Floating({ sx, depth = 8, delay: ownDelay = 0, period = 7, children, hide }) {
+  const delay = ownDelay + useContext(EntranceDelay);
   return (
     <Box
       className="parallax"
@@ -261,7 +266,7 @@ const PARTICLES = Array.from({ length: 14 }, (_, i) => ({
   delay: (i * 0.9) % 9,
 }));
 
-export function CampusScene() {
+export function CampusScene({ entranceDelay = 0 }) {
   const root = useRef(null);
 
   // Pointer parallax: a few pixels per layer, rAF-throttled, off for reduced motion.
@@ -294,6 +299,7 @@ export function CampusScene() {
   }, []);
 
   return (
+    <EntranceDelay.Provider value={entranceDelay}>
     <Box
       ref={root}
       className="enx-scene"
@@ -521,18 +527,19 @@ export function CampusScene() {
       </Box>
 
       {/* Story */}
-      <Box sx={{ position: 'relative', zIndex: 4, px: { md: 3.5, lg: 4.5 }, pb: { md: 3.5, lg: 4.5 }, maxWidth: 560, animation: `${enter} 800ms cubic-bezier(0.2, 0.8, 0.2, 1) 300ms both` }}>
+      <Box sx={{ position: 'relative', zIndex: 4, px: { md: 3.5, lg: 4.5 }, pb: { md: 3.5, lg: 4.5 }, maxWidth: 560, animation: `${enter} 800ms cubic-bezier(0.2, 0.8, 0.2, 1) ${300 + entranceDelay}ms both` }}>
         <Typography component="h2" sx={{ fontFamily: '"Rubik", sans-serif', fontWeight: 600, fontSize: { md: '1.5rem', lg: '1.75rem' }, lineHeight: 1.2, letterSpacing: '-0.015em', mb: 1 }}>
           One unified portal for{' '}
           <Box component="span" sx={{ background: 'linear-gradient(90deg, #67E8F9, #C4B5FD)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
-            student life
+            campus life
           </Box>
         </Typography>
         <Typography sx={{ fontSize: '0.875rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.72)' }}>
-          Seamlessly check daily schedules, upcoming deadlines, grade reports, and settle tuition in one cohesive student interface.
+          Courses, teaching, campus services and administration in one cohesive interface for students, faculty and staff.
         </Typography>
       </Box>
     </Box>
+    </EntranceDelay.Provider>
   );
 }
 

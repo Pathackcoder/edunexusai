@@ -824,7 +824,7 @@ export const AdminCommunicationCenter = ({ initialAudience = null }) => {
               <NotificationsActiveOutlinedIcon sx={{ color: 'primary.light' }} />
               <Box sx={{ minWidth: 0, flex: 1 }}>
                 <Typography variant="caption" sx={{ color: 'grey.400', display: 'block' }}>
-                  EdunexusAI Student Portal · Now
+                  EdunexusAI University Portal · Now
                 </Typography>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#fff' }} noWrap>
                   {form.title || 'Headline'}

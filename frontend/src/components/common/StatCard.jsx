@@ -10,7 +10,7 @@ import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded';
 import TrendingDownRoundedIcon from '@mui/icons-material/TrendingDownRounded';
 import { IconTile } from './IconTile';
 import { Badge } from './Badge';
-import { getTone } from '../../theme/tones';
+import { getTone, toneGradient } from '../../theme/tones';
 
 /**
  * Compact KPI tile: label, large value, optional badge, trend and supporting line.
@@ -36,6 +36,7 @@ export const StatCard = ({
 }) => {
   const theme = useTheme();
   const toneInfo = getTone(theme, tone);
+  const gradient = toneGradient(tone);
 
   const body = (
     <Box sx={{ p: 2, position: 'relative', zIndex: 1 }}>
@@ -45,7 +46,12 @@ export const StatCard = ({
         </Typography>
         {icon && (
           <Box className="stat-icon-tile" sx={{ transition: 'transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1)' }}>
-            <IconTile icon={icon} tone={tone} size={32} />
+            <IconTile
+              icon={icon}
+              tone={tone}
+              size={34}
+              sx={{ color: '#fff', background: `linear-gradient(140deg, ${gradient[0]}, ${gradient[1]})`, boxShadow: `0 8px 16px -10px ${alpha(gradient[1], 0.85)}` }}
+            />
           </Box>
         )}
       </Stack>
@@ -97,12 +103,16 @@ export const StatCard = ({
     height: '100%',
     position: 'relative',
     overflow: 'hidden',
-    background: `linear-gradient(135deg, ${alpha(toneInfo.solid, 0.035)} 0%, ${theme.palette.background.paper} 70%)`,
+    background: theme.palette.mode === 'dark'
+      ? 'rgba(255,255,255,0.06)'
+      : `radial-gradient(80% 90% at 100% 0%, ${alpha(gradient[1], 0.11)}, transparent 70%), ${theme.palette.background.paper}`,
+    backdropFilter: theme.palette.mode === 'dark' ? 'blur(8px)' : undefined,
+    borderColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.12)' : undefined,
     transition: 'transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 280ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 280ms ease',
     '&:hover': {
       transform: 'translateY(-3px)',
-      boxShadow: 3,
-      borderColor: alpha(toneInfo.solid, 0.35),
+      boxShadow: theme.palette.mode === 'dark' ? '0 18px 30px -18px rgba(0,0,0,0.6)' : `0 16px 30px -18px ${alpha(toneInfo.solid, 0.45)}`,
+      borderColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.22)' : alpha(toneInfo.solid, 0.35),
       '& .stat-icon-tile': {
         transform: 'scale(1.08)',
       },

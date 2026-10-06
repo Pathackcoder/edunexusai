@@ -2,8 +2,10 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
-import { alpha } from '@mui/material/styles';
+import { alpha, useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import DragHandleRoundedIcon from '@mui/icons-material/DragHandleRounded';
+import { FadeIn } from '../common/Skeletons';
 import { dashboardApi } from '../../services/api';
 import { useI18n } from '../../i18n';
 
@@ -18,7 +20,7 @@ import { useI18n } from '../../i18n';
  * - On drop the card settles into place and the order is saved for this user
  *   (PUT /dashboard/layout/:key). Arrow keys on the grip reorder without a mouse.
  *
- * items: [{ key, span: { md, lg }, node }]
+ * items: [{ key, span: { md, lg, xl? }, node }]
  */
 
 const INTERACTIVE = 'button, a, input, textarea, select, label, [role="button"], [role="link"], [role="tab"], [role="checkbox"], [contenteditable="true"], .MuiChip-clickable, [data-no-drag]';
@@ -28,6 +30,16 @@ const THRESHOLD = 6;
 // so a short card is never stretched to match a tall neighbour.
 const ROW_UNIT = 4;
 const GAP = 16;
+// Usable width at which the dashboard switches from three to four columns. Measured on the
+// grid itself (not the viewport) so it follows the sidebar collapsing and expanding.
+const WIDE_MIN_WIDTH = 1280;
+
+/** Four-column tier: a third becomes a quarter and two thirds becomes a half, unless set. */
+const wideSpan = (span) => {
+  if (span.xl) return span.xl;
+  const lg = span.lg ?? span.md ?? 12;
+  return lg === 4 || lg === 8 ? (lg * 3) / 4 : lg;
+};
 
 /** Merge the saved order with the widgets the user is entitled to right now. */
 export function mergeOrder(saved = [], available = []) {
@@ -102,13 +114,64 @@ export function useDashboardLayout(dashboardKey, serverOrder, availableKeys) {
   return { order, persist, reset, isCustomised: saved.length > 0 };
 }
 
-export function SortableDashboard({ items, order, onOrderChange, ariaLabel = 'Dashboard widgets' }) {
+/**
+ * Skyline packing. CSS Grid's sparse auto-placement never moves a later card into a
+ * hole above an earlier one, which leaves gaps in lower sections. Instead each card,
+ * in the user's order, is placed at the column position whose current bottom is
+ * highest (the "shortest column"), with explicit grid coordinates. Cards keep their
+ * natural height; wide cards span two columns; order is still left-to-right, top-down
+ * (with a three-card look-ahead so wide cards never strand a gap).
+ */
+export function packLayout(keys, { widthOf, heightOf, columns = 12, lookAhead = 3 }) {
+  const widths = new Map(keys.map((key) => [key, Math.min(columns, widthOf(key))]));
+  const step = Math.max(1, Math.min(...widths.values(), columns));
+  const skyline = new Array(columns).fill(0);
+  const placement = {};
+
+  const bestSpot = (key) => {
+    const width = widths.get(key);
+    let best = { col: 0, top: Infinity };
+    for (let col = 0; col + width <= columns; col += step) {
+      const top = Math.max(...skyline.slice(col, col + width));
+      if (top < best.top) best = { col, top };
+    }
+    return best;
+  };
+
+  // Small look-ahead: among the next few cards, place the one that sits highest
+  // (ties go to the user's order). A wide card waiting for two columns to free up
+  // therefore lets a narrow card fill the hole first instead of leaving a gap.
+  const remaining = [...keys];
+  while (remaining.length) {
+    let pick = 0;
+    let spot = bestSpot(remaining[0]);
+    for (let index = 1; index < Math.min(lookAhead, remaining.length); index += 1) {
+      const candidate = bestSpot(remaining[index]);
+      if (candidate.top < spot.top) {
+        pick = index;
+        spot = candidate;
+      }
+    }
+    const [key] = remaining.splice(pick, 1);
+    const width = widths.get(key);
+    const height = heightOf(key);
+    placement[key] = { col: spot.col, row: spot.top, width, height };
+    for (let col = spot.col; col < spot.col + width; col += 1) skyline[col] = spot.top + height;
+  }
+  return placement;
+}
+
+export function SortableDashboard({ items, order, onOrderChange, ariaLabel = 'Dashboard widgets', disabled = false }) {
+  const theme = useTheme();
+  const isLg = useMediaQuery(theme.breakpoints.up('lg'));
+  const isMd = useMediaQuery(theme.breakpoints.up('md'));
   const { t } = useI18n();
   const byKey = useMemo(() => new Map(items.map((item) => [item.key, item])), [items]);
   const [localOrder, setLocalOrder] = useState(order);
   const [draggingKey, setDraggingKey] = useState(null);
   const [settlingKey, setSettlingKey] = useState(null);
   const [spans, setSpans] = useState({});
+  const [isWide, setIsWide] = useState(false);
 
   const containerRef = useRef(null);
   const slots = useRef(new Map());
@@ -125,6 +188,18 @@ export function SortableDashboard({ items, order, onOrderChange, ariaLabel = 'Da
   }, [order]);
 
   const visible = localOrder.filter((key) => byKey.has(key));
+
+  // Track the grid's own width to pick the column tier.
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return undefined;
+    const check = () => setIsWide(el.clientWidth >= WIDE_MIN_WIDTH);
+    check();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(check);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   // Measure each card's natural height and translate it into a row span.
   useLayoutEffect(() => {
@@ -350,6 +425,16 @@ export function SortableDashboard({ items, order, onOrderChange, ariaLabel = 'Da
     }
   };
 
+  // Width of each card at the current breakpoint, in 12-column units.
+  const widthOf = (key) => {
+    const span = byKey.get(key)?.span ?? { md: 12 };
+    if (!isMd) return 12;
+    if (isLg && isWide) return wideSpan(span);
+    if (isLg) return span.lg ?? span.md ?? 12;
+    return span.md ?? 12;
+  };
+  const placement = packLayout(visible, { widthOf, heightOf: (key) => spans[key] ?? 1 });
+
   return (
     <Box
       ref={containerRef}
@@ -358,7 +443,8 @@ export function SortableDashboard({ items, order, onOrderChange, ariaLabel = 'Da
       sx={{
         position: 'relative',
         display: 'grid',
-        gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(12, minmax(0, 1fr))' },
+        // Always 12 tracks: placement is explicit, and phones simply give every card all 12.
+        gridTemplateColumns: 'repeat(12, minmax(0, 1fr))',
         columnGap: `${GAP}px`,
         rowGap: 0,
         gridAutoRows: `${ROW_UNIT}px`,
@@ -367,17 +453,19 @@ export function SortableDashboard({ items, order, onOrderChange, ariaLabel = 'Da
     >
       {visible.map((key) => {
         const item = byKey.get(key);
-        const gridColumn = { xs: '1 / -1' };
-        Object.entries(item.span ?? { md: 12 }).forEach(([bp, cols]) => {
-          gridColumn[bp] = `span ${cols}`;
-        });
+        const place = placement[key];
         const isDragging = draggingKey === key;
         return (
           <Box
             key={key}
             role="listitem"
             ref={(el) => (el ? slots.current.set(key, el) : slots.current.delete(key))}
-            sx={{ gridColumn, gridRowEnd: `span ${spans[key] ?? 1}`, minWidth: 0, position: 'relative' }}
+            sx={{
+              gridColumn: place ? `${place.col + 1} / span ${place.width}` : '1 / -1',
+              gridRow: place ? `${place.row + 1} / span ${place.height}` : 'auto',
+              minWidth: 0,
+              position: 'relative',
+            }}
           >
             {/* Placeholder: where the dragged card will land */}
             <Box
@@ -395,14 +483,14 @@ export function SortableDashboard({ items, order, onOrderChange, ariaLabel = 'Da
             />
             <Box
               ref={(el) => (el ? movers.current.set(key, el) : movers.current.delete(key))}
-              onPointerDown={onPointerDown(key)}
+              onPointerDown={disabled ? undefined : onPointerDown(key)}
               className={isDragging ? 'is-dragging' : settlingKey === key ? 'is-settling' : undefined}
               sx={(theme) => ({
                 position: 'relative',
                 minWidth: 0,
                 display: 'flex',
                 zIndex: isDragging ? 20 : settlingKey === key ? 10 : 'auto',
-                cursor: isDragging ? 'grabbing' : 'grab',
+                cursor: disabled ? 'default' : isDragging ? 'grabbing' : 'grab',
                 willChange: isDragging ? 'transform' : 'auto',
                 '& [data-no-drag], & button, & a, & input, & textarea, & select, & label': { cursor: 'auto' },
                 '& button, & a': { cursor: 'pointer' },
@@ -415,7 +503,8 @@ export function SortableDashboard({ items, order, onOrderChange, ariaLabel = 'Da
                 '&:hover .drag-grip, &:focus-within .drag-grip, &.is-dragging .drag-grip': { opacity: 1 },
               })}
             >
-              {item.node}
+              <FadeIn delay={Math.min(visible.indexOf(key), 8) * 45} sx={{ width: '100%', display: 'flex' }}>{item.node}</FadeIn>
+              {!disabled && (
               <Tooltip title={`${t('Drag to reorder')} · ${item.label ?? key}`} placement="top" disableInteractive>
                 <IconButton
                   className="drag-grip"
@@ -446,6 +535,7 @@ export function SortableDashboard({ items, order, onOrderChange, ariaLabel = 'Da
                   <DragHandleRoundedIcon sx={{ fontSize: 16 }} />
                 </IconButton>
               </Tooltip>
+              )}
             </Box>
           </Box>
         );

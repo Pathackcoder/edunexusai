@@ -1,7 +1,7 @@
 import { apiClient } from './client.js';
 
 export const adminApi = {
-  getDashboard: () => apiClient.get('/admin/dashboard'),
+  getDashboard: () => apiClient.get('/admin/dashboard', { demoLatency: true }),
 
   listUsers: (params) => apiClient.get('/admin/users', { query: params }),
   getUser: (id) => apiClient.get(`/admin/users/${id}`),
@@ -28,7 +28,7 @@ export const adminApi = {
 
 /** Operations workspace: the admin side of every cross-persona workflow. */
 export const adminOpsApi = {
-  listRequests: (params) => apiClient.get('/admin/requests', { query: params }),
+  listRequests: (params) => apiClient.get('/admin/requests', { query: params, demoLatency: true }),
   decideRequest: (id, status, note) => apiClient.patch(`/admin/requests/${id}/decision`, { status, note }),
   listTickets: (params) => apiClient.get('/admin/tickets', { query: params }),
   listForms: () => apiClient.get('/admin/forms'),
@@ -36,10 +36,10 @@ export const adminOpsApi = {
   setFormStatus: (id, status) => apiClient.patch(`/admin/forms/${id}/status`, { status }),
   listSubmissions: (formId) => apiClient.get(`/admin/forms/${formId}/submissions`),
   reviewSubmission: (id, status, note) => apiClient.patch(`/admin/form-submissions/${id}/review`, { status, note }),
-  listBroadcasts: () => apiClient.get('/admin/broadcasts'),
+  listBroadcasts: () => apiClient.get('/admin/broadcasts', { demoLatency: true }),
   previewAudience: (payload) => apiClient.post('/admin/broadcasts/preview', payload),
   saveBroadcast: (payload, id) => (id ? apiClient.patch(`/admin/broadcasts/${id}`, payload) : apiClient.post('/admin/broadcasts', payload)),
   deleteBroadcast: (id) => apiClient.delete(`/admin/broadcasts/${id}`),
-  audit: (limit = 20) => apiClient.get('/admin/audit', { query: { limit } }),
+  audit: (limit = 20) => apiClient.get('/admin/audit', { query: { limit }, demoLatency: true }),
   interventions: (status) => apiClient.get('/admin/interventions', { query: { status } }),
 };

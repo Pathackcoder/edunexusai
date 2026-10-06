@@ -61,3 +61,21 @@ export const getTone = (theme, variant = 'neutral') => {
     solid: color.main,
   };
 };
+
+/**
+ * Two-stop gradient per tone for filled icon tiles and accents. Categories:
+ * academics → blue/indigo, finance → amber, communication → violet, campus → teal,
+ * success → green, urgent → red.
+ */
+const TONE_GRADIENTS = {
+  primary: ['#4651DE', '#7A4FD8'],
+  secondary: ['#7A4FD8', '#C084FC'],
+  info: ['#1C7ED6', '#22D3EE'],
+  success: ['#13845A', '#2DD4BF'],
+  warning: ['#D97706', '#F59E0B'],
+  error: ['#DC2626', '#FB7185'],
+  teal: ['#0D9488', '#22D3EE'],
+  indigo: ['#4F46E5', '#8B5CF6'],
+  grey: ['#4D5675', '#8B93AE'],
+};
+export const toneGradient = (variant = 'primary') => TONE_GRADIENTS[paletteKey(variant)] ?? TONE_GRADIENTS.primary;

@@ -4,7 +4,7 @@ import { apiClient } from './client.js';
 export const advisingApi = {
   advisors: () => apiClient.get('/advising/advisors'),
   slots: (advisorId) => apiClient.get('/advising/slots', { query: { advisorId } }),
-  appointments: () => apiClient.get('/advising/appointments'),
+  appointments: () => apiClient.get('/advising/appointments', { demoLatency: true }),
   book: (payload) => apiClient.post('/advising/appointments', payload),
   reschedule: (id, slotId) => apiClient.post(`/advising/appointments/${id}/reschedule`, { slotId }),
   setStatus: (id, status) => apiClient.patch(`/advising/appointments/${id}/status`, { status }),
@@ -14,7 +14,7 @@ export const advisingApi = {
 };
 
 export const interventionApi = {
-  list: (status) => apiClient.get('/interventions', { query: { status } }),
+  list: (status) => apiClient.get('/interventions', { query: { status }, demoLatency: true }),
   students: () => apiClient.get('/interventions/students'),
   create: (payload) => apiClient.post('/interventions', payload),
   update: (id, payload) => apiClient.patch(`/interventions/${id}`, payload),

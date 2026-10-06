@@ -19,4 +19,5 @@ export default {
   'Sign Out': 'Cerrar sesión', 'Install Portal App': 'Instalar la app', Language: 'Idioma',
   'Customize layout': 'Personalizar diseño', 'Reset layout': 'Restablecer diseño', 'Drag to reorder': 'Arrastra para reordenar',
   'Ask EdunexusAI': 'Pregunta a EdunexusAI', 'Ask a question…': 'Escribe una pregunta…', Send: 'Enviar',
+  'Latest notifications': 'Últimas notificaciones', unread: 'sin leer', 'Up to date': 'Al día', 'View all': 'Ver todo',
 };

@@ -14,7 +14,7 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
 import PersonSearchOutlinedIcon from '@mui/icons-material/PersonSearchOutlined';
 import { DirectoryCard } from '../../components/directory/DirectoryCard';
-import { PersonProfileModal } from '../../components/directory/PersonProfileModal';
+import { PersonProfileDrawer } from '../../components/directory/PersonProfileDrawer';
 import { PageHeader } from '../../components/common/PageHeader';
 import { FilterChips } from '../../components/common/FilterChips';
 import { IconTile } from '../../components/common/IconTile';
@@ -80,7 +80,7 @@ export const PeopleSearchPage = () => {
       }
       return true;
     });
-  }, [searchQuery, selectedType, selectedDepartment, isSearchActive]);
+  }, [directoryData, searchQuery, selectedType, selectedDepartment, isSearchActive]);
 
   return (
     <DataState
@@ -206,7 +206,7 @@ export const PeopleSearchPage = () => {
                       <DirectoryCard
                         key={person.id}
                         person={person}
-                        onViewProfile={setSelectedPerson}
+                        onSelect={setSelectedPerson}
                       />
                     ))}
                   </Box>
@@ -223,9 +223,9 @@ export const PeopleSearchPage = () => {
             )}
           </Stack>
 
-          {/* Person Profile Modal */}
-          <PersonProfileModal
-            isOpen={!!selectedPerson}
+          {/* Person profile drawer */}
+          <PersonProfileDrawer
+            open={!!selectedPerson}
             onClose={() => setSelectedPerson(null)}
             person={selectedPerson}
           />

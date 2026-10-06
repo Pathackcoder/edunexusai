@@ -41,7 +41,6 @@ import { NotificationDropdown } from '../components/notifications/NotificationDr
 import { Badge as StatusBadge } from '../components/common/Badge';
 import { useApiQuery } from '../hooks/useApiQuery';
 import { directoryApi, academicApi } from '../services/api';
-import { PWAInstallButton } from '../components/pwa/PWAInstallButton';
 import { usePWA } from '../context/PWAContext';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import { LanguageSelector } from '../i18n/LanguageSelector';
@@ -170,10 +169,11 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
       elevation={0}
       sx={(theme) => ({
         top: 0,
-        bgcolor: alpha(theme.palette.background.default, 0.82),
-        backdropFilter: 'saturate(180%) blur(14px)',
+        bgcolor: alpha('#FFFFFF', 0.72),
+        backdropFilter: 'saturate(180%) blur(16px)',
         borderBottom: 1,
-        borderColor: 'divider',
+        borderColor: alpha('#4651DE', 0.08),
+        boxShadow: '0 8px 24px -20px rgba(30, 27, 92, 0.5)',
         zIndex: theme.zIndex.appBar,
       })}
     >
@@ -358,10 +358,8 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
           </Box>
         </Stack>
 
-        {/* Right: install, quick payment, notifications, account */}
+        {/* Right: quick payment, language, notifications, account. Install lives in the floating prompt. */}
         <Stack direction="row" alignItems="center" spacing={{ xs: 0.5, sm: 1 }} sx={{ flexShrink: 0 }}>
-          <PWAInstallButton sx={{ display: { xs: 'none', md: 'inline-flex' } }} />
-
           {/* Quick Payment Shortcut */}
           {isStudent && (
             <Button
@@ -479,9 +477,9 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
               </MenuItem>
             )}
 
-            {/* Below md the header's Install button is hidden, so offer it here instead. */}
+            {/* Always reachable here, including after "Don't show again" on the floating prompt. */}
             {!isInstalled && (
-              <MenuItem onClick={() => { setIsUserMenuOpen(false); promptInstall(); }} sx={{ display: { md: 'none' } }}>
+              <MenuItem onClick={() => { setIsUserMenuOpen(false); promptInstall(); }}>
                 <ListItemIcon><FileDownloadOutlinedIcon fontSize="small" /></ListItemIcon>
                 Install Portal App
               </MenuItem>

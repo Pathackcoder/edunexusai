@@ -35,8 +35,8 @@ const palette = {
   info: { main: '#1C7ED6', dark: '#1663AB', light: '#5AA6EA', lighter: '#E8F3FC', contrastText: '#FFFFFF' },
   grey: ink,
   text: { primary: ink[900], secondary: ink[600], disabled: ink[400] },
-  divider: '#E5E7EF',
-  background: { default: '#F6F7FB', paper: '#FFFFFF', subtle: '#F9FAFC' },
+  divider: '#E3E5F2',
+  background: { default: '#F2F3FB', paper: '#FFFFFF', subtle: '#F7F7FD' },
   action: {
     hover: alpha(ink[900], 0.04),
     selected: alpha('#4651DE', 0.08),
@@ -44,12 +44,35 @@ const palette = {
   },
 };
 
+/**
+ * Brand tokens. The login page established the EdunexusAI look — deep navy/indigo
+ * surfaces, an indigo→violet signature gradient, cyan and violet light. These tokens
+ * carry that language into the portal so every surface draws from one source.
+ */
+export const brand = {
+  gradient: 'linear-gradient(115deg, #3F4BDB 0%, #5B4BE3 50%, #7A4FD8 100%)',
+  gradientHover: 'linear-gradient(115deg, #3540C9 0%, #5141D6 50%, #6C42C9 100%)',
+  navy: 'linear-gradient(160deg, #141850 0%, #1E1A5C 48%, #2D2178 100%)',
+  navyDeep: '#141850',
+  glowIndigo: 'rgba(99, 102, 241, 0.35)',
+  glowCyan: 'rgba(34, 211, 238, 0.30)',
+  glowViolet: 'rgba(168, 85, 247, 0.32)',
+  cyan: '#22D3EE',
+  mint: '#2DD4BF',
+  lavender: '#C4B5FD',
+  amber: '#F59E0B',
+  /** Faint grid used on dark surfaces. */
+  grid: 'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)',
+  /** Faint dot texture used on light surfaces. */
+  dots: 'radial-gradient(rgba(70, 81, 222, 0.11) 1px, transparent 1px)',
+};
+
 /** Sidebar geometry and motion. Exported so the shell and header agree on them. */
 export const layout = {
   sidebarWidth: 244,
   sidebarCollapsedWidth: 72,
   headerHeight: 58,
-  contentMaxWidth: 1360,
+  contentMaxWidth: 1600,
 };
 
 /**
@@ -66,12 +89,12 @@ export const motion = {
 
 const shadows = [
   'none',
-  '0 1px 2px rgba(18, 24, 51, 0.05)',
-  '0 1px 3px rgba(18, 24, 51, 0.06), 0 1px 2px rgba(18, 24, 51, 0.04)',
-  '0 4px 12px -2px rgba(18, 24, 51, 0.08), 0 2px 4px -2px rgba(18, 24, 51, 0.04)',
-  '0 8px 20px -4px rgba(18, 24, 51, 0.10), 0 3px 6px -3px rgba(18, 24, 51, 0.05)',
-  '0 12px 28px -6px rgba(18, 24, 51, 0.12), 0 4px 8px -4px rgba(18, 24, 51, 0.05)',
-  '0 20px 40px -12px rgba(18, 24, 51, 0.18)',
+  '0 1px 2px rgba(30, 27, 92, 0.05)',
+  '0 1px 2px rgba(30, 27, 92, 0.04), 0 6px 16px -10px rgba(53, 46, 160, 0.16)',
+  '0 4px 12px -2px rgba(30, 27, 92, 0.08), 0 12px 24px -14px rgba(53, 46, 160, 0.22)',
+  '0 8px 20px -4px rgba(30, 27, 92, 0.10), 0 16px 32px -16px rgba(53, 46, 160, 0.26)',
+  '0 12px 28px -6px rgba(30, 27, 92, 0.12), 0 4px 8px -4px rgba(30, 27, 92, 0.05)',
+  '0 20px 40px -12px rgba(30, 27, 92, 0.22)',
   ...Array(18).fill('0 24px 48px -12px rgba(18, 24, 51, 0.22)'),
 ];
 
@@ -170,12 +193,21 @@ theme = createTheme(theme, {
         sizeSmall: { minHeight: 30, paddingInline: 11, fontSize: '0.8125rem', borderRadius: 9 },
         sizeLarge: { minHeight: 42, paddingInline: 22, fontSize: '0.9375rem', borderRadius: 11 },
         containedPrimary: {
-          boxShadow: `0 1px 2px ${alpha(palette.primary.main, 0.3)}, inset 0 1px 0 ${alpha('#fff', 0.12)}`,
-          '&:hover': { backgroundColor: palette.primary.dark, boxShadow: `0 4px 12px -2px ${alpha(palette.primary.main, 0.4)}` },
+          backgroundImage: 'linear-gradient(115deg, #3F4BDB 0%, #5B4BE3 50%, #7A4FD8 100%)',
+          boxShadow: `0 6px 16px -8px ${alpha(palette.primary.main, 0.7)}, inset 0 1px 0 ${alpha('#fff', 0.16)}`,
+          transition: 'transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 220ms ease, filter 220ms ease',
+          '&:hover': {
+            backgroundImage: 'linear-gradient(115deg, #3540C9 0%, #5141D6 50%, #6C42C9 100%)',
+            transform: 'translateY(-1px)',
+            boxShadow: `0 10px 22px -10px ${alpha(palette.primary.main, 0.8)}, inset 0 1px 0 ${alpha('#fff', 0.16)}`,
+          },
+          '&:active': { transform: 'none' },
+          '&.Mui-disabled': { backgroundImage: 'none' },
         },
         outlined: { borderColor: palette.divider, backgroundColor: palette.background.paper },
         outlinedPrimary: {
-          borderColor: alpha(palette.primary.main, 0.35),
+          borderColor: alpha(palette.primary.main, 0.32),
+          backgroundColor: alpha('#FFFFFF', 0.7),
           '&:hover': { borderColor: palette.primary.main, backgroundColor: palette.primary.lighter },
         },
         outlinedInherit: {
@@ -200,7 +232,7 @@ theme = createTheme(theme, {
       defaultProps: { elevation: 0 },
       styleOverrides: {
         root: { backgroundImage: 'none' },
-        rounded: { borderRadius: 14 },
+        rounded: { borderRadius: 16 },
         outlined: { borderColor: palette.divider },
       },
     },
@@ -209,8 +241,8 @@ theme = createTheme(theme, {
       defaultProps: { variant: 'outlined' },
       styleOverrides: {
         root: {
-          borderRadius: 14,
-          borderColor: palette.divider,
+          borderRadius: 18,
+          borderColor: alpha('#4651DE', 0.09),
           boxShadow: shadows[1],
           transition: 'box-shadow 280ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 280ms ease, transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1)',
         },
@@ -290,7 +322,7 @@ theme = createTheme(theme, {
           letterSpacing: '0.04em',
           textTransform: 'uppercase',
           color: ink[500],
-          backgroundColor: palette.background.subtle,
+          backgroundColor: '#F5F5FD',
           whiteSpace: 'nowrap',
         },
         sizeSmall: { padding: '8px 12px' },
@@ -310,7 +342,7 @@ theme = createTheme(theme, {
 
     MuiDialog: {
       styleOverrides: {
-        paper: { borderRadius: 16, boxShadow: shadows[6] },
+        paper: { borderRadius: 20, boxShadow: '0 30px 60px -20px rgba(20, 24, 80, 0.35)', border: `1px solid ${alpha('#4651DE', 0.08)}` },
       },
     },
     MuiDialogTitle: {
@@ -348,7 +380,7 @@ theme = createTheme(theme, {
     MuiTabs: {
       styleOverrides: {
         root: { minHeight: 40 },
-        indicator: { height: 2.5, borderRadius: 2 },
+        indicator: { height: 3, borderRadius: 3, backgroundImage: 'linear-gradient(90deg, #4651DE, #7A4FD8)' },
         flexContainer: { gap: 4 },
       },
     },
@@ -398,7 +430,8 @@ theme = createTheme(theme, {
 
     MuiLinearProgress: {
       styleOverrides: {
-        root: { height: 8, borderRadius: 8, backgroundColor: alpha(palette.primary.main, 0.12) },
+        root: { height: 8, borderRadius: 8, backgroundColor: alpha(palette.primary.main, 0.1) },
+        barColorPrimary: { backgroundImage: 'linear-gradient(90deg, #4651DE, #7A4FD8)' },
         bar: { borderRadius: 8 },
       },
     },
@@ -450,7 +483,50 @@ theme = createTheme(theme, {
 
     MuiSnackbar: { defaultProps: { anchorOrigin: { vertical: 'bottom', horizontal: 'right' } } },
 
-    MuiSkeleton: { defaultProps: { animation: 'wave' } },
+    MuiSkeleton: {
+      defaultProps: { animation: 'wave' },
+      styleOverrides: {
+        root: { backgroundColor: alpha('#4651DE', 0.07) },
+        wave: { '&::after': { background: `linear-gradient(90deg, transparent, ${alpha('#FFFFFF', 0.75)}, transparent)` } },
+      },
+    },
+  },
+});
+
+/**
+ * Dark surface theme for navy areas (sidebar, featured widgets, hero banners). It keeps
+ * the base theme's typography and component overrides and swaps only colour tokens.
+ * getTone() reads `.dark` as foreground and `.lighter` as tint, so those are set to
+ * light-on-dark values here.
+ */
+const onDark = (main, light) => ({ main, light, dark: light, lighter: alpha(main, 0.2), contrastText: '#0B0D2E' });
+export const darkSurfaceTheme = createTheme(theme, {
+  palette: {
+    mode: 'dark',
+    primary: { ...onDark('#A5B4FC', '#C7D2FE'), contrastText: '#141850' },
+    secondary: onDark('#C4B5FD', '#DDD6FE'),
+    success: onDark('#34D399', '#A7F3D0'),
+    warning: onDark('#FBBF24', '#FDE68A'),
+    error: onDark('#F87171', '#FECACA'),
+    info: onDark('#67E8F9', '#A5F3FC'),
+    grey: { ...ink, 100: 'rgba(255,255,255,0.10)', 200: 'rgba(255,255,255,0.14)', 300: 'rgba(255,255,255,0.28)', 400: 'rgba(226,232,255,0.55)', 500: 'rgba(226,232,255,0.62)', 600: 'rgba(226,232,255,0.7)', 700: '#E0E7FF' },
+    text: { primary: '#FFFFFF', secondary: 'rgba(226, 232, 255, 0.72)', disabled: 'rgba(226, 232, 255, 0.45)' },
+    divider: 'rgba(255, 255, 255, 0.1)',
+    background: { default: '#141850', paper: '#1C1D5E', subtle: 'rgba(255, 255, 255, 0.06)' },
+    action: { hover: 'rgba(255, 255, 255, 0.07)', selected: 'rgba(165, 180, 252, 0.16)', focus: 'rgba(165, 180, 252, 0.24)' },
+  },
+  typography: { caption: { color: 'rgba(226, 232, 255, 0.62)' } },
+  components: {
+    MuiCard: { styleOverrides: { root: { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)', boxShadow: 'none' } } },
+    MuiLinearProgress: { styleOverrides: { root: { backgroundColor: 'rgba(255,255,255,0.12)' }, barColorPrimary: { backgroundImage: 'linear-gradient(90deg, #67E8F9, #A5B4FC)' } } },
+    MuiButton: {
+      styleOverrides: {
+        outlinedPrimary: { borderColor: 'rgba(199,210,254,0.4)', color: '#E0E7FF', backgroundColor: 'rgba(255,255,255,0.04)', '&:hover': { borderColor: '#C7D2FE', backgroundColor: 'rgba(255,255,255,0.1)' } },
+        text: { color: '#C7D2FE' },
+      },
+    },
+    MuiIconButton: { styleOverrides: { root: { color: 'rgba(226,232,255,0.72)', '&:hover': { backgroundColor: 'rgba(255,255,255,0.08)', color: '#fff' } } } },
+    MuiSkeleton: { styleOverrides: { root: { backgroundColor: 'rgba(255,255,255,0.08)' }, wave: { '&::after': { background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.14), transparent)' } } } },
   },
 });
 

@@ -8,8 +8,10 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { Breadcrumbs } from '../components/common/Breadcrumbs';
 import { ErrorBoundary } from '../components/common/ErrorBoundary';
-import { layout, motion } from '../theme/theme';
+import { brand, layout, motion } from '../theme/theme';
 import { AssistantLauncher } from '../components/assistant/AssistantLauncher';
+import { FloatingDock } from '../components/floating/FloatingDock';
+import { InstallPrompt } from '../components/floating/InstallPrompt';
 import { useAuth } from '../context/AuthContext';
 
 const STORAGE_KEY = 'enx.sidebar.collapsed';
@@ -70,7 +72,27 @@ export const AppLayout = () => {
   const spring = collapsed ? motion.sidebarClose : motion.sidebarOpen;
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', width: '100%', bgcolor: 'background.default' }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', width: '100%', bgcolor: 'background.default', position: 'relative', isolation: 'isolate' }}>
+      {/* Portal atmosphere: soft brand light and a faint dot grid behind the content. */}
+      <Box
+        aria-hidden
+        sx={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: -1,
+          pointerEvents: 'none',
+          background: `radial-gradient(60% 50% at 100% 0%, rgba(99, 102, 241, 0.10), transparent 70%), radial-gradient(45% 40% at 20% 100%, rgba(34, 211, 238, 0.07), transparent 70%), radial-gradient(40% 35% at 55% 0%, rgba(168, 85, 247, 0.06), transparent 70%)`,
+          '&::after': {
+            content: '""',
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: brand.dots,
+            backgroundSize: '24px 24px',
+            maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.9) 0%, transparent 38%)',
+            WebkitMaskImage: 'linear-gradient(180deg, rgba(0,0,0,0.9) 0%, transparent 38%)',
+          },
+        }}
+      />
       {/* Push sidebar (tablet & desktop) */}
       {!isMobile && (
         <Box
@@ -82,9 +104,8 @@ export const AppLayout = () => {
             top: 0,
             height: '100vh',
             zIndex: theme.zIndex.appBar + 1,
-            borderRight: 1,
-            borderColor: 'divider',
-            bgcolor: 'background.paper',
+            bgcolor: brand.navyDeep,
+            boxShadow: '1px 0 0 rgba(20, 24, 80, 0.08), 8px 0 30px -18px rgba(20, 24, 80, 0.35)',
             transition: animate ? `width ${spring.duration}ms ${spring.easing}` : 'none',
             willChange: 'width',
           }}
@@ -100,7 +121,7 @@ export const AppLayout = () => {
           open={isMobileOpen}
           onClose={() => setIsMobileOpen(false)}
           ModalProps={{ keepMounted: true }}
-          PaperProps={{ sx: { width: 288, maxWidth: '86vw', border: 0 } }}
+          PaperProps={{ sx: { width: 288, maxWidth: '86vw', border: 0, bgcolor: brand.navyDeep } }}
         >
           <Sidebar isMobile onCloseMobile={() => setIsMobileOpen(false)} />
         </Drawer>
@@ -117,7 +138,7 @@ export const AppLayout = () => {
             maxWidth: layout.contentMaxWidth,
             mx: 'auto',
             px: { xs: 2, sm: 2.5, lg: 3 },
-            pt: { xs: 2, md: 2.5 },
+            pt: 2,
             pb: { xs: 4, md: 5 },
           }}
         >
@@ -135,7 +156,11 @@ export const AppLayout = () => {
           </ErrorBoundary>
         </Box>
       </Box>
-      {showAssistant && <AssistantLauncher />}
+      {/* Bottom-right floating system: install prompt + assistant move as one. */}
+      <FloatingDock>
+        {showAssistant && <AssistantLauncher />}
+        <InstallPrompt />
+      </FloatingDock>
     </Box>
   );
 };

@@ -9,7 +9,7 @@ import Button from '@mui/material/Button';
 import MailOutlineRoundedIcon from '@mui/icons-material/MailOutlineRounded';
 import PhoneOutlinedIcon from '@mui/icons-material/PhoneOutlined';
 import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
-import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded';
+import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined';
 import WorkOutlineRoundedIcon from '@mui/icons-material/WorkOutlineRounded';
 import WorkspacePremiumOutlinedIcon from '@mui/icons-material/WorkspacePremiumOutlined';
@@ -87,8 +87,9 @@ export const DirectoryCard = ({ person, onSelect }) => {
           variant="outlined"
           color="inherit"
           size="small"
-          endIcon={<OpenInNewRoundedIcon />}
+          endIcon={<ArrowForwardRoundedIcon />}
           onClick={() => onSelect(person)}
+          aria-haspopup="dialog"
           aria-label={`View full profile for ${person.name}`}
         >
           View Profile

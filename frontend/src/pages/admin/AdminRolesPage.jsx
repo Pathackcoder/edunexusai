@@ -1,50 +1,31 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
+import ButtonBase from '@mui/material/ButtonBase';
 import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
 import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined';
 import CoPresentOutlinedIcon from '@mui/icons-material/CoPresentOutlined';
 import VerifiedUserOutlinedIcon from '@mui/icons-material/VerifiedUserOutlined';
 import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
+import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import { useApiQuery } from '../../hooks/useApiQuery';
 import { adminApi } from '../../services/api';
 import { IconTile } from '../../components/common/IconTile';
 import { PageHeader } from '../../components/common/PageHeader';
 import { MetricLabel } from '../../components/common/Section';
 import { DataState } from '../../components/common/DataState';
+import { RoleDetailDrawer } from '../../components/admin/RoleDetailDrawer';
+import { PERMISSIONS } from './roleAccess';
 
 /**
- * Roles and what each one is permitted to do.
- *
- * The permission lines below describe the guards the backend actually enforces
- * (requireAuth + requireRole on each router), so this page documents real behaviour
- * rather than an aspirational matrix.
+ * Roles and what each one is permitted to do. The cards summarise each role; selecting
+ * one opens the full detail (scope, modules, restrictions and enforcing guards).
+ * Permission text lives in ./roleAccess and describes the guards the backend enforces.
  */
-const PERMISSIONS = {
-  STUDENT: [
-    'Read own courses, schedule, assignments, grades and announcements',
-    'Submit assignments and request official transcripts',
-    'Make tuition payments and view own financial aid',
-    'Manage own profile, preferences and change requests',
-  ],
-  FACULTY: [
-    'Read courses where they are instructor of record',
-    'Read the enrolled roster for those courses',
-    'Send notifications and post announcements to those courses',
-    'No access to another instructor’s roster, and no student financial data',
-  ],
-  ADMIN: [
-    'Manage users, roles and account status',
-    'Assign student tiers and configure widget entitlements',
-    'Register and configure integrations, run connection tests and syncs',
-    'View integration health and sync logs',
-  ],
-};
-
 const ROLE_PRESENTATION = {
   STUDENT: { icon: SchoolOutlinedIcon, tone: 'info' },
   FACULTY: { icon: CoPresentOutlinedIcon, tone: 'primary' },
@@ -54,6 +35,7 @@ const ROLE_PRESENTATION = {
 export const AdminRolesPage = () => {
   const { data, loading, error, refetch } = useApiQuery(() => adminApi.listRoles());
   const roles = data ?? [];
+  const [selected, setSelected] = useState(null);
 
   return (
     <DataState loading={loading} error={error} onRetry={refetch} loadingLabel="Loading roles…">
@@ -68,7 +50,21 @@ export const AdminRolesPage = () => {
             {roles.map((role) => {
               const presentation = ROLE_PRESENTATION[role.key] ?? { icon: VerifiedUserOutlinedIcon, tone: 'neutral' };
               return (
-                <Card key={role.id} sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Card
+                  key={role.id}
+                  sx={{
+                    position: 'relative',
+                    p: 2.5,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 2,
+                    cursor: 'pointer',
+                    transition: 'transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 240ms ease, border-color 240ms ease',
+                    '&:hover': { transform: 'translateY(-3px)', borderColor: 'primary.light', boxShadow: '0 18px 36px -22px rgba(70, 81, 222, 0.55)' },
+                    '&:hover .role-more svg': { transform: 'translateX(3px)' },
+                    '&:has(.role-more:focus-visible)': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
+                  }}
+                >
                   <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1.5}>
                     <Stack direction="row" alignItems="center" spacing={1.5}>
                       <IconTile icon={presentation.icon} tone={presentation.tone} size={40} />
@@ -94,10 +90,41 @@ export const AdminRolesPage = () => {
                       ))}
                     </Stack>
                   </Box>
+
+                  {/* Stretched button: the whole card opens the detail, while headings and lists stay outside the button. */}
+                  <ButtonBase
+                    className="role-more"
+                    onClick={() => setSelected({ role, presentation })}
+                    aria-haspopup="dialog"
+                    aria-label={`View full permissions for ${role.name}`}
+                    disableRipple
+                    sx={{
+                      position: 'static',
+                      mt: 'auto',
+                      alignSelf: 'flex-start',
+                      gap: 0.5,
+                      color: 'primary.main',
+                      typography: 'body2',
+                      fontWeight: 600,
+                      borderRadius: '6px',
+                      '& svg': { fontSize: 17, transition: 'transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)' },
+                      '&::after': { content: '""', position: 'absolute', inset: 0 },
+                    }}
+                  >
+                    View full permissions
+                    <ArrowForwardRoundedIcon />
+                  </ButtonBase>
                 </Card>
               );
             })}
           </Box>
+
+          <RoleDetailDrawer
+            open={Boolean(selected)}
+            role={selected?.role}
+            presentation={selected?.presentation}
+            onClose={() => setSelected(null)}
+          />
         </Box>
       )}
     </DataState>

@@ -37,10 +37,18 @@ import { useApiQuery } from '../../hooks/useApiQuery';
 import { adminApi } from '../../services/api';
 import { Badge } from '../../components/common/Badge';
 import { StatCard } from '../../components/common/StatCard';
-import { PageHeader } from '../../components/common/PageHeader';
 import { WidgetCard } from '../../components/common/WidgetCard';
 import { DataState } from '../../components/common/DataState';
 import { IntegrationStatusBadge } from '../../components/admin/IntegrationStatusBadge';
+import { DashboardSkeleton, HeroBanner } from '../../components/dashboard/HeroBanner';
+
+/** Placeholder composition that mirrors the admin control centre. */
+const ADMIN_SKELETON = [
+  { kind: 'chart', span: { md: 12, lg: 8 } },
+  { kind: 'list', rows: 2 },
+  { kind: 'stats', rows: 2, span: { md: 12, lg: 12 } },
+  { kind: 'list', rows: 3, span: { md: 12, lg: 12 } },
+];
 
 const OPS_TABS = [
   { id: 'approvals', label: 'Requests & approvals', count: 'openRequests' },
@@ -99,30 +107,31 @@ export const AdminDashboardPage = () => {
       onRetry={refetch}
       loadingLabel="Loading the administration dashboard…"
       minHeight={420}
+      skeleton={<DashboardSkeleton widgets={ADMIN_SKELETON} />}
     >
       {() => (
         <Box>
-          <PageHeader
-            eyebrow="System administration"
-            title="Administration"
-            description={
-              <>
-                {tenant?.name} · tenant{' '}
-                <Box component="code" sx={{ px: 0.75, py: 0.25, borderRadius: 1.5, bgcolor: 'grey.100', fontSize: '0.8125rem', color: 'text.primary' }}>
-                  {tenant?.slug}
-                </Box>{' '}
-                {/* · {tenant?.timezone} */}
-              </>
-            }
-          />
-
-          <Stack spacing={{ xs: 2.5, md: 3 }}>
-            {/* Population */}
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(3, minmax(0, 1fr))', lg: 'repeat(5, minmax(0, 1fr))' }, gap: { xs: 1.5, sm: 2 } }}>
-              {stats.map((stat) => (
-                <StatCard key={stat.label} title={stat.label} value={stat.value ?? 0} icon={stat.icon} tone={stat.tone} to={stat.to ?? undefined} />
-              ))}
-            </Box>
+          <Stack spacing={{ xs: 2, md: 2.25 }}>
+            {/* Control centre: tenant identity and population at a glance */}
+            <HeroBanner
+              eyebrow="System administration"
+              title={<>Operations </>}
+              highlight="control center"
+              description={
+                <>
+                  {tenant?.name} · tenant{' '}
+                  <Box component="code" sx={{ px: 0.75, py: 0.25, borderRadius: 1.5, bgcolor: 'rgba(255,255,255,0.1)', fontSize: '0.8125rem', color: '#E0E7FF' }}>
+                    {tenant?.slug}
+                  </Box>
+                </>
+              }
+            >
+              <Box sx={{ mt: 2.25, display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(3, minmax(0, 1fr))', lg: 'repeat(5, minmax(0, 1fr))' }, gap: 1.5 }}>
+                {stats.map((stat) => (
+                  <StatCard key={stat.label} title={stat.label} value={stat.value ?? 0} icon={stat.icon} tone={stat.tone} to={stat.to ?? undefined} />
+                ))}
+              </Box>
+            </HeroBanner>
 
             <DashboardGrid>
               <GridItem span={{ md: 8 }}><AdminCommunicationAnalyticsWidget /></GridItem>
@@ -136,6 +145,7 @@ export const AdminDashboardPage = () => {
             </DashboardGrid>
             {/* Tiers */}
             <WidgetCard
+              variant="featured"
               title="Student Tiers"
               icon={LayersOutlinedIcon}
               tone="purple"

@@ -9,6 +9,21 @@
 
 const BASE_URL = (import.meta.env?.VITE_API_BASE_URL ?? '/api/v1').replace(/\/$/, '');
 
+/**
+ * Demo-only latency. Local APIs answer in a few milliseconds, which hides the loading
+ * experience during demos. Requests that opt in (`demoLatency: true`, used by dashboard
+ * widgets) wait a little in development only. Production builds always use 0.
+ * Disable in development with VITE_DEMO_LATENCY_MS=0.
+ */
+const DEMO_LATENCY_MS = import.meta.env?.PROD ? 0 : Number(import.meta.env?.VITE_DEMO_LATENCY_MS ?? 900);
+const demoPause = (startedAt) => {
+  if (!DEMO_LATENCY_MS) return Promise.resolve();
+  // Randomised (up to +600ms) so widgets resolve progressively rather than all at once.
+  const target = DEMO_LATENCY_MS + Math.random() * 600;
+  const remaining = target - (performance.now() - startedAt);
+  return remaining > 0 ? new Promise((resolve) => setTimeout(resolve, remaining)) : Promise.resolve();
+};
+
 const ACCESS_TOKEN_KEY = 'edunexus.accessToken';
 const REFRESH_TOKEN_KEY = 'edunexus.refreshToken';
 
@@ -154,7 +169,8 @@ async function parseBody(response) {
   }
 }
 
-async function send(path, { method = 'GET', body, query, signal, auth = true, retry = true } = {}) {
+async function send(path, { method = 'GET', body, query, signal, auth = true, retry = true, demoLatency = false } = {}) {
+  const startedAt = performance.now();
   const url = new URL(`${BASE_URL}${path}`, window.location.origin);
   for (const [key, value] of Object.entries(query ?? {})) {
     if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
@@ -189,12 +205,13 @@ async function send(path, { method = 'GET', body, query, signal, auth = true, re
   if (response.status === 401 && auth && retry) {
     const refreshed = await refreshSession();
     if (refreshed) {
-      return send(path, { method, body, query, signal, auth, retry: false });
+      return send(path, { method, body, query, signal, auth, retry: false, demoLatency });
     }
     announceSessionExpired();
   }
 
   const payload = await parseBody(response);
+  if (demoLatency) await demoPause(startedAt);
 
   if (!response.ok || payload?.success === false) {
     throw new ApiError({

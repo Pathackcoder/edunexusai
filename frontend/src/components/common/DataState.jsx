@@ -1,7 +1,6 @@
 import React from 'react';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import CircularProgress from '@mui/material/CircularProgress';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -13,6 +12,9 @@ import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import CloudSyncOutlinedIcon from '@mui/icons-material/CloudSyncOutlined';
 import { EmptyState } from './EmptyState';
 import { getTone } from '../../theme/tones';
+import { ContentSkeleton, FadeIn } from './Skeletons';
+
+const visuallyHidden = { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' };
 
 /**
  * One wrapper for the four states every data-driven screen has: loading, error, empty
@@ -31,23 +33,16 @@ export const DataState = ({
   emptyTitle = 'Nothing here yet',
   emptyMessage = 'There is no data to show for this view.',
   minHeight = 180,
+  skeleton,
   children,
 }) => {
+  // Skeletons instead of spinners: the layout holds still while data arrives.
   if (loading) {
     return (
-      <Stack
-        role="status"
-        aria-live="polite"
-        alignItems="center"
-        justifyContent="center"
-        spacing={1.5}
-        sx={{ minHeight, py: 3.5, px: 2, color: 'text.secondary' }}
-      >
-        <CircularProgress size={28} thickness={4.5} />
-        <Typography variant="body2" color="text.secondary">
-          {loadingLabel}
-        </Typography>
-      </Stack>
+      <Box role="status" aria-live="polite" aria-busy="true" sx={{ position: 'relative' }}>
+        <Box component="span" sx={visuallyHidden}>{loadingLabel}</Box>
+        {skeleton ?? <ContentSkeleton minHeight={minHeight} />}
+      </Box>
     );
   }
 
@@ -57,7 +52,8 @@ export const DataState = ({
     return <EmptyState title={emptyTitle} description={emptyMessage} />;
   }
 
-  return typeof children === 'function' ? children() : children;
+  // Content fades in where its skeleton was.
+  return <FadeIn>{typeof children === 'function' ? children() : children}</FadeIn>;
 };
 
 /** Error presentation that distinguishes a permission problem and an upstream outage. */

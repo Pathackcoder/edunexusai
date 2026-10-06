@@ -25,6 +25,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { buildNavSections, personaWorkspaceLabel } from './navigation';
 import { useI18n } from '../i18n';
+import { DarkSurface } from '../components/common/DarkSurface';
 
 /*
  * Geometry is identical in both states so nothing moves while the width animates:
@@ -48,20 +49,22 @@ const rowSx = (active) => (theme) => ({
   pl: ROW_INSET,
   pr: '10px',
   mb: '2px',
-  color: active ? 'primary.main' : 'text.secondary',
-  bgcolor: active ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
+  color: active ? '#FFFFFF' : 'text.secondary',
+  bgcolor: 'transparent',
+  backgroundImage: active ? `linear-gradient(100deg, ${alpha('#6366F1', 0.45)}, ${alpha('#8B5CF6', 0.22)})` : 'none',
+  boxShadow: active ? `inset 0 0 0 1px ${alpha('#A5B4FC', 0.22)}, 0 8px 20px -12px ${alpha('#6366F1', 0.9)}` : 'none',
   position: 'relative',
   overflow: 'hidden',
   transition: 'background-color 160ms ease, color 160ms ease',
   '& .MuiListItemIcon-root': {
     minWidth: 36,
-    color: active ? 'primary.main' : theme.palette.grey[500],
+    color: active ? '#A5F3FC' : theme.palette.grey[500],
     transition: 'color 160ms ease',
   },
   '&:hover': {
-    bgcolor: active ? alpha(theme.palette.primary.main, 0.11) : theme.palette.action.hover,
-    color: active ? 'primary.main' : 'text.primary',
-    '& .MuiListItemIcon-root': { color: active ? 'primary.main' : 'text.primary' },
+    bgcolor: active ? 'transparent' : theme.palette.action.hover,
+    color: '#FFFFFF',
+    '& .MuiListItemIcon-root': { color: active ? '#A5F3FC' : '#FFFFFF', transform: 'translateX(1px)' },
   },
   '&::before': {
     content: '""',
@@ -71,7 +74,8 @@ const rowSx = (active) => (theme) => ({
     bottom: 9,
     width: 3,
     borderRadius: '0 3px 3px 0',
-    bgcolor: 'primary.main',
+    backgroundImage: 'linear-gradient(180deg, #67E8F9, #A78BFA)',
+    boxShadow: '0 0 10px rgba(103, 232, 249, 0.8)',
     opacity: active ? 1 : 0,
     transition: 'opacity 160ms ease',
   },
@@ -247,8 +251,8 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
                   color: 'text.secondary',
                   '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
                   '&.active': {
-                    color: 'primary.main',
-                    bgcolor: alpha(theme.palette.primary.main, 0.08),
+                    color: '#FFFFFF',
+                    bgcolor: alpha(theme.palette.primary.main, 0.16),
                     '& .MuiListItemText-primary': { fontWeight: 600 },
                   },
                 })}
@@ -271,7 +275,7 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
   );
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', overflow: 'hidden', bgcolor: 'background.paper' }}>
+    <DarkSurface glow="bl" sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
       {/* Brand + toggle */}
       <Box sx={{ px: GUTTER, pt: 1.25, pb: 0.75, flexShrink: 0 }}>
         <Box sx={{ position: 'relative', height: 40, display: 'flex', alignItems: 'center' }}>
@@ -279,13 +283,17 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
           <Box
             sx={{
               ...fade(collapsed),
-              pl: '12px',
-              height: 30,
+              ml: '6px',
+              px: 1,
+              height: 36,
               display: 'flex',
               alignItems: 'center',
+              borderRadius: '10px',
+              bgcolor: '#FFFFFF',
+              boxShadow: '0 8px 18px -10px rgba(0,0,0,0.6)',
             }}
           >
-            <Box component="img" src="/logo.png" alt="EdunexusAI" sx={{ height: 30, width: 'auto', maxWidth: 'none', display: 'block' }} />
+            <Box component="img" src="/logo.png" alt="EdunexusAI" sx={{ height: 24, width: 'auto', maxWidth: 'none', display: 'block' }} />
           </Box>
 
           {/* Mark only (collapsed rail): doubles as the expand control */}
@@ -325,8 +333,10 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
                   '&:focus-visible': { outline: (theme) => `2px solid ${theme.palette.primary.main}`, outlineOffset: 1 },
                 }}
               >
-                <Box className="mark" sx={{ width: 28, height: 30, overflow: 'hidden' }}>
-                  <Box component="img" src="/logo.png" alt="" sx={{ height: 30, width: 'auto', maxWidth: 'none', display: 'block' }} />
+                <Box className="mark" sx={{ width: 36, height: 36, borderRadius: '10px', bgcolor: '#FFFFFF', display: 'grid', placeItems: 'center', overflow: 'hidden', boxShadow: '0 8px 18px -10px rgba(0,0,0,0.6)' }}>
+                  <Box sx={{ width: 24, height: 24, overflow: 'hidden' }}>
+                    <Box component="img" src="/logo.png" alt="" sx={{ height: 24, width: 'auto', maxWidth: 'none', display: 'block' }} />
+                  </Box>
                 </Box>
                 <KeyboardDoubleArrowRightRoundedIcon className="arrow" sx={{ fontSize: 20 }} />
               </Box>
@@ -368,13 +378,13 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
               pr: 1.25,
               height: 36,
               borderRadius: 2.25,
-              bgcolor: 'background.subtle',
+              bgcolor: 'rgba(255,255,255,0.06)',
               border: 1,
-              borderColor: 'divider',
+              borderColor: 'rgba(255,255,255,0.1)',
               overflow: 'hidden',
             }}
           >
-            <LocationCityOutlinedIcon sx={{ fontSize: 17, color: 'primary.main', flexShrink: 0 }} />
+            <LocationCityOutlinedIcon sx={{ fontSize: 17, color: '#67E8F9', flexShrink: 0 }} />
             <Typography variant="caption" noWrap sx={{ ...fade(collapsed), color: 'text.secondary', fontWeight: 500 }}>
               Demo University • Fall 2026
             </Typography>
@@ -400,7 +410,7 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
       <Box sx={{ flexShrink: 0, borderTop: 1, borderColor: 'divider', px: GUTTER, py: 1 }}>
         <Tooltip title={collapsed ? `${user?.fullName ?? '—'} · ID ${userId}` : ''} placement="right">
           <Stack direction="row" alignItems="center" spacing={1.25} sx={{ pl: '11px', pr: 1, py: 0.75, overflow: 'hidden' }}>
-            <Avatar sx={{ width: 32, height: 32, fontSize: '0.75rem', bgcolor: 'primary.main', flexShrink: 0 }}>{initials}</Avatar>
+            <Avatar sx={{ width: 32, height: 32, fontSize: '0.75rem', color: '#fff', background: 'linear-gradient(135deg, #6366F1, #A855F7)', boxShadow: '0 0 0 2px rgba(255,255,255,0.14)', flexShrink: 0 }}>{initials}</Avatar>
             <Box sx={{ ...fade(collapsed), flex: 1, minWidth: 0 }}>
               <Typography variant="subtitle2" noWrap>
                 {user?.fullName ?? '—'}
@@ -443,7 +453,7 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
           </MenuItem>
         ))}
       </Menu>
-    </Box>
+    </DarkSurface>
   );
 };
 

@@ -17,13 +17,16 @@ export const PageHeader = ({ title, description, eyebrow, actions, icon, childre
   >
     <Box sx={{ minWidth: 0, flex: 1 }}>
       {eyebrow && (
-        <Typography variant="overline" color="primary.main" component="div" sx={{ mb: 0.5 }}>
-          {eyebrow}
-        </Typography>
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.75 }}>
+          <Box aria-hidden sx={{ width: 20, height: 3, borderRadius: 2, backgroundImage: 'linear-gradient(90deg, #4651DE, #7A4FD8)' }} />
+          <Typography variant="overline" color="primary.main" component="div" sx={{ lineHeight: 1 }}>
+            {eyebrow}
+          </Typography>
+        </Stack>
       )}
       <Stack direction="row" alignItems="center" spacing={1.25}>
         {icon}
-        <Typography variant="h3" component="h1" sx={{ fontSize: { xs: '1.3125rem', md: '1.5rem' } }}>
+        <Typography variant="h3" component="h1" sx={{ fontSize: { xs: '1.375rem', md: '1.625rem' }, letterSpacing: '-0.02em' }}>
           {title}
         </Typography>
       </Stack>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { keyframes } from '@emotion/react';
 import Box from '@mui/material/Box';
@@ -31,6 +31,7 @@ import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { PWAInstallButton } from '../components/pwa/PWAInstallButton';
 import { CampusScene } from '../components/login/CampusScene';
+import { LoginIntroOverlay, useLoginIntro } from '../components/login/LoginIntro';
 
 /* Presentation only. Motion is transform/opacity and stops under prefers-reduced-motion. */
 const fadeUp = keyframes`
@@ -84,6 +85,13 @@ export const LoginPage = () => {
 
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  // Entrance intro (presentation only). When it plays it replaces the per-block fade-ups.
+  const logoRef = useRef(null);
+  const sceneRef = useRef(null);
+  const formRef = useRef(null);
+  const intro = useLoginIntro({ logoRef, sceneRef, formRef });
+  const enter = (ms) => (intro.playing ? {} : enterAt(ms));
 
   /**
    * Demo accounts for the local prototype. The passwords are bcrypt-hashed in PostgreSQL
@@ -155,13 +163,16 @@ export const LoginPage = () => {
           flexDirection: 'column',
           px: { xs: 2.5, sm: 6, lg: 7 },
           py: { xs: 2.5, sm: 3.5 },
+          ...intro.styles.column,
         }}
       >
         {/* Brand row */}
-        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2} sx={enterAt(0)}>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2} sx={enter(0)}>
           {/* The logo asset has a white ground, so it sits on a deliberate white brand plate. */}
           <Box
+            ref={logoRef}
             sx={{
+              ...intro.styles.logo,
               display: 'inline-flex',
               alignItems: 'center',
               px: 1.25,
@@ -177,7 +188,7 @@ export const LoginPage = () => {
           >
             <Box component="img" src="/logo.png" alt="EdunexusAI" sx={{ height: 28, width: 'auto', maxWidth: 170, display: 'block' }} />
           </Box>
-          <Stack direction="row" alignItems="center" spacing={1}>
+          <Stack direction="row" alignItems="center" spacing={1} sx={intro.styles.chrome}>
             <PWAInstallButton size="sm" label="Install App" />
             <Chip
               label="Demo University Portal"
@@ -188,9 +199,9 @@ export const LoginPage = () => {
         </Stack>
 
         <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', py: { xs: 3, md: 2 } }}>
-          <Box sx={{ width: '100%', maxWidth: 440, mx: { xs: 'auto', md: 0 } }}>
+          <Box ref={formRef} sx={{ width: '100%', maxWidth: 440, mx: { xs: 'auto', md: 0 }, ...intro.styles.form }}>
             {/* Heading */}
-            <Box sx={enterAt(80)}>
+            <Box sx={enter(80)}>
               <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.25 }}>
                 <Box sx={{ width: 22, height: 3, borderRadius: 2, background: BRAND_GRADIENT }} />
                 <Typography variant="overline" sx={{ color: 'primary.main', lineHeight: 1 }}>
@@ -198,20 +209,20 @@ export const LoginPage = () => {
                 </Typography>
               </Stack>
               <Typography variant="h2" component="h1" sx={{ fontSize: { xs: '1.75rem', sm: '2.125rem' }, letterSpacing: '-0.025em', mb: 1 }}>
-                Student Portal{' '}
+                Sign in to{' '}
                 <Box component="span" sx={{ background: 'linear-gradient(90deg, #4651DE, #7A4FD8)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
-                  Sign In
+                  EdunexusAI
                 </Box>
               </Typography>
               <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 400 }}>
-                Enter your university credentials to access courses, schedules, and financial records.
+                One university portal for students, faculty and administrators. Sign in to reach your courses, teaching tools, campus services and records.
               </Typography>
             </Box>
 
             {/* Sign-in card */}
             <Box
               sx={{
-                ...enterAt(180),
+                ...enter(180),
                 mt: 3,
                 p: { xs: 2.25, sm: 3 },
                 borderRadius: '22px',
@@ -223,10 +234,10 @@ export const LoginPage = () => {
               }}
             >
               {/* Demo personas. Clicking one fills the form; the backend still verifies it. */}
-              <Typography variant="caption" component="div" sx={{ mb: 1, fontWeight: 600, color: 'text.secondary', letterSpacing: '0.02em' }}>
+              <Typography variant="caption" component="div" sx={{ mb: 0.75, fontWeight: 600, fontSize: '0.6875rem', color: 'text.secondary', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                 Demo accounts
               </Typography>
-              <Box role="group" aria-label="Demo accounts" sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
+              <Box role="group" aria-label="Demo accounts" sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 0.75 }}>
                 {demoAccounts.map((account) => {
                   const selected = email === account.email;
                   const { icon: Icon, accent, short } = PERSONA_STYLE[account.email];
@@ -241,10 +252,11 @@ export const LoginPage = () => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'flex-start',
-                        gap: 1.1,
-                        p: 1,
-                        pr: 1.25,
-                        borderRadius: '12px',
+                        gap: 0.875,
+                        px: 0.75,
+                        py: 0.625,
+                        pr: 1,
+                        borderRadius: '10px',
                         textAlign: 'left',
                         border: '1px solid',
                         borderColor: selected ? accent : 'grey.200',
@@ -263,25 +275,25 @@ export const LoginPage = () => {
                       <Box
                         className="persona-icon"
                         sx={{
-                          width: 32,
-                          height: 32,
+                          width: 24,
+                          height: 24,
                           flexShrink: 0,
-                          borderRadius: '10px',
+                          borderRadius: '7px',
                           display: 'grid',
                           placeItems: 'center',
                           color: selected ? '#fff' : accent,
                           background: selected ? `linear-gradient(135deg, ${accent}, ${alpha(accent, 0.75)})` : alpha(accent, 0.1),
                           transition: 'transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1), background 200ms ease, color 200ms ease',
-                          '& svg': { fontSize: 18 },
+                          '& svg': { fontSize: 14 },
                         }}
                       >
                         <Icon />
                       </Box>
                       <Box sx={{ minWidth: 0, flex: 1 }}>
-                        <Typography sx={{ fontSize: '0.6875rem', fontWeight: 700, color: accent, lineHeight: 1.2, letterSpacing: '0.04em', textTransform: 'uppercase' }} noWrap>
+                        <Typography sx={{ fontSize: '0.59375rem', fontWeight: 700, color: accent, lineHeight: 1.2, letterSpacing: '0.05em', textTransform: 'uppercase' }} noWrap>
                           {account.persona}
                         </Typography>
-                        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700, color: 'text.primary', lineHeight: 1.3 }} noWrap>
+                        <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: 'text.primary', lineHeight: 1.25 }} noWrap>
                           {account.name.startsWith('Dr.') ? account.name.split(' ').slice(0, 2).join(' ') : account.name.split(' ')[0]}
                           <Box component="span" sx={{ fontWeight: 500, color: 'text.secondary' }}> · {short}</Box>
                         </Typography>
@@ -290,10 +302,10 @@ export const LoginPage = () => {
                         aria-hidden
                         sx={{
                           position: 'absolute',
-                          top: 6,
-                          right: 6,
-                          width: 16,
-                          height: 16,
+                          top: 5,
+                          right: 5,
+                          width: 13,
+                          height: 13,
                           borderRadius: '50%',
                           display: 'grid',
                           placeItems: 'center',
@@ -302,7 +314,7 @@ export const LoginPage = () => {
                           transform: selected ? 'scale(1)' : 'scale(0)',
                           opacity: selected ? 1 : 0,
                           transition: 'transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 200ms ease',
-                          '& svg': { fontSize: 12 },
+                          '& svg': { fontSize: 10 },
                         }}
                       >
                         <CheckRoundedIcon />
@@ -313,7 +325,7 @@ export const LoginPage = () => {
               </Box>
 
               {/* Divider with label */}
-              <Stack direction="row" alignItems="center" spacing={1.5} sx={{ my: 2.25 }}>
+              <Stack direction="row" alignItems="center" spacing={1.5} sx={{ my: 1.75 }}>
                 <Box sx={{ flex: 1, height: '1px', bgcolor: 'divider' }} />
                 <Typography sx={{ fontSize: '0.71875rem', color: 'text.disabled', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                   or use your credentials
@@ -509,7 +521,8 @@ export const LoginPage = () => {
             overflow: 'hidden',
             background: 'linear-gradient(135deg, #161A52 0%, #2B1F70 55%, #4A33A8 100%)',
             '&::before': { content: '""', position: 'absolute', inset: 0, background: 'radial-gradient(circle at 85% 20%, rgba(34,211,238,0.35), transparent 50%)' },
-            ...enterAt(320),
+            ...enter(320),
+            ...intro.styles.chrome,
           }}
         >
           <Stack direction="row" sx={{ position: 'relative', flexShrink: 0 }}>
@@ -524,13 +537,13 @@ export const LoginPage = () => {
             ))}
           </Stack>
           <Box sx={{ position: 'relative', minWidth: 0 }}>
-            <Typography sx={{ fontFamily: '"Rubik", sans-serif', fontWeight: 600, fontSize: '0.9375rem', lineHeight: 1.25 }}>One unified portal for student life</Typography>
-            <Typography sx={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.72)' }}>Schedules, deadlines, grades and tuition in one place.</Typography>
+            <Typography sx={{ fontFamily: '"Rubik", sans-serif', fontWeight: 600, fontSize: '0.9375rem', lineHeight: 1.25 }}>One unified portal for campus life</Typography>
+            <Typography sx={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.72)' }}>Students, faculty and administrators in one place.</Typography>
           </Box>
         </Box>
 
         {/* Footer info */}
-        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="center" spacing={{ xs: 0.75, sm: 2 }} sx={{ color: 'text.secondary', pt: 2, borderTop: 1, borderColor: alpha('#4651DE', 0.08), ...enterAt(260) }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="center" spacing={{ xs: 0.75, sm: 2 }} sx={{ color: 'text.secondary', pt: 2, borderTop: 1, borderColor: alpha('#4651DE', 0.08), ...enter(260), ...intro.styles.chrome }}>
           <Typography variant="caption">© 2026 EdunexusAI Higher Education</Typography>
           <Stack direction="row" alignItems="center" spacing={0.5}>
             <VerifiedUserOutlinedIcon sx={{ fontSize: 15, color: 'success.main' }} />
@@ -541,6 +554,7 @@ export const LoginPage = () => {
 
       {/* Campus experience */}
       <Box
+        ref={sceneRef}
         sx={{
           position: { md: 'sticky' },
           top: 0,
@@ -551,10 +565,13 @@ export const LoginPage = () => {
           display: { xs: 'none', md: 'block' },
           p: { md: 1.5, lg: 2 },
           pl: { md: 0, lg: 0 },
+          ...intro.styles.scene,
         }}
       >
-        <CampusScene />
+        <CampusScene entranceDelay={intro.entranceDelay} />
       </Box>
+
+      <LoginIntroOverlay intro={intro} />
 
       {/* Forgot Password Modal (Demo Hint) */}
       <Modal

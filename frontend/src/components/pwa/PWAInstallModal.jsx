@@ -65,7 +65,7 @@ export const PWAInstallModal = () => {
             sx={{ width: 56, height: 56, borderRadius: 3.5, boxShadow: 3, flexShrink: 0 }}
           />
           <Box sx={{ minWidth: 0, flex: 1 }}>
-            <Typography variant="subtitle1" component="h4" sx={{ fontWeight: 600 }}>EdunexusAI Student Portal</Typography>
+            <Typography variant="subtitle1" component="h4" sx={{ fontWeight: 600 }}>EdunexusAI University Portal</Typography>
             <Typography variant="caption">Official University Student Application (PWA)</Typography>
             <Stack direction="row" useFlexGap flexWrap="wrap" spacing={0.75} sx={{ mt: 0.75 }}>
               <Badge variant="success">Fast & Offline Ready</Badge>

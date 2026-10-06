@@ -1,7 +1,7 @@
 {
-  "name": "EdunexusAI Student Portal",
+  "name": "EdunexusAI University Portal",
   "short_name": "EdunexusAI",
-  "description": "Unified university student experience portal for academic, financial, administrative, and campus services.",
+  "description": "Unified university portal for students, faculty and administrators: academic, financial, administrative and campus services.",
   "start_url": "/",
   "scope": "/",
   "id": "/",
