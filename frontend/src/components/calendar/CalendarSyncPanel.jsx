@@ -83,7 +83,7 @@ export function CalendarSyncPanel() {
         footer={<Button icon={CheckCircleRoundedIcon} loading={busy === 'connect'} onClick={() => run('connect', () => calendarSyncApi.connect(connecting.key, email || undefined), `${connecting.label} connected and synced.`).then(() => setConnecting(null))}>Authorize & sync</Button>}
       >
         <Stack spacing={2}>
-          <Typography variant="body2">EdunexusAI will add your class meetings, academic dates, advising appointments and group events to this calendar, and keep them updated.</Typography>
+          <Typography variant="body2">The portal will add your class meetings, academic dates, advising appointments and group events to this calendar, and keep them updated.</Typography>
           <TextField label="Calendar account email (optional)" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
         </Stack>
       </Modal>

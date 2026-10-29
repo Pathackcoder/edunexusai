@@ -1,6 +1,5 @@
-import bcrypt from 'bcryptjs';
+import { hashPassword } from '../../src/modules/auth/passwords.js';
 import { DEMO_PASSWORDS, SIS_IDS, TENANT_SLUG, loadFixture } from './shared.js';
-import { env } from '../../src/config/env.js';
 
 /**
  * Roles, the widget catalogue, the demo tenant, student tiers, tier entitlements,
@@ -128,15 +127,16 @@ export async function seedRolesAndWidgets(prisma) {
 export async function seedTenant(prisma) {
   return prisma.tenant.upsert({
     where: { slug: TENANT_SLUG },
+    // The slug stays as the stable internal key; the display identity is Feddrick University.
     create: {
       slug: TENANT_SLUG,
-      name: 'Demo University',
-      shortName: 'Demo U',
-      domain: 'demouniversity.edu',
+      name: 'Feddrick University',
+      shortName: 'Feddrick',
+      domain: 'feddrick.edu',
       timezone: 'America/New_York',
       isActive: true,
     },
-    update: { name: 'Demo University' },
+    update: { name: 'Feddrick University', shortName: 'Feddrick', domain: 'feddrick.edu' },
   });
 }
 
@@ -188,7 +188,7 @@ export async function seedTiers(prisma, tenant, widgets) {
 }
 
 async function createUser(prisma, tenant, roles, { email, password, firstName, lastName, phone, roleKeys }) {
-  const passwordHash = await bcrypt.hash(password, env.bcryptRounds);
+  const passwordHash = await hashPassword(password);
   const user = await prisma.user.upsert({
     where: { tenantId_email: { tenantId: tenant.id, email } },
     create: { tenantId: tenant.id, email, passwordHash, firstName, lastName, phone, status: 'ACTIVE' },

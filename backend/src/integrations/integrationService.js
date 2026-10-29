@@ -1,7 +1,7 @@
 import { prisma } from '../db/prisma.js';
 import { createConnector, getMapper, listProviders } from './registry.js';
 import { hasCredential } from '../config/env.js';
-import { AppError, ErrorCode, notFound } from '../utils/errors.js';
+import { AppError, ErrorCode, notFound, operationNotSupported } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -16,6 +16,34 @@ import { logger } from '../utils/logger.js';
  *   - run the call, time it, and record health + a sync log row
  *   - never leak a credential or a provider field name upward
  */
+
+/** Providers that are LMS-only and may not be selected as a source for SyncDomain data. */
+export const LMS_ONLY_PROVIDERS = ['MOODLE'];
+/**
+ * Providers read live and never copied into local academic tables by the generic sync.
+ * CampusCore is the SIS system of record: its data is fetched per request through the
+ * SIS portal service, so a local copy would become a stale competing source.
+ */
+export const LIVE_ONLY_PROVIDERS = ['MOODLE', 'CAMPUSCORE'];
+
+/**
+ * SIS synchronisation writes official courses, enrolments, assignments and grades.
+ * LMS-only connectors are refused here, whichever way the sync was triggered.
+ */
+export function assertSisCapable(integration) {
+  if (integration.provider === 'CAMPUSCORE') {
+    throw operationNotSupported(
+      `${integration.displayName} is read live through the SIS portal service and is never copied into local academic tables, so the generic sync does not apply.`,
+      { integrationKey: integration.key, provider: integration.provider, reason: 'LIVE_READ_PROVIDER' },
+    );
+  }
+  if (LMS_ONLY_PROVIDERS.includes(integration.provider)) {
+    throw operationNotSupported(
+      `${integration.displayName} is an LMS connector. SIS synchronisation (official courses, enrolments, assignments and grades) does not apply to it; use the Moodle LMS actions (e.g. Read rosters) instead.`,
+      { integrationKey: integration.key, provider: integration.provider, reason: 'LMS_ONLY_PROVIDER' },
+    );
+  }
+}
 
 export const SyncDomain = {
   COURSES: 'COURSES',
@@ -83,7 +111,9 @@ export async function getIntegrationByKey(tenantId, key) {
 /** First enabled integration that declares support for a domain. */
 export async function resolveIntegrationForDomain(tenantId, domain) {
   const row = await prisma.integration.findFirst({
-    where: { tenantId, enabled: true, supportedDomains: { has: domain }, mode: { not: 'DISABLED' } },
+    // LMS-only providers never serve the canonical academic domains, whatever their
+    // configuration says: their records must not overwrite the system of record.
+    where: { tenantId, enabled: true, supportedDomains: { has: domain }, mode: { not: 'DISABLED' }, provider: { notIn: LIVE_ONLY_PROVIDERS } },
     orderBy: { createdAt: 'asc' },
   });
   if (!row) {
@@ -113,7 +143,19 @@ async function startSyncLog({ tenantId, integrationId, operation, userId }) {
   });
 }
 
-async function finishSyncLog(logId, { status, recordsProcessed = 0, errorMessage = null, startedAt }) {
+/** Classify a failed operation for the sync log, so causes are distinguishable at a glance. */
+export function outcomeOfError(error) {
+  if (error?.code === ErrorCode.OPERATION_NOT_SUPPORTED) return error.details?.reason === 'NOT_IMPLEMENTED' ? 'NOT_IMPLEMENTED' : 'NOT_SUPPORTED';
+  const kind = error?.details?.kind;
+  if (kind === 'FUNCTION_NOT_ENABLED') return 'FUNCTION_NOT_ENABLED';
+  if (kind === 'ACCESS_DENIED') return 'PERMISSION_DENIED';
+  if (kind === 'AUTH_FAILED') return 'AUTH_FAILED';
+  if (['TIMEOUT', 'UNREACHABLE', 'UNAVAILABLE', 'HTTP_ERROR'].includes(kind)) return 'NETWORK';
+  if (error?.code === ErrorCode.INTEGRATION_NOT_CONFIGURED) return 'NOT_CONFIGURED';
+  return 'ERROR';
+}
+
+async function finishSyncLog(logId, { status, recordsProcessed = 0, errorMessage = null, startedAt, outcome = null }) {
   const completedAt = new Date();
   return prisma.integrationSyncLog.update({
     where: { id: logId },
@@ -123,6 +165,7 @@ async function finishSyncLog(logId, { status, recordsProcessed = 0, errorMessage
       durationMs: completedAt.getTime() - startedAt.getTime(),
       recordsProcessed,
       errorMessage: errorMessage ? String(errorMessage).slice(0, 500) : null,
+      outcome: outcome ?? (status === 'SUCCESS' ? (recordsProcessed > 0 ? 'RECORDS' : 'EMPTY') : status === 'PARTIAL' ? 'PARTIAL' : 'ERROR'),
     },
   });
 }
@@ -195,12 +238,18 @@ export async function runIntegrationOperation({ integration, operation, run, use
       status: 'FAILED',
       errorMessage: error.message,
       startedAt,
+      outcome: outcomeOfError(error),
     });
 
     // A provider that is only configured (Banner/Ethos) is NOT_CONNECTED, not ERROR:
-    // nothing is broken, it was simply never wired up.
+    // nothing is broken, it was simply never wired up. An operation the connector does
+    // not support says nothing about the connection, so its health is left as it was.
     const status =
-      error.code === ErrorCode.INTEGRATION_NOT_CONFIGURED ? 'NOT_CONNECTED' : 'ERROR';
+      error.code === ErrorCode.OPERATION_NOT_SUPPORTED
+        ? integration.status
+        : error.code === ErrorCode.INTEGRATION_NOT_CONFIGURED
+          ? 'NOT_CONNECTED'
+          : 'ERROR';
     await recordHealth(integration.id, {
       status,
       errorMessage: error.message,

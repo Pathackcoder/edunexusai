@@ -28,6 +28,8 @@ enum RoleKey {
   STUDENT
   FACULTY
   ADMIN
+  STAFF
+  ALUMNI
 }
 
 enum UserStatus {
@@ -52,6 +54,8 @@ enum ProfileChangeStatus {
 enum IntegrationProvider {
   MOCK_UNIVERSITY
   CANVAS
+  MOODLE
+  CAMPUSCORE
   BANNER
   ETHOS
   WORKDAY
@@ -99,16 +103,21 @@ enum SourceSystem {
 // ---------------------------------------------------------------------------
 
 model Tenant {
-  id        String   @id @default(uuid())
-  slug      String   @unique
-  name      String
-  shortName String?
-  domain    String?
-  timezone  String   @default("America/New_York")
-  logoUrl   String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                  String    @id @default(uuid())
+  slug                String    @unique
+  name                String
+  shortName           String?
+  domain              String?
+  timezone            String    @default("America/New_York")
+  logoUrl             String?
+  isActive            Boolean   @default(true)
+  /// Portal appearance chosen by the institution's administrators (keys of the presets
+  /// defined in the frontend theme module; validated by the API).
+  appearanceTheme     String    @default("navy-white")
+  appearanceFont      String    @default("modern-campus")
+  appearanceUpdatedAt DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   users                   User[]
   studentTiers            StudentTier[]
@@ -142,6 +151,7 @@ model Tenant {
   integrations            Integration[]
   integrationSyncLogs     IntegrationSyncLog[]
   externalIdentities      ExternalIdentity[]
+  integrationOperations   IntegrationOperation[]
   serviceRequests         ServiceRequest[]
   supportTickets          SupportTicket[]
   portalForms             PortalForm[]
@@ -166,8 +176,11 @@ model Tenant {
   studentProfiles         StudentProfile[]
   facultyProfiles         FacultyProfile[]
   staffProfiles           StaffProfile[]
+  identityProviders       IdentityProvider[]
+  federatedIdentities     FederatedIdentity[]
 
   @@map("tenants")
+  sisSectionMoodleCourses SisSectionMoodleCourse[]
 }
 
 model Role {
@@ -183,18 +196,21 @@ model Role {
 }
 
 model User {
-  id           String     @id @default(uuid())
-  tenantId     String
-  email        String
-  passwordHash String
-  firstName    String
-  lastName     String
-  phone        String?
-  locale       String     @default("en")
-  status       UserStatus @default(ACTIVE)
-  lastLoginAt  DateTime?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id                     String     @id @default(uuid())
+  tenantId               String
+  email                  String
+  /// Always a bcrypt hash (see src/modules/auth/passwords.js).
+  passwordHash           String
+  /// Set when an administrator issued a temporary password; cleared when the user sets their own.
+  passwordChangeRequired Boolean    @default(false)
+  firstName              String
+  lastName               String
+  phone                  String?
+  locale                 String     @default("en")
+  status                 UserStatus @default(ACTIVE)
+  lastLoginAt            DateTime?
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -238,6 +254,9 @@ model User {
   learningPaths        UserLearningPath[]
   learningStepProgress LearningStepProgress[]
   assistantMessages    AssistantMessage[]
+  federatedIdentities  FederatedIdentity[]
+  roleSources          RoleAssignmentSource[]
+  ssoSessions          SsoSession[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -332,6 +351,13 @@ model WidgetEntitlement {
 // Persona profiles
 // ---------------------------------------------------------------------------
 
+/// Portal anchor for a student account (tier, preferences, finance/library/request links).
+/// DEPRECATED academic columns (CampusCore SIS is the system of record; read /sis/me/*):
+/// degree, department, academicStanding, admitTerm, currentTerm, creditsCompleted,
+/// totalCreditsRequired, cumulativeGpa, majorGpa, semesterGpa, honors. They are no longer
+/// shown as academic facts and are left empty for accounts provisioned from CampusCore.
+/// Kept (not dropped) until a separately approved clean-up. `studentNumber` holds the
+/// CampusCore institutional ID for provisioned accounts (an identifier, not a profile).
 model StudentProfile {
   id                   String   @id @default(uuid())
   tenantId             String
@@ -447,6 +473,8 @@ model StaffProfile {
 // carry their provenance. Edunexus owns the overlay rows (submissions, reads).
 // ---------------------------------------------------------------------------
 
+/// DEPRECATED for SIS-owned pages: local demo term. CampusCore terms are read live.
+/// Still referenced by local demo courses (faculty gradebook, planning). Not dropped.
 model Term {
   id        String    @id @default(uuid())
   tenantId  String
@@ -466,33 +494,39 @@ model Term {
 }
 
 model Course {
-  id               String       @id @default(uuid())
-  tenantId         String
-  termId           String
-  code             String
-  name             String
-  credits          Int          @default(0)
-  description      String?
-  room             String?
-  meetingDays      String[]
-  dayCodes         String[]
-  timeLabel        String?
-  startTime        String?
-  endTime          String?
-  colorHex         String?
-  bgColorHex       String?
-  borderColorHex   String?
-  syllabusUrl      String?
-  instructorUserId String?
-  instructorName   String?
-  instructorEmail  String?
-  officeHours      String?
-  lmsUrl           String?
-  sourceSystem     SourceSystem @default(EDUNEXUS)
-  externalId       String?
-  lastSyncedAt     DateTime?
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  id                String       @id @default(uuid())
+  tenantId          String
+  termId            String
+  code              String
+  name              String
+  credits           Int          @default(0)
+  description       String?
+  room              String?
+  meetingDays       String[]
+  dayCodes          String[]
+  timeLabel         String?
+  startTime         String?
+  endTime           String?
+  colorHex          String?
+  bgColorHex        String?
+  borderColorHex    String?
+  syllabusUrl       String?
+  instructorUserId  String?
+  instructorName    String?
+  instructorEmail   String?
+  officeHours       String?
+  lmsUrl            String?
+  /// Gradebook: POINTS (earned / possible) or WEIGHTED (assignment weights).
+  gradingMethod     String       @default("POINTS")
+  /// Gradebook: EXCLUDE missing work from totals, or count past-due missing work as ZERO.
+  missingWorkPolicy String       @default("EXCLUDE")
+  /// Gradebook: percentage below which a student is flagged for follow-up.
+  atRiskThreshold   Int          @default(70)
+  sourceSystem      SourceSystem @default(EDUNEXUS)
+  externalId        String?
+  lastSyncedAt      DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 
   tenant     Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   term       Term   @relation(fields: [termId], references: [id], onDelete: Cascade)
@@ -508,6 +542,9 @@ model Course {
   @@map("courses")
 }
 
+/// DEPRECATED as an academic record: registrations and published grades are CampusCore's
+/// (read via /sis/me/overview). These rows remain for the local demo gradebook, planning and
+/// mock-provider sync only, and are not shown as the student's official record. Not dropped.
 model Enrollment {
   id               String       @id @default(uuid())
   tenantId         String
@@ -538,6 +575,7 @@ model Enrollment {
 
 /// Per-course grade breakdown rows ("assignments 96%", "midterm 94%").
 /// Relational instead of a JSON blob so the breakdown stays queryable.
+/// DEPRECATED: local demo grade breakdown. Published grades are CampusCore's. Not dropped.
 model GradeComponent {
   id           String   @id @default(uuid())
   enrollmentId String
@@ -564,6 +602,8 @@ model Assignment {
   points         Int          @default(0)
   submissionType String?
   weightLabel    String?
+  /// Gradebook weight (percent of the course grade) used by WEIGHTED courses.
+  weight         Decimal?     @db.Decimal(6, 2)
   sourceSystem   SourceSystem @default(EDUNEXUS)
   externalId     String?
   lastSyncedAt   DateTime?
@@ -583,17 +623,25 @@ model Assignment {
 
 /// Edunexus-owned overlay on integration-owned assignments: the student's own state.
 model AssignmentSubmission {
-  id               String    @id @default(uuid())
-  tenantId         String
-  assignmentId     String
-  studentProfileId String
-  status           String    @default("Pending")
-  submittedAt      DateTime?
-  score            Int?
-  submissionNote   String?
-  submissionRef    String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id                String    @id @default(uuid())
+  tenantId          String
+  assignmentId      String
+  studentProfileId  String
+  status            String    @default("Pending")
+  submittedAt       DateTime?
+  /// The PUBLISHED score: the only score students (and any student-facing API) ever see.
+  score             Decimal?  @db.Decimal(7, 2)
+  /// Faculty gradebook draft. `hasDraft` marks a pending change (a value, or clearing).
+  draftScore        Decimal?  @db.Decimal(7, 2)
+  hasDraft          Boolean   @default(false)
+  gradedAt          DateTime?
+  gradedByUserId    String?
+  publishedAt       DateTime?
+  publishedByUserId String?
+  submissionNote    String?
+  submissionRef     String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   assignment     Assignment     @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
@@ -601,6 +649,7 @@ model AssignmentSubmission {
 
   @@unique([assignmentId, studentProfileId])
   @@index([tenantId])
+  @@index([assignmentId, hasDraft])
   @@map("assignment_submissions")
 }
 
@@ -642,6 +691,8 @@ model AnnouncementRead {
   @@map("announcement_reads")
 }
 
+/// DEPRECATED: the academic calendar is CampusCore's (/sis/calendar). No page reads this
+/// table any more; it is kept until a separately approved clean-up.
 model AcademicEvent {
   id          String   @id @default(uuid())
   tenantId    String
@@ -668,6 +719,9 @@ model AcademicEvent {
 // Transcripts
 // ---------------------------------------------------------------------------
 
+/// DEPRECATED: transcript history, term GPA and standing are CampusCore's. Still read only by
+/// the local planning features (recommendations, insights trend), which are labelled as
+/// EduNexusAI demo data. Kept until a separately approved clean-up.
 model TranscriptTerm {
   id                 String   @id @default(uuid())
   tenantId           String
@@ -696,6 +750,7 @@ model TranscriptTerm {
   @@map("transcript_terms")
 }
 
+/// DEPRECATED: see TranscriptTerm.
 model TranscriptCourse {
   id               String   @id @default(uuid())
   transcriptTermId String
@@ -1239,8 +1294,9 @@ model Integration {
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
 
-  tenant   Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  syncLogs IntegrationSyncLog[]
+  tenant     Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  syncLogs   IntegrationSyncLog[]
+  operations IntegrationOperation[]
 
   @@unique([tenantId, key])
   @@index([tenantId])
@@ -1258,6 +1314,9 @@ model IntegrationSyncLog {
   durationMs        Int?
   recordsProcessed  Int        @default(0)
   errorMessage      String?
+  /// What actually happened: RECORDS, EMPTY, NOT_IMPLEMENTED, NOT_SUPPORTED,
+  /// FUNCTION_NOT_ENABLED, PERMISSION_DENIED, AUTH_FAILED, NETWORK, PARTIAL, ERROR.
+  outcome           String?
   triggeredByUserId String?
 
   tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -1273,20 +1332,69 @@ model IntegrationSyncLog {
 /// (bannerStudentId, canvasUserId, externalCourseId) out of the domain models
 /// and out of every API response.
 model ExternalIdentity {
-  id         String              @id @default(uuid())
-  tenantId   String
-  provider   IntegrationProvider
-  entityType String
-  externalId String
-  internalId String
-  createdAt  DateTime            @default(now())
-  updatedAt  DateTime            @updatedAt
+  id                  String              @id @default(uuid())
+  tenantId            String
+  provider            IntegrationProvider
+  entityType          String
+  externalId          String
+  internalId          String
+  /// Set (to internalId) only for one-to-one links such as a Moodle user or course, so
+  /// one local record can never be linked to two external records. Left null for
+  /// many-to-one sync mappings, which keep their existing behaviour.
+  exclusiveInternalId String?
+  /// ACTIVE | SUSPENDED (external account suspended; link and history preserved)
+  status              String              @default("ACTIVE")
+  /// How the link was established: PROVISIONED, VERIFIED_EMAIL, IDNUMBER_MATCH, SYNC
+  linkMethod          String?
+  linkedByUserId      String?
+  verifiedAt          DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, provider, entityType, externalId])
+  @@unique([tenantId, provider, entityType, exclusiveInternalId])
   @@index([tenantId, entityType, internalId])
   @@map("external_identities")
+}
+
+/// One cross-system write (create a Moodle user, enrol a student...). PostgreSQL and the
+/// external system share no transaction, so each step is recorded and observable:
+/// PENDING -> SUCCEEDED | FAILED | NEEDS_RECONCILIATION | BLOCKED. A retry re-runs the
+/// same handler, which always looks the object up in the external system before
+/// creating it, so an uncertain earlier attempt never produces a duplicate.
+model IntegrationOperation {
+  id                String    @id @default(uuid())
+  tenantId          String
+  integrationId     String
+  /// e.g. USER.PROVISION, COURSE.CREATE, ENROLMENT.ADD, USER.SUSPEND
+  operation         String
+  /// Stable key for the intent, e.g. USER.PROVISION:<studentProfileId>
+  idempotencyKey    String
+  status            String    @default("PENDING")
+  entityType        String
+  internalId        String?
+  externalId        String?
+  /// Non-secret request parameters needed to retry. Never passwords or tokens.
+  request           Json?
+  result            Json?
+  errorKind         String?
+  errorMessage      String?
+  attempts          Int       @default(0)
+  correlationId     String
+  triggeredByUserId String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  completedAt       DateTime?
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  integration Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, status])
+  @@index([integrationId, createdAt])
+  @@map("integration_operations")
 }
 
 // Role-level dashboard visibility. Student entitlements remain tier-driven.
@@ -2004,4 +2112,182 @@ model AssistantMessage {
 
   @@index([userId, createdAt])
   @@map("assistant_messages")
+}
+
+/// Which Moodle course delivers a CampusCore section (the LMS side of a registered class).
+/// Owned by EduNexusAI as integration configuration; holds only the two systems' stable ids.
+/// Many sections may share one Moodle course; a section has at most one. A section with no
+/// row has no Moodle course, which is a valid state (not every class uses the LMS).
+model SisSectionMoodleCourse {
+  id             String   @id @default(uuid())
+  tenantId       String
+  sisSectionId   String
+  sisTermId      String
+  moodleCourseId Int
+  linkedByUserId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, sisSectionId])
+  @@index([tenantId, moodleCourseId])
+  @@index([tenantId, sisTermId])
+  @@map("sis_section_moodle_courses")
+}
+
+/// An institution's sign-in identity provider (OpenID Connect: Keycloak or the university's own).
+/// The client secret is never stored: `clientSecretEnv` names the server environment variable that
+/// holds it. Disabled by default; a provider only ever serves its own tenant.
+model IdentityProvider {
+  id                         String   @id @default(uuid())
+  tenantId                   String
+  /// URL-safe key used in sign-in links, unique per tenant (e.g. "feddrick-sso").
+  key                        String
+  displayName                String
+  issuer                     String
+  clientId                   String
+  clientSecretEnv            String?
+  scopes                     String   @default("openid email profile")
+  /// Dotted claim path of the institutional student number / employee number in the ID token.
+  studentIdClaim             String?
+  employeeIdClaim            String?
+  /// Institutional policy: the provider's employee number establishes a staff record.
+  employeeIdEstablishesStaff Boolean  @default(false)
+  enabled                    Boolean  @default(false)
+  /// Development only (an http issuer such as a local Keycloak); refused in production.
+  allowInsecureHttp          Boolean  @default(false)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  tenant              Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  roleMappings        IdentityRoleMapping[]
+  federatedIdentities FederatedIdentity[]
+  roleSources         RoleAssignmentSource[]
+  ssoSessions         SsoSession[]
+
+  @@unique([tenantId, key])
+  @@map("identity_providers")
+}
+
+/// Institution-specific rule: a value of one claim (roles, groups, affiliation) is EVIDENCE for one
+/// EdunexusAI community role. Administrative roles can never be a target (also a CHECK constraint).
+model IdentityRoleMapping {
+  id              String   @id @default(uuid())
+  tenantId        String
+  providerId      String
+  /// Dotted claim path, e.g. "realm_access.roles", "groups", "eduPersonAffiliation".
+  claim           String
+  externalValue   String
+  targetRole      RoleKey
+  enabled         Boolean  @default(true)
+  note            String?
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  provider IdentityProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, claim, externalValue, targetRole])
+  @@index([tenantId])
+  @@map("identity_role_mappings")
+}
+
+/// The stable link between an EdunexusAI account and an external identity (issuer + subject).
+model FederatedIdentity {
+  id             String    @id @default(uuid())
+  tenantId       String
+  userId         String
+  providerId     String
+  issuer         String
+  subject        String
+  emailAtLink    String?
+  /// INSTITUTIONAL_ID (verified institutional numbers) or ADMIN (linked by an administrator)
+  linkMethod     String
+  linkedAt       DateTime  @default(now())
+  lastLoginAt    DateTime?
+  /// The last sign-in's role evaluation: mapped, granted, withheld (with reasons) and unknown values.
+  lastEvaluation Json?
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider IdentityProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([issuer, subject])
+  @@unique([providerId, userId])
+  @@index([userId])
+  @@map("federated_identities")
+}
+
+/// Why a role is held. `user_roles` says WHICH roles a person holds; each row here is one source of
+/// one of them: EXISTING (held before provenance was recorded), MANUAL (assigned by an
+/// administrator), SIS (established from a verified SIS record link), IDP (asserted by an identity
+/// provider under the institution's mapping rules). A sign-in removes only its own IDP sources, and
+/// removes the role itself only when that grant created it and no other source remains.
+model RoleAssignmentSource {
+  id              String   @id @default(uuid())
+  tenantId        String
+  userId          String
+  roleKey         RoleKey
+  source          String
+  /// source, or "IDP:<providerId>": one row per role and source.
+  sourceKey       String
+  providerId      String?
+  grantedByUserId String?
+  createdRole     Boolean  @default(false)
+  evidence        Json?
+  createdAt       DateTime @default(now())
+  confirmedAt     DateTime @default(now())
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider IdentityProvider? @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleKey, sourceKey])
+  @@index([tenantId])
+  @@map("role_assignment_sources")
+}
+
+/// An EdunexusAI session that began with an institutional sign-in. Its id travels in the session tokens
+/// (`sid`); while it is not ended, the session works. Ending it (portal logout, the provider's back-channel
+/// logout, unlinking the identity, disabling the provider) stops the access token on the next request and
+/// the refresh token. `idTokenSealed` (AES-256-GCM) is kept only to end the provider session without a
+/// confirmation page (id_token_hint).
+model SsoSession {
+  id            String    @id @default(uuid())
+  tenantId      String
+  userId        String
+  providerId    String
+  subject       String
+  /// The provider's own session id (ID token "sid"), used by back-channel logout.
+  idpSessionId  String?
+  idTokenSealed String?
+  createdAt     DateTime  @default(now())
+  expiresAt     DateTime
+  endedAt       DateTime?
+  endedReason   String?
+
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider IdentityProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([providerId, idpSessionId])
+  @@index([providerId, subject])
+  @@map("sso_sessions")
+}
+
+/// Single-use hand-off from the sign-in callback to the browser app. Only the SHA-256 of the code is
+/// stored; it is consumed atomically (one conditional update) and expires after 60 seconds. It holds no
+/// tokens: the session is issued only when the code is exchanged. Shared by every backend instance.
+model SsoHandoff {
+  codeHash     String    @id
+  tenantId     String
+  userId       String
+  ssoSessionId String
+  returnTo     String
+  expiresAt    DateTime
+  consumedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([expiresAt])
+  @@map("sso_handoffs")
 }

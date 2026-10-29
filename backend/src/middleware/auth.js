@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { prisma } from '../db/prisma.js';
 import { env } from '../config/env.js';
 import { AppError, ErrorCode, forbidden, unauthenticated } from '../utils/errors.js';
+import { activeSsoSession } from '../modules/identity/ssoSessions.js';
 
 /**
  * Request context attached by `requireAuth`:
@@ -62,6 +63,20 @@ export async function requireAuth(req, _res, next) {
       throw new AppError(403, ErrorCode.TENANT_MISMATCH, 'Token does not belong to this institution.');
     }
 
+    // A temporary password issued by an administrator must be replaced before the account
+    // can do anything else; only the session endpoints (/auth/me, /auth/password, logout) remain.
+    // An institutional (SSO) session never used the local password, so a pending local password change
+    // does not block it.
+    const ssoSession = Array.isArray(payload.amr) && payload.amr.includes('oidc');
+    if (user.passwordChangeRequired && !ssoSession && !String(req.baseUrl).endsWith('/auth')) {
+      throw new AppError(403, ErrorCode.PASSWORD_CHANGE_REQUIRED, 'Choose a new password before continuing.');
+    }
+    // ...and it lasts only while its sso_sessions row is live (not logged out at the portal or the provider,
+    // identity still linked, provider still enabled).
+    if (ssoSession && !(await activeSsoSession(payload.sid, user.id))) {
+      throw unauthenticated('Your institutional sign-in has ended. Please sign in again.');
+    }
+
     req.auth = {
       userId: user.id,
       tenantId: user.tenantId,
@@ -76,6 +91,8 @@ export async function requireAuth(req, _res, next) {
       studentProfileId: user.studentProfile?.id ?? null,
       facultyProfileId: user.facultyProfile?.id ?? null,
       staffProfileId: user.staffProfile?.id ?? null,
+      // How this session started: PASSWORD, or SSO with the institution's provider key.
+      signIn: ssoSession ? { method: 'SSO', provider: payload.idp ?? null, sid: payload.sid } : { method: 'PASSWORD', provider: null },
     };
 
     return next();

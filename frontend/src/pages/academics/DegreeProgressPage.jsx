@@ -19,7 +19,9 @@ import { Badge } from '../../components/common/Badge';
 import { DataState } from '../../components/common/DataState';
 import { ProgressRing, SERIES_COLORS } from '../../components/charts/Charts';
 import { useApiQuery } from '../../hooks/useApiQuery';
-import { planningApi } from '../../services/api';
+import { sisApi } from '../../services/api';
+import { SisNotice } from '../../components/sis/SisNotice';
+import { pretty } from '../../components/sis/sisData';
 
 const STATUS = {
   COMPLETE: { label: 'Complete', tone: 'success', icon: TaskAltRoundedIcon },
@@ -36,69 +38,49 @@ const CreditBar = ({ completed, inProgress, required }) => (
   </Box>
 );
 
-/** Degree audit: credits by requirement category, computed from the transcript. */
+/**
+ * Degree progress. Program, credits and standing come from CampusCore SIS. CampusCore's
+ * integration API (v1) does not expose degree requirements or a requirement-by-requirement
+ * audit, so none is invented here from local records.
+ */
 export const DegreeProgressPage = () => {
-  const { data, loading, error, refetch } = useApiQuery(() => planningApi.degreeProgress());
+  const { data, loading, error, refetch } = useApiQuery(() => sisApi.myOverview());
+  const academic = data?.state === 'OK' && data.academic.state === 'OK' ? data.academic.data : null;
+  const profile = data?.state === 'OK' && data.profile.state === 'OK' ? data.profile.data : null;
   return (
     <Box>
-      <PageHeader eyebrow="Academics" title="Degree Progress" description="Where you stand against your program requirements — completed, in progress and still needed." actions={<MuiButton component={RouterLink} to="/academics/recommendations" endIcon={<ArrowForwardRoundedIcon />}>Plan next courses</MuiButton>} />
-      <DataState loading={loading} error={error} onRetry={refetch} loadingLabel="Running your degree audit…">
+      <PageHeader eyebrow="Academics" title="Degree Progress" description="Your program, credits and standing from CampusCore SIS." actions={<MuiButton component={RouterLink} to="/academics/recommendations" endIcon={<ArrowForwardRoundedIcon />}>Plan next courses</MuiButton>} />
+      <DataState loading={loading} error={error} onRetry={refetch} loadingLabel="Loading your record from CampusCore…">
         {() => (
           <Stack spacing={2.5}>
-            <Card sx={(theme) => ({ p: { xs: 2.5, md: 3.5 }, background: `linear-gradient(120deg, ${alpha(theme.palette.primary.main, 0.08)} 0%, ${theme.palette.background.paper} 60%)` })}>
-              <Stack direction={{ xs: 'column', md: 'row' }} spacing={3.5} alignItems={{ md: 'center' }}>
-                <ProgressRing value={data.percentComplete} secondary={data.projectedPercent - data.percentComplete} size={168} sublabel="complete" label="Degree completion" />
-                <Box sx={{ flex: 1 }}>
-                  <Chip icon={<SchoolOutlinedIcon />} label={data.program} sx={{ mb: 1.5, bgcolor: 'background.paper' }} />
-                  <Typography variant="h4" component="h2">{data.completedCredits} of {data.totalRequired} credits earned</Typography>
-                  <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                    {data.inProgressCredits} credits in progress this term · {data.remainingCredits} still needed after that ({data.projectedPercent}% once current courses finish)
-                  </Typography>
-                  <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 1.5, mt: 2.5, maxWidth: 520 }}>
-                    {[
-                      ['Completed', data.completedCredits, SERIES_COLORS[0]],
-                      ['In progress', data.inProgressCredits, SERIES_COLORS[1]],
-                      ['Remaining', data.remainingCredits, '#B26A00'],
-                    ].map(([label, value, color]) => (
-                      <Box key={label} sx={{ p: 1.5, borderRadius: 3, bgcolor: 'background.paper', border: 1, borderColor: 'divider' }}>
-                        <Stack direction="row" spacing={0.75} alignItems="center"><Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: color }} /><Typography variant="caption" color="text.secondary">{label}</Typography></Stack>
-                        <Typography variant="metric" sx={{ fontSize: '1.5rem' }}>{value}</Typography>
-                      </Box>
-                    ))}
-                  </Box>
+            <SisNotice overview={data} section={data?.academic} what="Your academic summary" onRetry={refetch} />
+            {academic && (
+              <Card sx={(theme) => ({ p: { xs: 2.5, md: 3.5 }, background: `linear-gradient(120deg, ${alpha(theme.palette.primary.main, 0.08)} 0%, ${theme.palette.background.paper} 60%)` })}>
+                {profile?.program && <Chip icon={<SchoolOutlinedIcon />} label={`${profile.program.name} (${profile.program.credential})`} sx={{ mb: 1.5, bgcolor: 'background.paper' }} />}
+                <Typography variant="h4" component="h2">{academic.creditsEarned} credits earned</Typography>
+                <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+                  {academic.creditsInProgress} credits in progress · {pretty(academic.level)} · {pretty(academic.standing)}
+                </Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 1.5, mt: 2.5, maxWidth: 520 }}>
+                  {[
+                    ['Earned', academic.creditsEarned, SERIES_COLORS[0]],
+                    ['In progress', academic.creditsInProgress, SERIES_COLORS[1]],
+                    ['Cumulative GPA', academic.gpa != null ? academic.gpa.toFixed(2) : '—', '#B26A00'],
+                  ].map(([label, value, color]) => (
+                    <Box key={label} sx={{ p: 1.5, borderRadius: 3, bgcolor: 'background.paper', border: 1, borderColor: 'divider' }}>
+                      <Stack direction="row" spacing={0.75} alignItems="center"><Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: color }} /><Typography variant="caption" color="text.secondary">{label}</Typography></Stack>
+                      <Typography variant="metric" sx={{ fontSize: '1.5rem' }}>{value}</Typography>
+                    </Box>
+                  ))}
                 </Box>
-              </Stack>
-            </Card>
-            {!data.hasCourseHistory && <Alert severity="info">Course-level history is not available from the SIS for your record, so totals come from your credit summary. Category detail will appear once your transcript is synced.</Alert>}
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 2 }}>
-              {data.categories.map((cat) => {
-                const status = STATUS[cat.status] ?? STATUS.REMAINING;
-                const Icon = status.icon;
-                return (
-                  <WidgetCard key={cat.id} title={cat.title} subtitle={cat.description} icon={Icon} tone={status.tone} badge={<Badge variant={status.tone}>{status.label}</Badge>}>
-                    <Stack spacing={1.5}>
-                      <Stack direction="row" justifyContent="space-between"><Typography variant="body2" color="text.secondary">{cat.creditsCompleted} done · {cat.creditsInProgress} in progress</Typography><Typography variant="body2" fontWeight={700}>{cat.creditsCompleted + cat.creditsInProgress} / {cat.creditsRequired} cr</Typography></Stack>
-                      <CreditBar completed={cat.creditsCompleted} inProgress={cat.creditsInProgress} required={cat.creditsRequired} />
-                      <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-                        {cat.completedCourses.map((course) => <Chip key={course.code} size="small" icon={<TaskAltRoundedIcon />} label={`${course.code} · ${course.grade}`} color="success" variant="outlined" />)}
-                        {cat.inProgressCourses.map((course) => <Chip key={course.code} size="small" icon={<PendingOutlinedIcon />} label={`${course.code} · in progress`} color="info" variant="outlined" />)}
-                      </Stack>
-                      {cat.creditsRemaining > 0 && (
-                        <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: 'warning.lighter' }}>
-                          <Typography variant="caption" fontWeight={700} color="warning.dark">{cat.creditsRemaining} credits still needed</Typography>
-                          {cat.options.length > 0 ? (
-                            <Typography variant="body2" color="text.secondary">Options: {cat.options.map((option) => `${option.code} ${option.title}`).join(' · ')}</Typography>
-                          ) : (
-                            <Typography variant="body2" color="text.secondary">Any eligible graduate course counts here.</Typography>
-                          )}
-                        </Box>
-                      )}
-                    </Stack>
-                  </WidgetCard>
-                );
-              })}
-            </Box>
-            <Typography variant="caption" color="text.secondary">Source: {data.source}. Unofficial audit — confirm graduation clearance with your advisor.</Typography>
+              </Card>
+            )}
+            {data?.state === 'OK' && (
+              <Alert severity="info">
+                Requirement-by-requirement progress (degree audit) is kept in CampusCore and is not shared through its integration API yet, so it is not shown here. Use the degree audit in the CampusCore student portal.
+              </Alert>
+            )}
+            <Typography variant="caption" color="text.secondary">Source: CampusCore SIS. Unofficial view — confirm graduation clearance with your advisor.</Typography>
           </Stack>
         )}
       </DataState>

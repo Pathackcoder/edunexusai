@@ -1,23 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <defs>
-    <linearGradient id="m-bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#1E1B4B" />
-      <stop offset="50%" stop-color="#0F172A" />
-      <stop offset="100%" stop-color="#090D16" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs><linearGradient id="fu-tile" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1B2163"/><stop offset="1" stop-color="#2D2178"/></linearGradient>
+  <radialGradient id="fu-glow" cx=".75" cy=".2" r=".7"><stop offset="0" stop-color="#22D3EE" stop-opacity=".22"/><stop offset="1" stop-color="#22D3EE" stop-opacity="0"/></radialGradient></defs>
+  <rect width="512" height="512" rx="0" fill="url(#fu-tile)"/>
+  <rect width="512" height="512" rx="0" fill="url(#fu-glow)"/>
+  <svg x="136" y="136" width="240" height="240" viewBox="0 0 64 72"><defs>
+    <linearGradient id="fu-mark-shield" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#26318A"/>
+      <stop offset="1" stop-color="#121848"/>
     </linearGradient>
-    <linearGradient id="m-pill-grad" x1="0%" y1="100%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#00E5FF" />
-      <stop offset="30%" stop-color="#0091FF" />
-      <stop offset="70%" stop-color="#7C3AED" />
-      <stop offset="100%" stop-color="#D946EF" />
+    <linearGradient id="fu-mark-gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F6DC9A"/>
+      <stop offset="1" stop-color="#C8963A"/>
     </linearGradient>
   </defs>
-
-  <rect width="512" height="512" fill="url(#m-bg-grad)" />
-
-  <g transform="translate(256, 256) scale(0.8) rotate(45) translate(-256, -256)">
-    <rect x="170" y="185" width="46" height="150" rx="23" fill="url(#m-pill-grad)" />
-    <rect x="233" y="130" width="46" height="255" rx="23" fill="url(#m-pill-grad)" />
-    <rect x="296" y="185" width="46" height="150" rx="23" fill="url(#m-pill-grad)" />
-  </g>
+  <path d="M32 2.5 59.5 10.5V34c0 18-12.6 29.8-27.5 35.8C17.1 63.8 4.5 52 4.5 34V10.5Z" fill="url(#fu-mark-shield)" stroke="url(#fu-mark-gold)" stroke-width="2.6" stroke-linejoin="round"/>
+  <path d="M32 8 54.5 14.4V34c0 15-10.3 25-22.5 30.3C19.8 59 9.5 49 9.5 34V14.4Z" fill="none" stroke="#F6DC9A" stroke-opacity=".32" stroke-width="1"/>
+  <path d="M32 13.2 44.8 21H19.2Z" fill="url(#fu-mark-gold)"/>
+  <rect x="20.5" y="22.4" width="23" height="1.8" rx=".9" fill="url(#fu-mark-gold)"/>
+  <rect x="23.5" y="27" width="6.4" height="25.5" rx="1.2" fill="#FFFFFF"/>
+  <rect x="23.5" y="27" width="18" height="5.6" rx="1.2" fill="#FFFFFF"/>
+  <rect x="23.5" y="37.6" width="13" height="5.2" rx="1.2" fill="#FFFFFF"/>
+  <rect x="19" y="54.2" width="26" height="2.4" rx="1.2" fill="url(#fu-mark-gold)"/>
+  <rect x="22" y="58.2" width="20" height="2" rx="1" fill="url(#fu-mark-gold)" fill-opacity=".75"/>
+</svg>
 </svg>

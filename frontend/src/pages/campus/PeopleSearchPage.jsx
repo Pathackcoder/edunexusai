@@ -94,7 +94,7 @@ export const PeopleSearchPage = () => {
         <Box>
           <PageHeader
             title="People Search"
-            description="Find a student, faculty member, or staff member across Demo University."
+            description="Find a student, faculty member, or staff member across Feddrick University."
           />
 
           <Stack spacing={2.5}>

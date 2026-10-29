@@ -34,6 +34,8 @@ export const DataState = ({
   emptyMessage = 'There is no data to show for this view.',
   minHeight = 180,
   skeleton,
+  // Inside a fixed-height card: pass the card body's flex space through to the content.
+  fill = false,
   children,
 }) => {
   // Skeletons instead of spinners: the layout holds still while data arrives.
@@ -53,7 +55,11 @@ export const DataState = ({
   }
 
   // Content fades in where its skeleton was.
-  return <FadeIn>{typeof children === 'function' ? children() : children}</FadeIn>;
+  return (
+    <FadeIn sx={fill ? { flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' } : undefined}>
+      {typeof children === 'function' ? children() : children}
+    </FadeIn>
+  );
 };
 
 /** Error presentation that distinguishes a permission problem and an upstream outage. */

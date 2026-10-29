@@ -1,6 +1,15 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { PasswordChangeRequired } from './components/auth/PasswordChangeRequired';
+import { ChangePasswordPage } from './pages/profile/ChangePasswordPage';
+import { CampusNewsPage } from './pages/cms/CampusNewsPage';
+
+const StudioApp = lazy(() => import('./pages/studio/StudioApp'));
+const CmsPage = lazy(() => import('./pages/cms/CmsPage'));
+const PublicLandingPage = lazy(() => import('./pages/public/PublicLandingPage'));
+const PublicCmsPage = lazy(() => import('./pages/public/PublicLandingPage').then((m) => ({ default: m.PublicCmsPage })));
+import { AppearanceSessionSync } from './context/AppearanceContext';
 import { FinanceProvider } from './context/FinanceContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { ToastProvider } from './components/common/Toast';
@@ -11,6 +20,7 @@ import { I18nProvider } from './i18n';
 
 import { AppLayout } from './layouts/AppLayout';
 import { LoginPage } from './pages/LoginPage';
+import { SsoCompletePage } from './pages/SsoCompletePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { HelpSupportPage } from './pages/HelpSupportPage';
@@ -24,6 +34,7 @@ import { AnnouncementsPage } from './pages/academics/AnnouncementsPage';
 import { CalendarPage } from './pages/academics/CalendarPage';
 import { TranscriptsPage } from './pages/academics/TranscriptsPage';
 import { LmsPage } from './pages/academics/LmsPage';
+import { ClassSearchPage } from './pages/academics/ClassSearchPage';
 
 // Finance
 import { TuitionPaymentsPage } from './pages/finance/TuitionPaymentsPage';
@@ -47,6 +58,8 @@ import { RequestsHistoryPage } from './pages/profile/RequestsHistoryPage';
 import { FacultyDashboardPage } from './pages/faculty/FacultyDashboardPage';
 import { FacultyCoursesPage } from './pages/faculty/FacultyCoursesPage';
 import { FacultyCourseDetailPage } from './pages/faculty/FacultyCourseDetailPage';
+import { FacultyGradebookPage } from './pages/faculty/FacultyGradebookPage';
+import { FacultyMoodlePage } from './pages/faculty/FacultyMoodlePage';
 import { FacultyAnnouncementsPage } from './pages/faculty/FacultyAnnouncementsPage';
 import { FacultySchedulePage } from './pages/faculty/FacultySchedulePage';
 
@@ -54,9 +67,13 @@ import { FacultySchedulePage } from './pages/faculty/FacultySchedulePage';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { AdminUsersPage } from './pages/admin/AdminUsersPage';
 import { AdminRolesPage } from './pages/admin/AdminRolesPage';
+import { AdminAppearancePage } from './pages/admin/AdminAppearancePage';
 import { AdminEntitlementsPage } from './pages/admin/AdminEntitlementsPage';
+import { AdminSignInPage } from './pages/admin/AdminSignInPage';
 import { AdminIntegrationsPage } from './pages/admin/AdminIntegrationsPage';
 import { AdminIntegrationDetailPage } from './pages/admin/AdminIntegrationDetailPage';
+import { AdminMoodlePage } from './pages/admin/AdminMoodlePage';
+import { AdminSisPage } from './pages/admin/AdminSisPage';
 
 // Help & Support (requester side of the cross-persona workflows)
 import { MyRequestsPage } from './pages/help/MyRequestsPage';
@@ -90,9 +107,11 @@ import { FullPageLoader } from './components/common/FullPageLoader';
  * redirected to the login page for a moment on every refresh.
  */
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, initialising } = useAuth();
+  const { isAuthenticated, initialising, user } = useAuth();
   if (initialising) return <FullPageLoader label="Restoring your session…" />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
+  // A temporary password issued by an administrator must be replaced first (the API enforces it too).
+  if (user?.passwordChangeRequired) return <PasswordChangeRequired />;
   return children;
 };
 
@@ -123,6 +142,13 @@ function AppRoutes() {
         }
       />
 
+      {/* Public site for prospective students and visitors: no account, no role, public content only. */}
+      <Route path="/visit" element={<Suspense fallback={<FullPageLoader />}><PublicLandingPage /></Suspense>} />
+      <Route path="/visit/pages/:slug" element={<Suspense fallback={<FullPageLoader />}><PublicCmsPage /></Suspense>} />
+
+      {/* End of an institutional (SSO) sign-in: exchanges the single-use code for the session. */}
+      <Route path="/auth/sso/complete" element={<SsoCompletePage />} />
+
       <Route
         path="/"
         element={
@@ -144,6 +170,7 @@ function AppRoutes() {
         <Route path="academics/announcements" element={<RoleRoute allow={['STUDENT']}><AnnouncementsPage /></RoleRoute>} />
         <Route path="academics/calendar" element={<CalendarPage />} />
         <Route path="academics/transcripts" element={<RoleRoute allow={['STUDENT']}><TranscriptsPage /></RoleRoute>} />
+        <Route path="academics/class-search" element={<RoleRoute allow={['STUDENT']}><ClassSearchPage /></RoleRoute>} />
         <Route path="academics/lms" element={<RoleRoute allow={['STUDENT']}><LmsPage /></RoleRoute>} />
         <Route path="academics/degree-progress" element={<RoleRoute allow={['STUDENT']}><DegreeProgressPage /></RoleRoute>} />
         <Route path="academics/recommendations" element={<RoleRoute allow={['STUDENT']}><RecommendationsPage /></RoleRoute>} />
@@ -175,6 +202,9 @@ function AppRoutes() {
         {/* Profile */}
         <Route path="profile" element={<ProfilePage />} />
         <Route path="profile/personal" element={<PersonalInfoPage />} />
+        <Route path="profile/password" element={<ChangePasswordPage />} />
+        <Route path="campus/news" element={<CampusNewsPage />} />
+        <Route path="pages/:slug" element={<Suspense fallback={<FullPageLoader label="Loading page…" />}><CmsPage /></Suspense>} />
         <Route path="profile/emergency" element={<RoleRoute allow={['STUDENT']}><EmergencyContactPage /></RoleRoute>} />
         <Route path="profile/privacy" element={<RoleRoute allow={['STUDENT']}><PrivacyPreferencesPage /></RoleRoute>} />
         <Route path="profile/preferences" element={<CommunicationPreferencesPage />} />
@@ -184,6 +214,8 @@ function AppRoutes() {
         <Route path="faculty" element={<RoleRoute allow={['FACULTY', 'ADMIN']}><FacultyDashboardPage /></RoleRoute>} />
         <Route path="faculty/courses" element={<RoleRoute allow={['FACULTY', 'ADMIN']}><FacultyCoursesPage /></RoleRoute>} />
         <Route path="faculty/courses/:courseId" element={<RoleRoute allow={['FACULTY', 'ADMIN']}><FacultyCourseDetailPage /></RoleRoute>} />
+        <Route path="faculty/moodle" element={<RoleRoute allow={['FACULTY']}><FacultyMoodlePage /></RoleRoute>} />
+        <Route path="faculty/gradebook" element={<RoleRoute allow={['FACULTY']}><FacultyGradebookPage /></RoleRoute>} />
         <Route path="faculty/announcements" element={<RoleRoute allow={['FACULTY', 'ADMIN']}><FacultyAnnouncementsPage /></RoleRoute>} />
         <Route path="faculty/schedule" element={<RoleRoute allow={['FACULTY', 'ADMIN']}><FacultySchedulePage /></RoleRoute>} />
         <Route path="faculty/advising" element={<RoleRoute allow={['FACULTY']}><FacultyAdvisingPage /></RoleRoute>} />
@@ -194,7 +226,11 @@ function AppRoutes() {
         <Route path="admin/users" element={<RoleRoute allow={['ADMIN']}><AdminUsersPage /></RoleRoute>} />
         <Route path="admin/roles" element={<RoleRoute allow={['ADMIN']}><AdminRolesPage /></RoleRoute>} />
         <Route path="admin/entitlements" element={<RoleRoute allow={['ADMIN']}><AdminEntitlementsPage /></RoleRoute>} />
+        <Route path="admin/sign-in" element={<RoleRoute allow={['ADMIN']}><AdminSignInPage /></RoleRoute>} />
         <Route path="admin/integrations" element={<RoleRoute allow={['ADMIN']}><AdminIntegrationsPage /></RoleRoute>} />
+        <Route path="admin/appearance" element={<RoleRoute allow={['ADMIN']}><AdminAppearancePage /></RoleRoute>} />
+        <Route path="admin/integrations/campuscore" element={<RoleRoute allow={['ADMIN']}><AdminSisPage /></RoleRoute>} />
+        <Route path="admin/integrations/moodle" element={<RoleRoute allow={['ADMIN']}><AdminMoodlePage /></RoleRoute>} />
         <Route path="admin/integrations/:integrationId" element={<RoleRoute allow={['ADMIN']}><AdminIntegrationDetailPage /></RoleRoute>} />
 
         {/* Help & notifications: every persona */}
@@ -205,11 +241,29 @@ function AppRoutes() {
         <Route path="help/forms" element={<RoleRoute allow={['STUDENT', 'FACULTY']}><FormsPage /></RoleRoute>} />
         <Route path="help/resources" element={<ResourcesPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
+
+        {/* Studio (CMS + visual page builder) inside the portal shell: administrators only; loaded on demand. */}
+        <Route
+          path="studio/*"
+          element={
+            <RoleRoute allow={['ADMIN']}>
+              <Suspense fallback={<FullPageLoader label="Opening Studio…" />}>
+                <StudioApp />
+              </Suspense>
+            </RoleRoute>
+          }
+        />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
+}
+
+/** Applies the institution's saved appearance once the session (and its tenant) is known. */
+function SessionAppearance() {
+  const { user } = useAuth();
+  return <AppearanceSessionSync appearance={user?.appearance} />;
 }
 
 export function App() {
@@ -220,6 +274,7 @@ export function App() {
             NotificationProvider is above FinanceProvider because a payment refreshes
             the notification list. */}
         <AuthProvider>
+          <SessionAppearance />
           <I18nProvider>
           <NotificationProvider>
             <FinanceProvider>

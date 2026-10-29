@@ -14,6 +14,7 @@ import {
   presentTranscriptRequest,
   presentTranscriptTerm,
 } from './presenters.js';
+import { publishedCourseworkFor } from '../gradebook/gradebookService.js';
 import { logger } from '../../utils/logger.js';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -187,6 +188,7 @@ export async function getGrades(tenantId, studentProfileId) {
     }),
   ]);
   if (!profile) throw notFound('Student profile not found.');
+  const coursework = await publishedCourseworkFor(tenantId, studentProfileId, enrollments.map((enrollment) => enrollment.courseId));
 
   // Prior-term GPA history is academic-record data owned by the SIS. Read it through the
   // connector; if the provider is unavailable, fall back to the stored transcript terms
@@ -229,7 +231,8 @@ export async function getGrades(tenantId, studentProfileId) {
     creditsRequired: profile.totalCreditsRequired,
     academicStanding: profile.academicStanding,
     honors: profile.honors,
-    currentCourses: enrollments.map(presentGradedCourse),
+    // Published gradebook totals only: draft scores never reach a student.
+    currentCourses: enrollments.map((enrollment) => ({ ...presentGradedCourse(enrollment), coursework: coursework.get(enrollment.courseId) ?? null })),
     pastTerms,
     meta: { historySource },
   };
@@ -373,24 +376,3 @@ export async function createTranscriptRequest(tenantId, studentProfileId, payloa
   return presentTranscriptRequest(request);
 }
 
-/** LMS launch cards. */
-export async function listLmsCourses(tenantId, studentProfileId) {
-  const { courses } = await listCourses(tenantId, studentProfileId);
-  const canvas = await db.integration.findFirst({
-    where: { tenantId, provider: 'CANVAS' },
-    select: { displayName: true, mode: true, status: true, enabled: true, baseUrl: true },
-  });
-  return {
-    courses,
-    lms: canvas
-      ? {
-          provider: 'Canvas',
-          displayName: canvas.displayName,
-          mode: canvas.mode,
-          status: canvas.status,
-          enabled: canvas.enabled,
-          configured: Boolean(canvas.baseUrl),
-        }
-      : null,
-  };
-}

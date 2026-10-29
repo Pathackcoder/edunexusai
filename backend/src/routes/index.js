@@ -1,5 +1,7 @@
 import { Router } from 'express';
+import { contentRoutes, studioRoutes } from '../modules/cms/cmsRoutes.js';
 import { authRoutes } from '../modules/auth/authRoutes.js';
+import { ssoRoutes } from '../modules/identity/ssoRoutes.js';
 import { healthRoutes } from '../modules/health/healthRoutes.js';
 import { dashboardRoutes } from '../modules/dashboard/dashboardRoutes.js';
 import { academicsRoutes } from '../modules/academics/academicsRoutes.js';
@@ -22,7 +24,11 @@ import { profileRoutes } from '../modules/profile/profileRoutes.js';
 import { supportRoutes } from '../modules/support/supportRoutes.js';
 import { facultyRoutes } from '../modules/faculty/facultyRoutes.js';
 import { adminRoutes } from '../modules/admin/adminRoutes.js';
+import { appearanceRoutes } from '../modules/appearance/appearanceRoutes.js';
+import { lmsRoutes } from '../modules/lms/lmsRoutes.js';
+import { sisRoutes } from '../modules/sis/sisRoutes.js';
 import { academicAliasRoutes } from '../modules/academics/academicsAliasRoutes.js';
+import { publicRoutes } from '../modules/public/publicRoutes.js';
 
 /**
  * The v1 surface. One line per domain; each module owns its own routes, validation and
@@ -31,7 +37,14 @@ import { academicAliasRoutes } from '../modules/academics/academicsAliasRoutes.j
 export const apiV1 = Router();
 
 apiV1.use('/health', healthRoutes);
+// Signed-out landing page content (public CMS audience, public dates); no session, no role.
+apiV1.use('/public', publicRoutes);
+// Institutional sign-in (OpenID Connect) first: its paths live under /auth/oidc.
+apiV1.use('/auth/oidc', ssoRoutes);
 apiV1.use('/auth', authRoutes);
+apiV1.use('/appearance', appearanceRoutes);
+apiV1.use('/lms', lmsRoutes);
+apiV1.use('/sis', sisRoutes);
 
 // Student experience
 apiV1.use('/dashboard', dashboardRoutes);
@@ -44,6 +57,11 @@ apiV1.use('/library', libraryRoutes);
 apiV1.use('/campus-safety', campusSafetyRoutes);
 apiV1.use('/profile', profileRoutes);
 apiV1.use('/help', supportRoutes);
+
+// Feddrick CMS: Studio (ADMIN) and published content delivery. Mounted before the
+// root-level workflow routes so those never intercept these paths.
+apiV1.use('/studio', studioRoutes);
+apiV1.use('/content', contentRoutes);
 
 apiV1.use('/campus', campusMapRoutes);
 

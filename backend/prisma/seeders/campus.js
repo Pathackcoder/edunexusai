@@ -1,3 +1,4 @@
+import { createBaselineLibraryAccount } from '../../src/modules/onboarding/baselines.js';
 import { loadFixture, utcDate } from './shared.js';
 
 /** Campus directory. Rows that correspond to a real account are linked to that user. */
@@ -237,20 +238,8 @@ export async function seedCohortLibrary(prisma, tenant, { skipStudentProfileIds 
   let created = 0;
   for (const student of students) {
     if (student.libraryAccount) continue;
-    // Derived from the student number so the id is stable across re-runs. A loop index
-    // would shift once some students already had an account, colliding on re-seed.
-    const patronId = `LIB-${student.studentNumber.replace(/[^0-9]/g, '')}`;
-    await prisma.libraryAccount.create({
-      data: {
-        tenantId: tenant.id,
-        studentProfileId: student.id,
-        patronId,
-        barcode: patronId,
-        patronStatus: 'Active Borrower',
-        borrowingLimit: 15,
-        unpaidFines: 0,
-      },
-    });
+    // The patron id is derived from the student number, so it is stable across re-runs.
+    await createBaselineLibraryAccount(prisma, { tenantId: tenant.id, studentProfile: student });
     created += 1;
   }
   return created;

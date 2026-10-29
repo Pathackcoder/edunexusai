@@ -35,7 +35,7 @@ export const PWAInstallModal = () => {
     <Modal
       isOpen={isModalOpen}
       onClose={closeInstallModal}
-      title="Install EdunexusAI Portal"
+      title="Install Feddrick University Portal"
       maxWidth="480px"
       footer={
         <>
@@ -61,11 +61,11 @@ export const PWAInstallModal = () => {
           <Box
             component="img"
             src="/icons/icon-192x192.png"
-            alt="EdunexusAI App Icon"
+            alt="Feddrick University app icon"
             sx={{ width: 56, height: 56, borderRadius: 3.5, boxShadow: 3, flexShrink: 0 }}
           />
           <Box sx={{ minWidth: 0, flex: 1 }}>
-            <Typography variant="subtitle1" component="h4" sx={{ fontWeight: 600 }}>EdunexusAI University Portal</Typography>
+            <Typography variant="subtitle1" component="h4" sx={{ fontWeight: 600 }}>Feddrick University Portal</Typography>
             <Typography variant="caption">Official University Student Application (PWA)</Typography>
             <Stack direction="row" useFlexGap flexWrap="wrap" spacing={0.75} sx={{ mt: 0.75 }}>
               <Badge variant="success">Fast & Offline Ready</Badge>
@@ -77,7 +77,7 @@ export const PWAInstallModal = () => {
         {isInstalled ? (
           <Alert severity="success" icon={<CheckCircleRoundedIcon fontSize="inherit" />}>
             <AlertTitle>Already Installed!</AlertTitle>
-            EdunexusAI is installed and running on your system. You can launch it directly from your home screen or applications menu.
+            The Feddrick University portal is installed on this device. You can launch it directly from your home screen or applications menu.
           </Alert>
         ) : (
           <>
@@ -128,7 +128,7 @@ export const PWAInstallModal = () => {
             ) : canNativeInstall ? (
               <Stack spacing={1}>
                 <Button variant="primary" size="lg" icon={FileDownloadOutlinedIcon} onClick={promptInstall} fullWidth>
-                  Install EdunexusAI Now
+                  Install the portal now
                 </Button>
                 <Typography variant="caption" sx={{ textAlign: 'center', fontSize: '0.6875rem' }}>
                   Standard browser PWA installation • Verified secure
@@ -138,7 +138,7 @@ export const PWAInstallModal = () => {
               <Box sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 3 }}>
                 <Typography variant="subtitle2" sx={{ mb: 0.75 }}>To install from your browser:</Typography>
                 <Typography variant="caption" component="p" sx={{ color: 'text.secondary', lineHeight: 1.6 }}>
-                  Look for the <strong>Install</strong> icon (⊕ or 📥) in your browser address bar, or click your browser's menu (⋮) and select <strong>"Install EdunexusAI"</strong> or <strong>"Add to Home screen"</strong>.
+                  Look for the <strong>Install</strong> icon (⊕ or 📥) in your browser address bar, or click your browser's menu (⋮) and select <strong>"Install Feddrick University Portal"</strong> or <strong>"Add to Home screen"</strong>.
                 </Typography>
               </Box>
             )}

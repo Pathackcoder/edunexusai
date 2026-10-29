@@ -1,11 +1,18 @@
 import { prisma } from '../db/prisma.js';
 import {
   SyncDomain,
+  assertSisCapable,
   getIntegrationByKey,
   resolveIntegrationForDomain,
   runIntegrationOperation,
 } from './integrationService.js';
 import { logger } from '../utils/logger.js';
+
+/** Explicitly chosen integrations must still be SIS-capable (never an LMS-only one). */
+const assertSisRow = (integration) => {
+  assertSisCapable(integration);
+  return integration;
+};
 
 /**
  * Sync orchestration.
@@ -58,7 +65,7 @@ async function ensureTerm(tenantId, { code, name }) {
  */
 export async function syncCourses(tenantId, { userId, integrationKey, termCode } = {}) {
   const integration = integrationKey
-    ? await getIntegrationByKey(tenantId, integrationKey)
+    ? assertSisRow(await getIntegrationByKey(tenantId, integrationKey))
     : await resolveIntegrationForDomain(tenantId, SyncDomain.COURSES);
 
   return runIntegrationOperation({
@@ -134,7 +141,7 @@ export async function syncCourses(tenantId, { userId, integrationKey, termCode }
 /** ENROLLMENTS (+ the per-course grade breakdown that rides along with them). */
 export async function syncEnrollments(tenantId, { userId, integrationKey, termCode } = {}) {
   const integration = integrationKey
-    ? await getIntegrationByKey(tenantId, integrationKey)
+    ? assertSisRow(await getIntegrationByKey(tenantId, integrationKey))
     : await resolveIntegrationForDomain(tenantId, SyncDomain.ENROLLMENTS);
 
   return runIntegrationOperation({
@@ -219,7 +226,7 @@ export async function syncEnrollments(tenantId, { userId, integrationKey, termCo
 /** ASSIGNMENTS. */
 export async function syncAssignments(tenantId, { userId, integrationKey } = {}) {
   const integration = integrationKey
-    ? await getIntegrationByKey(tenantId, integrationKey)
+    ? assertSisRow(await getIntegrationByKey(tenantId, integrationKey))
     : await resolveIntegrationForDomain(tenantId, SyncDomain.ASSIGNMENTS);
 
   return runIntegrationOperation({
@@ -284,6 +291,7 @@ export async function syncAssignments(tenantId, { userId, integrationKey } = {})
                 status: 'Completed',
                 submittedAt: assignment.dueDate,
                 score: provider.score,
+                publishedAt: provider.score == null ? null : new Date(),
               },
               update: {},
             });

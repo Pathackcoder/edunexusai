@@ -126,9 +126,9 @@ export class BaseConnector {
   notSupported(operation) {
     throw new AppError(
       501,
-      ErrorCode.INTEGRATION_ERROR,
+      ErrorCode.OPERATION_NOT_SUPPORTED,
       `${this.integration?.displayName ?? 'Connector'} does not implement ${operation}.`,
-      { integrationKey: this.key },
+      { integrationKey: this.key, operation, reason: 'NOT_IMPLEMENTED' },
     );
   }
 

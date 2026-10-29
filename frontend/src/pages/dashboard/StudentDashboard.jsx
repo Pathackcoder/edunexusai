@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -24,12 +25,16 @@ import { useAuth } from '../../context/AuthContext';
 import { useFinance } from '../../context/FinanceContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useApiQuery } from '../../hooks/useApiQuery';
-import { dashboardApi, academicApi } from '../../services/api';
+import { dashboardApi, academicApi, lmsApi, sisApi } from '../../services/api';
+import { SisNotice } from '../../components/sis/SisNotice';
+import { pretty, todaysClasses as sisTodaysClasses } from '../../components/sis/sisData';
+import { MoodleNotice } from '../../components/lms/MoodleNotice';
 import { WidgetCard } from '../../components/common/WidgetCard';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import { MetricLabel, CardFootnote } from '../../components/common/Section';
 import { SortableDashboard, useDashboardLayout } from '../../components/dashboard/SortableDashboard';
+import { applyCmsLayout, useCmsDashboardLayout } from '../../components/cms/dashboardLayout';
 import { DashboardSkeleton, HeroBanner, heroChipSx } from '../../components/dashboard/HeroBanner';
 import { buildAdvancedItems } from '../../components/dashboard/StudentAdvancedWidgets';
 import { useI18n } from '../../i18n';
@@ -37,6 +42,8 @@ import { SubmitModal } from '../../components/assignments/SubmitModal';
 import { AnnouncementModal } from '../../components/announcements/AnnouncementModal';
 import { PaymentModal } from '../../components/finance/PaymentModal';
 import { useToast } from '../../components/common/Toast';
+import { FitList, Spotlight, WidgetEmpty } from '../../components/common/FitList';
+import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded';
 import { NotificationTicker } from '../../components/dashboard/NotificationTicker';
 import { CampusHeroIllustration } from '../../assets/illustrations/CampusHeroIllustration';
 import { DataState, ErrorPanel, StaleDataNotice } from '../../components/common/DataState';
@@ -48,24 +55,17 @@ const STUDENT_SKELETON = [
   { kind: 'list', rows: 1 },
   { kind: 'ring' },
   { kind: 'metric' },
-  { kind: 'list', rows: 3, span: { md: 12, lg: 8 } },
+  { kind: 'list', rows: 2, span: { md: 12, lg: 8 }, size: 'large' },
   { kind: 'metric' },
   { kind: 'list', rows: 2 },
   { kind: 'list', rows: 2 },
 ]
 
-/** Muted inline note used where a panel has nothing to list. */
-const InlineEmpty = ({ children }) => (
-  <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-    {children}
-  </Typography>
-);
-
 /** Label / value row used by the aid and library breakdowns. */
-const BreakdownRow = ({ color = 'primary.main', label, value }) => (
-  <Stack direction="row" alignItems="center" spacing={1.25} sx={{ py: 1, '& + &': { borderTop: 1, borderColor: 'divider' } }}>
+const BreakdownRow = ({ color = 'primary.main', label, value, divider = false }) => (
+  <Stack direction="row" alignItems="center" spacing={1.25} sx={{ py: 1, ...(divider && { borderTop: 1, borderColor: 'divider' }) }}>
     <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: color, flexShrink: 0 }} />
-    <Typography variant="body2" color="text.secondary" sx={{ flex: 1, minWidth: 0 }} noWrap>
+    <Typography variant="body2" color="text.secondary" sx={{ flex: 1, minWidth: 0 }}>
       {label}
     </Typography>
     <Typography variant="body2" fontWeight={600} sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
@@ -88,7 +88,9 @@ export const StudentDashboard = () => {
   const { showToast } = useToast();
   const { t } = useI18n();
 
-  const { data, loading, error, refetch, setData } = useApiQuery(() => dashboardApi.get());
+  // The student context's own dashboard: the same payload a student always got, and the right
+  // one for a person who also teaches (GET /dashboard answers with a single persona).
+  const { data, loading, error, refetch, setData } = useApiQuery(() => dashboardApi.getStudent());
 
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
@@ -101,7 +103,7 @@ export const StudentDashboard = () => {
 
   const schedule = payload('dashboard.schedule');
   const grades = payload('dashboard.progress');
-  const assignments = payload('dashboard.assignments') ?? [];
+  const moodleWork = useApiQuery(() => lmsApi.myMoodleAssignments());
   const announcements = payload('dashboard.announcements') ?? [];
   const aid = payload('dashboard.financial_aid');
   const library = payload('dashboard.library');
@@ -109,14 +111,38 @@ export const StudentDashboard = () => {
 
   // Default widget order = the order the entitlement service returns; the user's saved
   // drag-and-drop order (dashboard_layouts) is applied on top.
-  const availableKeys = (data?.widgets ?? []).filter((key) => has(key));
+  // A published CMS layout (Studio → Dashboards → Student) may reorder, retitle or hide the
+  // widgets this student already has and add content cards; without one nothing changes.
+  const cmsLayout = useCmsDashboardLayout('student');
+  const availableKeys = applyCmsLayout((data?.widgets ?? []).filter((key) => has(key)).map((key) => ({ key })), cmsLayout).map((item) => item.key);
   const layout = useDashboardLayout('student', data?.layout, availableKeys);
 
-  const todayClasses = schedule?.courses ?? [];
-  const pendingAssignments = assignments.filter((item) => item.status !== 'Completed').slice(0, 3);
-  const submittedCount = assignments.filter((item) => item.status === 'Completed').length;
-  const completedCredits = grades?.creditsCompleted ?? 0;
-  const totalCredits = grades?.creditsRequired ?? 0;
+  // Class times come from CampusCore SIS (the official schedule), never from local records.
+  const sisOverview = useApiQuery(() => sisApi.myOverview());
+  const sisSchedule = sisOverview.data?.state === 'OK' && sisOverview.data.schedule.state === 'OK' ? sisOverview.data.schedule.data : null;
+  const TIMETABLE_CONNECTED = Boolean(sisSchedule);
+  const todayClasses = sisTodaysClasses(sisSchedule?.items ?? []);
+  // Classes registered for a later term (registration usually happens for the next term).
+  const upcomingTerm = (sisOverview.data?.terms ?? []).find((t) => !t.isCurrent && t.registered > 0 && (sisOverview.data?.classTermIds ?? []).includes(t.id)) ?? null;
+  // Coursework is Moodle's: the widget reads live Moodle assignments, not local records.
+  const weekAhead = Date.now() + 7 * 24 * 60 * 60 * 1000;
+  const pendingAssignments = (moodleWork.data?.assignments ?? [])
+    .filter((a) => ['NOT_SUBMITTED', 'DRAFT'].includes(a.state) && a.dueDate && new Date(a.dueDate).getTime() < weekAhead)
+    .map((a) => ({
+      id: a.assignmentId,
+      courseCode: a.course?.shortName,
+      title: a.name,
+      formattedDueDate: new Date(a.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      dueTime: new Date(a.dueDate).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      urgency: a.overdue ? 'overdue' : 'due-soon',
+      url: a.url,
+    }));
+  const submittedCount = (moodleWork.data?.assignments ?? []).filter((a) => ['SUBMITTED', 'GRADED', 'GRADED_NOT_RELEASED'].includes(a.state)).length;
+  // Academic momentum is CampusCore's academic record (dashboard.progress = sis.academicSnapshot).
+  const sisAcademic = grades?.state === 'OK' ? grades : null;
+  const sisProgram = sisOverview.data?.state === 'OK' && sisOverview.data.profile.state === 'OK' ? sisOverview.data.profile.data.program : null;
+  const completedCredits = sisAcademic?.creditsEarned ?? 0;
+  const totalCredits = sisAcademic?.requiredCredits ?? 0;
   const creditsPercent = totalCredits
     ? Math.min(100, Math.round((completedCredits / totalCredits) * 100))
     : 0;
@@ -183,7 +209,7 @@ export const StudentDashboard = () => {
           <NotificationTicker />
           {/* Welcome banner */}
           <HeroBanner
-            eyebrow={data?.term ?? user?.currentTerm ?? 'Current term'}
+            eyebrow={sisSchedule?.term?.name ?? 'Current term'}
             title={<>Good Morning, </>}
             highlight={`${data?.greetingName || user?.firstName || ''}`}
             description="Here’s what matters today — from your next class to the moments that keep campus moving."
@@ -202,13 +228,13 @@ export const StudentDashboard = () => {
                       }}
                     />
                   }
-                  label={todayClasses.length > 0 ? 'On campus today' : 'No classes today'}
+                  label={!TIMETABLE_CONNECTED ? 'Schedule not linked' : todayClasses.length > 0 ? 'On campus today' : 'No classes today'}
                   sx={{ ...heroChipSx, '& .MuiChip-icon': { ml: 1.25 } }}
                 />
-                {(user?.degree || data?.tier) && (
+                {(sisProgram || data?.tier) && (
                   <Chip
                     icon={<SchoolOutlinedIcon />}
-                    label={`${user?.degree ?? ''}${data?.tier ? ` · ${data.tier.name} experience` : ''}`}
+                    label={[sisProgram?.name, data?.tier ? `${data.tier.name} experience` : null].filter(Boolean).join(' · ')}
                     sx={{ ...heroChipSx, maxWidth: '100%' }}
                   />
                 )}
@@ -231,21 +257,49 @@ export const StudentDashboard = () => {
               const saved = await layout.persist(next);
               if (!saved) showToast('Layout saved on this device only — the server could not be reached.', 'info');
             }}
-            items={[
-            { key: 'dashboard.schedule', label: "Today's schedule", span: { md: 6, lg: 4 }, node: (
+            items={applyCmsLayout([
+            { key: 'dashboard.schedule', label: "Today's schedule", span: { md: 6, lg: 4 }, size: 'standard', node: (
 <WidgetCard
                   title="Today’s schedule"
-                  subtitle={`${schedule?.dayName ?? ''}${todayClasses.length ? ` · ${todayClasses.length} ${todayClasses.length === 1 ? 'class' : 'classes'}` : ''}`}
+                  subtitle={TIMETABLE_CONNECTED ? `${sisSchedule.term.name}${todayClasses.length ? ` · ${todayClasses.length} ${todayClasses.length === 1 ? 'class' : 'classes'} today` : ''} · CampusCore` : 'CampusCore SIS'}
                   icon={CalendarMonthOutlinedIcon}
                   actionLabel="Full schedule"
                   actionTo="/academics/schedule"
                 >
                   {panelBody('dashboard.schedule', () => (
                     <>
-                      <Stack spacing={0} sx={{ position: 'relative', pb: 1 }}>
-                        {todayClasses.length === 0 && <InlineEmpty>No classes are scheduled for today.</InlineEmpty>}
-                        {todayClasses.map((course, index) => (
-                          <Stack key={course.id || index} direction="row" spacing={1.75} sx={{ position: 'relative', pb: index === todayClasses.length - 1 ? 0 : 2 }}>
+                      {!TIMETABLE_CONNECTED && !sisOverview.loading && <SisNotice overview={sisOverview.data} section={sisOverview.data?.schedule} what="Your schedule" onRetry={sisOverview.refetch} />}
+                      {TIMETABLE_CONNECTED && todayClasses.length === 0 && (
+                        <WidgetEmpty icon={CalendarMonthOutlinedIcon} tone="primary" title={sisSchedule.items.length ? 'No classes today' : `No classes in ${sisSchedule.term.name}`}>
+                          {sisSchedule.items.length
+                            ? 'Your timetable for the rest of the week is on the full schedule.'
+                            : upcomingTerm
+                              ? `You are registered for ${upcomingTerm.registered} class${upcomingTerm.registered === 1 ? '' : 'es'} in ${upcomingTerm.name}. See the full schedule.`
+                              : 'You have no registered classes this term.'}
+                        </WidgetEmpty>
+                      )}
+                      <FitList
+                        items={todayClasses}
+                        max={4}
+                        gap={0}
+                        moreTo="/academics/schedule"
+                        moreLabel="more today"
+                        getKey={(course, index) => course.id || index}
+                        sx={{ pb: 1 }}
+                        renderSpotlight={(course) => (
+                          <Spotlight
+                            tone="primary"
+                            eyebrow={`${course.code || course.courseCode} · ${schedule?.dayName ?? 'Today'}`}
+                            title={course.name || course.courseName}
+                            aside={<Badge variant="primary">{course.time}</Badge>}
+                            meta={[
+                              course.room && { icon: PlaceOutlinedIcon, label: course.room },
+                              course.instructor && { icon: PersonOutlineRoundedIcon, label: course.instructor },
+                            ]}
+                          />
+                        )}
+                        renderItem={(course, index) => (
+                          <Stack direction="row" spacing={1.75} sx={{ position: 'relative', pb: index === todayClasses.length - 1 ? 0 : 2 }}>
                             <Stack alignItems="center" sx={{ pt: 0.5 }}>
                               <Box
                                 sx={(theme) => ({
@@ -273,14 +327,14 @@ export const StudentDashboard = () => {
                               </Typography>
                               <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 0.25, color: 'text.secondary' }}>
                                 <PlaceOutlinedIcon sx={{ fontSize: 15 }} />
-                                <Typography variant="caption" noWrap>
+                                <Typography variant="caption">
                                   {course.room} · {course.instructor}
                                 </Typography>
                               </Stack>
                             </Box>
                           </Stack>
-                        ))}
-                      </Stack>
+                        )}
+                      />
                       {nextClass && (
                         <CardFootnote icon={ScheduleRoundedIcon}>
                           Next up:{' '}
@@ -293,32 +347,34 @@ export const StudentDashboard = () => {
                   ))}
                 </WidgetCard>
             ) },
-            { key: 'dashboard.progress', label: "Academic momentum", span: { md: 6, lg: 4 }, node: (
+            { key: 'dashboard.progress', label: "Academic momentum", span: { md: 6, lg: 4 }, size: 'standard', node: (
 <WidgetCard
                   variant="featured"
                   title="Academic momentum"
-                  subtitle={`${data?.term ?? ''} standing`}
+                  subtitle={sisAcademic ? 'CampusCore academic record' : 'CampusCore SIS'}
                   icon={SchoolOutlinedIcon}
                   tone="purple"
                   actionLabel="Grades"
                   actionTo="/academics/grades"
                 >
                   {panelBody('dashboard.progress', () => (
+                    !sisAcademic ? (
+                      <SisNotice overview={grades ?? { state: 'UNAVAILABLE' }} what="Your academic record" onRetry={refetch} />
+                    ) : (
                     <>
                       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
                         <Box>
                           <MetricLabel>Cumulative GPA</MetricLabel>
                           <Typography variant="metric" component="strong" sx={{ display: 'block', color: 'secondary.main', fontSize: '2.125rem', mt: 0.5 }}>
-                            {grades?.cumulativeGpa ?? '—'}
+                            {sisAcademic.cumulativeGpa != null ? Number(sisAcademic.cumulativeGpa).toFixed(2) : '—'}
                           </Typography>
                         </Box>
-                        {grades?.honors && <Badge variant="purple">Dean’s List</Badge>}
                       </Stack>
-                      <Box sx={{ mt: 2.25, mb: 2 }}>
+                      <Box sx={{ mt: 'auto', pt: 2, mb: 2 }}>
                         <Stack direction="row" justifyContent="space-between" spacing={1} sx={{ mb: 1 }}>
                           <Typography variant="caption">Degree progress</Typography>
                           <Typography variant="caption" sx={{ color: 'text.primary', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                            {completedCredits} / {totalCredits} credits
+                            {totalCredits ? `${completedCredits} / ${totalCredits} credits` : `${completedCredits} credits earned`}
                           </Typography>
                         </Stack>
                         <LinearProgress
@@ -328,12 +384,13 @@ export const StudentDashboard = () => {
                           sx={(theme) => ({ bgcolor: alpha(theme.palette.secondary.main, 0.14) })}
                         />
                       </Box>
-                      <CardFootnote icon={TaskAltRoundedIcon}>{grades?.academicStanding ?? 'Standing unavailable'}</CardFootnote>
+                      <CardFootnote icon={TaskAltRoundedIcon}>{sisAcademic.standing ? pretty(sisAcademic.standing) : 'Standing unavailable'}</CardFootnote>
                     </>
+                    )
                   ))}
                 </WidgetCard>
             ) },
-            { key: 'dashboard.tuition', label: "Tuition & accounts", span: { md: 6, lg: 4 }, node: (
+            { key: 'dashboard.tuition', label: "Tuition & accounts", span: { md: 6, lg: 4 }, size: 'standard', node: (
 <WidgetCard
                   title="Tuition & accounts"
                   subtitle={financeData.term || ''}
@@ -392,10 +449,10 @@ export const StudentDashboard = () => {
                   ))}
                 </WidgetCard>
             ) },
-            { key: 'dashboard.assignments', label: "Upcoming assignments", span: { md: 12, lg: 8 }, node: (
+            { key: 'dashboard.assignments', label: "Upcoming assignments", span: { md: 12, lg: 8 }, size: 'large', node: (
 <WidgetCard
                   title="Upcoming assignments"
-                  subtitle="The next seven days"
+                  subtitle={`Moodle · next seven days · ${submittedCount} submitted`}
                   icon={AssignmentOutlinedIcon}
                   tone="info"
                   actionLabel="All assignments"
@@ -403,11 +460,20 @@ export const StudentDashboard = () => {
                 >
                   {panelBody('dashboard.assignments', () => (
                     <>
-                      <Stack spacing={1} sx={{ mb: 2 }}>
-                        {pendingAssignments.length === 0 && <InlineEmpty>Nothing due in the next few days.</InlineEmpty>}
-                        {pendingAssignments.map((assignment, index) => (
+                      {moodleWork.data && moodleWork.data.status !== 'CONNECTED' && <MoodleNotice data={moodleWork.data} onRetry={moodleWork.refetch} />}
+                      {moodleWork.data?.status === 'CONNECTED' && pendingAssignments.length === 0 && (
+                        <WidgetEmpty icon={AssignmentOutlinedIcon} tone="info" title="You're all caught up">
+                          Nothing in your Moodle courses is due in the next seven days.
+                        </WidgetEmpty>
+                      )}
+                      <FitList
+                        items={pendingAssignments}
+                        max={6}
+                        columns={{ xs: 1, sm: 2 }}
+                        moreTo="/academics/assignments"
+                        moreLabel="more due"
+                        renderItem={(assignment, index) => (
                           <Stack
-                            key={assignment.id}
                             direction="row"
                             alignItems="center"
                             spacing={1.5}
@@ -425,36 +491,29 @@ export const StudentDashboard = () => {
                               <Typography variant="overline" sx={{ color: ACCENTS[index % ACCENTS.length], lineHeight: 1.5 }}>
                                 {assignment.courseCode}
                               </Typography>
-                              <Typography variant="subtitle2" component="h3" noWrap>
+                              <Typography variant="subtitle2" component="h3">
                                 {assignment.title}
                               </Typography>
                               <Typography variant="caption" component="p">
                                 Due {assignment.formattedDueDate} · {assignment.dueTime}
                               </Typography>
                             </Box>
-                            <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-end', sm: 'center' }} spacing={1} sx={{ flexShrink: 0 }}>
-                              <Badge variant={assignment.urgency === 'due-soon' ? 'warning' : 'neutral'}>
-                                {assignment.urgency === 'due-soon'
-                                  ? 'Due soon'
-                                  : assignment.status === 'In Progress'
-                                    ? 'In progress'
-                                    : 'Upcoming'}
+                            <Stack alignItems="flex-end" spacing={0.75} sx={{ flexShrink: 0 }}>
+                              <Badge variant={assignment.urgency === 'overdue' ? 'danger' : 'warning'}>
+                                {assignment.urgency === 'overdue' ? 'Overdue' : 'Due soon'}
                               </Badge>
-                              <Button variant="outline" size="sm" onClick={() => setSelectedAssignment(assignment)}>
-                                Submit
+                              <Button variant="outline" size="sm" component="a" href={assignment.url} target="_blank" rel="noopener noreferrer">
+                                Submit in Moodle
                               </Button>
                             </Stack>
                           </Stack>
-                        ))}
-                      </Stack>
-                      <CardFootnote icon={TaskAltRoundedIcon}>
-                        <strong>{submittedCount} assignment{submittedCount === 1 ? '' : 's'}</strong> submitted this term
-                      </CardFootnote>
+                        )}
+                      />
                     </>
                   ))}
                 </WidgetCard>
             ) },
-            { key: 'dashboard.financial_aid', label: "Financial aid", span: { md: 6, lg: 4 }, node: (
+            { key: 'dashboard.financial_aid', label: "Financial aid", span: { md: 6, lg: 4 }, size: 'standard', node: (
 <WidgetCard
                   title="Financial aid"
                   subtitle={aid?.awardYear ? `Award package ${aid.awardYear}` : 'Award package'}
@@ -475,16 +534,30 @@ export const StudentDashboard = () => {
                         </Box>
                         {aid?.status && <Badge variant="success">{aid.status}</Badge>}
                       </Stack>
-                      <Box sx={{ mt: 2, mb: 2 }}>
-                        {(aid?.awards ?? []).slice(0, 3).map((award, index) => (
+                      {(aid?.awards ?? []).length === 0 && (
+                        <WidgetEmpty
+                          icon={SavingsOutlinedIcon}
+                          tone="success"
+                          title="No awards in this package yet"
+                          action={<MuiButton size="small" component={RouterLink} to="/finance/financial-aid">Explore financial aid</MuiButton>}
+                        />
+                      )}
+                      <FitList
+                        items={aid?.awards ?? []}
+                        max={4}
+                        gap={0}
+                        moreTo="/finance/financial-aid"
+                        moreLabel="more awards"
+                        sx={{ mt: 1.25, mb: 1.5 }}
+                        renderItem={(award, index) => (
                           <BreakdownRow
-                            key={award.id}
+                            divider={index > 0}
                             color={['success.main', 'primary.main', 'secondary.main'][index % 3]}
                             label={award.name}
                             value={award.formattedAmount}
                           />
-                        ))}
-                      </Box>
+                        )}
+                      />
                       {aid?.disbursements?.length > 0 && (
                         <CardFootnote icon={EventNoteOutlinedIcon}>
                           Next disbursement · {aid.disbursements[aid.disbursements.length - 1].date}
@@ -494,7 +567,7 @@ export const StudentDashboard = () => {
                   ))}
                 </WidgetCard>
             ) },
-            { key: 'dashboard.announcements', label: "From your courses", span: { md: 6, lg: 4 }, node: (
+            { key: 'dashboard.announcements', label: "From your courses", span: { md: 6, lg: 4 }, size: 'standard', node: (
 <WidgetCard
                   title="From your courses"
                   subtitle="Faculty announcements"
@@ -505,11 +578,19 @@ export const StudentDashboard = () => {
                 >
                   {panelBody('dashboard.announcements', () => (
                     <>
-                      <Stack spacing={1} sx={{ mb: 2 }}>
-                        {announcements.length === 0 && <InlineEmpty>No announcements from your courses yet.</InlineEmpty>}
-                        {announcements.slice(0, 2).map((announcement) => (
+                      {announcements.length === 0 && (
+                        <WidgetEmpty icon={CampaignOutlinedIcon} tone="warning" title="No announcements yet">
+                          Updates your instructors post to your courses will appear here.
+                        </WidgetEmpty>
+                      )}
+                      <FitList
+                        items={announcements}
+                        max={4}
+                        moreTo="/academics/announcements"
+                        moreLabel="more announcements"
+                        sx={{ mb: 1.5 }}
+                        renderItem={(announcement) => (
                           <ButtonBase
-                            key={announcement.id}
                             onClick={() => setSelectedAnnouncement(announcement)}
                             sx={{
                               display: 'flex',
@@ -527,7 +608,7 @@ export const StudentDashboard = () => {
                           >
                             <Chip label={announcement.courseCode} sx={{ bgcolor: 'warning.lighter', color: 'warning.dark', flexShrink: 0 }} />
                             <Box sx={{ flex: 1, minWidth: 0 }}>
-                              <Typography variant="subtitle2" component="h3" noWrap>
+                              <Typography variant="subtitle2" component="h3">
                                 {announcement.title}
                               </Typography>
                               <Typography variant="caption" component="p">
@@ -536,31 +617,40 @@ export const StudentDashboard = () => {
                             </Box>
                             <Badge variant={announcement.isRead ? 'neutral' : 'primary'}>{announcement.isRead ? 'Read' : 'New'}</Badge>
                           </ButtonBase>
-                        ))}
-                      </Stack>
+                        )}
+                      />
                       <CardFootnote>Faculty updates for enrolled courses</CardFootnote>
                     </>
                   ))}
                 </WidgetCard>
             ) },
-            { key: 'dashboard.notifications', label: "Campus pulse", span: { md: 6, lg: 4 }, node: (
+            { key: 'dashboard.notifications', label: "Campus pulse", span: { md: 6, lg: 4 }, size: 'standard', node: (
 <WidgetCard
                   title="Campus pulse"
                   subtitle="Important notifications"
                   icon={NotificationsActiveOutlinedIcon}
                   tone="danger"
-                  actionLabel="Notification center"
+                  actionLabel="All"
                   actionTo="/notifications"
                 >
-                  <Stack sx={{ mb: 2 }}>
-                    {notifications.length === 0 && <InlineEmpty>No notifications right now.</InlineEmpty>}
-                    {notifications.slice(0, 2).map((notification) => (
+                  {notifications.length === 0 && (
+                    <WidgetEmpty icon={NotificationsActiveOutlinedIcon} tone="danger" title="All quiet">
+                      Campus alerts and updates about your account will appear here.
+                    </WidgetEmpty>
+                  )}
+                  <FitList
+                    items={notifications}
+                    max={4}
+                    gap={0}
+                    moreTo="/notifications"
+                    moreLabel="more notifications"
+                    sx={{ mb: 1.5 }}
+                    renderItem={(notification, index) => (
                       <Stack
-                        key={notification.id}
                         direction="row"
                         alignItems="center"
                         spacing={1.5}
-                        sx={{ py: 1.25, '& + &': { borderTop: 1, borderColor: 'divider' } }}
+                        sx={{ py: 1.25, ...(index > 0 && { borderTop: 1, borderColor: 'divider' }) }}
                       >
                         <Box
                           sx={{
@@ -572,7 +662,7 @@ export const StudentDashboard = () => {
                           }}
                         />
                         <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography variant="subtitle2" component="h3" noWrap sx={{ fontWeight: notification.isRead ? 500 : 600 }}>
+                          <Typography variant="subtitle2" component="h3" sx={{ fontWeight: notification.isRead ? 500 : 600 }}>
                             {notification.title}
                           </Typography>
                           <Typography variant="caption" component="p">
@@ -585,14 +675,14 @@ export const StudentDashboard = () => {
                           </MuiButton>
                         )}
                       </Stack>
-                    ))}
-                  </Stack>
+                    )}
+                  />
                   <CardFootnote>
                     Campus alert system: <strong>active</strong>
                   </CardFootnote>
                 </WidgetCard>
             ) },
-            { key: 'dashboard.library', label: "Library account", span: { md: 6, lg: 4 }, node: (
+            { key: 'dashboard.library', label: "Library account", span: { md: 6, lg: 4 }, size: 'standard', node: (
 <WidgetCard
                   title="Library account"
                   subtitle={library?.summary?.patronStatus ?? 'Borrowing'}
@@ -616,11 +706,23 @@ export const StudentDashboard = () => {
                           <Badge variant="success">None overdue</Badge>
                         )}
                       </Stack>
-                      <Box sx={{ mt: 2, mb: 2 }}>
-                        {(library?.loans ?? []).slice(0, 2).map((loan) => (
-                          <BreakdownRow key={loan.id} color="info.main" label={loan.title} value={loan.dueDate} />
-                        ))}
-                      </Box>
+                      {(library?.loans ?? []).length === 0 && (
+                        <WidgetEmpty
+                          icon={LocalLibraryOutlinedIcon}
+                          tone="info"
+                          title="Nothing on loan"
+                          action={<MuiButton size="small" component={RouterLink} to="/campus/library">Browse the catalogue</MuiButton>}
+                        />
+                      )}
+                      <FitList
+                        items={library?.loans ?? []}
+                        max={4}
+                        gap={0}
+                        moreTo="/campus/library"
+                        moreLabel="more on loan"
+                        sx={{ mt: 1.25, mb: 1.5 }}
+                        renderItem={(loan, index) => <BreakdownRow divider={index > 0} color="info.main" label={loan.title} value={loan.dueDate} />}
+                      />
                       <CardFootnote>
                         Fines outstanding: <strong>{library?.summary?.formattedFines ?? '$0.00'}</strong>
                       </CardFootnote>
@@ -628,7 +730,7 @@ export const StudentDashboard = () => {
                   ))}
                 </WidgetCard>
             ) },
-            { key: 'dashboard.calendar', label: "Academic calendar", span: { md: 6, lg: 4 }, node: (
+            { key: 'dashboard.calendar', label: "Academic calendar", span: { md: 6, lg: 4 }, size: 'standard', node: (
 <WidgetCard
                   title="Academic calendar"
                   subtitle="What's coming up"
@@ -639,14 +741,22 @@ export const StudentDashboard = () => {
                 >
                   {panelBody('dashboard.calendar', () => {
                     const today = new Date().toISOString().slice(0, 10);
-                    const upcoming = calendar.filter((event) => event.date >= today).slice(0, 3);
+                    const upcoming = calendar.filter((event) => event.date >= today);
                     return (
                       <>
-                        <Stack spacing={1} sx={{ mb: 2 }}>
-                          {upcoming.length === 0 && <InlineEmpty>No upcoming calendar events.</InlineEmpty>}
-                          {upcoming.map((event) => (
+                        {upcoming.length === 0 && (
+                          <WidgetEmpty icon={EventNoteOutlinedIcon} tone="purple" title="Nothing coming up">
+                            Registrar dates for the rest of the term are on the full calendar.
+                          </WidgetEmpty>
+                        )}
+                        <FitList
+                          items={upcoming}
+                          max={4}
+                          moreTo="/academics/calendar"
+                          moreLabel="more dates"
+                          sx={{ mb: 1.5 }}
+                          renderItem={(event) => (
                             <Stack
-                              key={event.id}
                               direction="row"
                               alignItems="center"
                               spacing={1.5}
@@ -668,25 +778,25 @@ export const StudentDashboard = () => {
                                 {event.date}
                               </Box>
                               <Box sx={{ flex: 1, minWidth: 0 }}>
-                                <Typography variant="subtitle2" component="h3" noWrap>
+                                <Typography variant="subtitle2" component="h3">
                                   {event.title}
                                 </Typography>
-                                <Typography variant="caption" component="p" noWrap>
+                                <Typography variant="caption" component="p">
                                   {event.location}
                                 </Typography>
                               </Box>
                               {event.isImportant && <Badge variant="purple">Key</Badge>}
                             </Stack>
-                          ))}
-                        </Stack>
-                        <CardFootnote>Registrar-published academic dates</CardFootnote>
+                          )}
+                        />
+                        <CardFootnote>From the CampusCore academic calendar</CardFootnote>
                       </>
                     );
                   })}
                 </WidgetCard>
             ) },
               ...advancedItems,
-            ].filter((item) => has(item.key))}
+            ].filter((item) => has(item.key)), cmsLayout)}
           />
 
           <PaymentModal

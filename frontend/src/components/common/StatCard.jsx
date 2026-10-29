@@ -33,14 +33,17 @@ export const StatCard = ({
   className = '',
   sx,
   valueSx,
+  // 'compact' tightens spacing (not type) for stat rows inside hero banners.
+  density = 'default',
 }) => {
+  const compact = density === 'compact';
   const theme = useTheme();
   const toneInfo = getTone(theme, tone);
-  const gradient = toneGradient(tone);
+  const gradient = toneGradient(tone, theme);
 
   const body = (
-    <Box sx={{ p: 2, position: 'relative', zIndex: 1 }}>
-      <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={1.5} sx={{ mb: 0.75 }}>
+    <Box sx={{ ...(compact ? { px: 1.75, py: 1.375 } : { p: 2 }), position: 'relative', zIndex: 1 }}>
+      <Stack direction="row" alignItems={compact ? 'center' : 'flex-start'} justifyContent="space-between" spacing={1.5} sx={{ mb: compact ? 0.375 : 0.75 }}>
         <Typography variant="overline" color="text.secondary" sx={{ lineHeight: 1.4, fontWeight: 600 }}>
           {title}
         </Typography>
@@ -49,7 +52,7 @@ export const StatCard = ({
             <IconTile
               icon={icon}
               tone={tone}
-              size={34}
+              size={compact ? 30 : 34}
               sx={{ color: '#fff', background: `linear-gradient(140deg, ${gradient[0]}, ${gradient[1]})`, boxShadow: `0 8px 16px -10px ${alpha(gradient[1], 0.85)}` }}
             />
           </Box>
@@ -63,7 +66,7 @@ export const StatCard = ({
       </Stack>
 
       {(trend || subtitle) && (
-        <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.75 }} useFlexGap flexWrap="wrap">
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: compact ? 0.25 : 0.75 }} useFlexGap flexWrap="wrap">
           {trend && (
             <Stack
               direction="row"

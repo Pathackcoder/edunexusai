@@ -1,7 +1,11 @@
 import React from 'react';
 import Box from '@mui/material/Box';
 import { ThemeProvider } from '@mui/material/styles';
-import { brand, darkSurfaceTheme } from '../../theme/theme';
+import { brand, darkSurfaceTheme as defaultDarkSurfaceTheme } from '../../theme/theme';
+import { useAppearance } from '../../context/AppearanceContext';
+
+/** The dark-surface theme for the institution's current appearance. */
+const useDarkSurfaceTheme = () => useAppearance()?.darkSurfaceTheme ?? defaultDarkSurfaceTheme;
 
 /**
  * The EdunexusAI dark surface — the navy/indigo atmosphere of the login page — as a
@@ -12,7 +16,7 @@ import { brand, darkSurfaceTheme } from '../../theme/theme';
  * glow: where the coloured light sits ('tr' | 'bl' | 'both' | 'none').
  */
 export const DarkSurface = ({ children, glow = 'both', grid = true, sx, component, className, ...rest }) => (
-  <ThemeProvider theme={darkSurfaceTheme}>
+  <ThemeProvider theme={useDarkSurfaceTheme()}>
     <Box
       component={component}
       className={className}
@@ -53,6 +57,6 @@ export const DarkSurface = ({ children, glow = 'both', grid = true, sx, componen
 );
 
 /** Use the dark-surface theme for children without drawing a surface (e.g. on a gradient you already own). */
-export const OnDark = ({ children }) => <ThemeProvider theme={darkSurfaceTheme}>{children}</ThemeProvider>;
+export const OnDark = ({ children }) => <ThemeProvider theme={useDarkSurfaceTheme()}>{children}</ThemeProvider>;
 
 export default DarkSurface;

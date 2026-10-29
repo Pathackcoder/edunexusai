@@ -20,12 +20,14 @@ const routeLabels = {
 
   // Academics
   schedule: 'Course Schedule',
+  'class-search': 'Class Search',
+  campuscore: 'CampusCore SIS',
   assignments: 'Assignments & Deadlines',
   grades: 'Grades & GPA',
   announcements: 'Announcements',
   calendar: 'Academic Calendar',
   transcripts: 'Transcripts',
-  lms: 'Canvas LMS',
+  lms: 'LMS Courses',
 
   // Finance
   tuition: 'Tuition & Payments',
@@ -45,10 +47,13 @@ const routeLabels = {
 
   // Faculty & admin
   courses: 'Courses',
+  gradebook: 'Gradebook',
   users: 'Users',
   roles: 'Roles & Permissions',
   entitlements: 'Widget Entitlements',
   integrations: 'Integrations',
+  moodle: 'Moodle LMS',
+  appearance: 'Portal Appearance',
   faqs: 'FAQs',
 };
 

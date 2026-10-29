@@ -10,6 +10,7 @@ import { useTheme, alpha } from '@mui/material/styles';
 import { IconTile } from './IconTile';
 import { getTone, toneGradient } from '../../theme/tones';
 import { brand } from '../../theme/theme';
+import { WidgetSlotContext, useWidgetSlot } from './widgetSlot';
 import { OnDark } from './DarkSurface';
 
 /**
@@ -40,14 +41,22 @@ export const WidgetCard = ({
   sx,
   bodySx,
 }) => {
-  if (variant === 'featured') {
-    return (
-      <OnDark>
-        <WidgetCardInner {...{ title, subtitle, icon, tone, actionLabel, actionTo, onActionClick, badge, children, className, bodyClassName, headerAction, disablePadding, hoverable, accentBorder, style, sx, bodySx }} featured />
-      </OnDark>
-    );
+  // A CMS layout may retitle the widget in this dashboard slot. Only the outermost card
+  // applies it; nested cards see the slot without the override.
+  const slot = useWidgetSlot();
+  const presentation = slot.presentation;
+  if (presentation) {
+    if (presentation.title) title = presentation.title;
+    if (presentation.subtitle) subtitle = presentation.subtitle;
   }
-  return <WidgetCardInner {...{ title, subtitle, icon, tone, actionLabel, actionTo, onActionClick, badge, children, className, bodyClassName, headerAction, disablePadding, hoverable, accentBorder, style, sx, bodySx }} />;
+  const card = variant === 'featured' ? (
+    <OnDark>
+      <WidgetCardInner {...{ title, subtitle, icon, tone, actionLabel, actionTo, onActionClick, badge, children, className, bodyClassName, headerAction, disablePadding, hoverable, accentBorder, style, sx, bodySx }} featured />
+    </OnDark>
+  ) : (
+    <WidgetCardInner {...{ title, subtitle, icon, tone, actionLabel, actionTo, onActionClick, badge, children, className, bodyClassName, headerAction, disablePadding, hoverable, accentBorder, style, sx, bodySx }} />
+  );
+  return presentation ? <WidgetSlotContext.Provider value={{ ...slot, presentation: null }}>{card}</WidgetSlotContext.Provider> : card;
 };
 
 const EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
@@ -74,8 +83,9 @@ const WidgetCardInner = ({
   featured = false,
 }) => {
   const theme = useTheme();
+  const inSlot = Boolean(useWidgetSlot().size);
   const toneInfo = getTone(theme, tone);
-  const [from, to] = toneGradient(tone);
+  const [from, to] = toneGradient(tone, theme);
 
   const actionSx = {
     color: featured ? '#C7D2FE' : 'primary.main',
@@ -84,15 +94,19 @@ const WidgetCardInner = ({
     '& .MuiButton-endIcon': { ml: 0.5, transition: `transform 240ms ${EASE}` },
     '&:hover': { bgcolor: featured ? 'rgba(255,255,255,0.08)' : alpha(theme.palette.primary.main, 0.07), '& .MuiButton-endIcon': { transform: 'translateX(3px)' } },
   };
+  // The label sits in its own span so a narrow dashboard card can show the action as an
+  // arrow pill (label kept for screen readers and as a tooltip) instead of truncating the title.
+  const label = actionLabel || 'View all';
+  const actionContent = <span className="widget-action-label">{label}</span>;
   const action = headerAction ? (
     headerAction
   ) : actionTo ? (
-    <Button component={RouterLink} to={actionTo} size="small" endIcon={<ArrowForwardRoundedIcon />} sx={actionSx}>
-      {actionLabel || 'View all'}
+    <Button component={RouterLink} to={actionTo} size="small" endIcon={<ArrowForwardRoundedIcon />} sx={actionSx} className="widget-action" title={inSlot ? label : undefined}>
+      {actionContent}
     </Button>
   ) : onActionClick ? (
-    <Button onClick={onActionClick} size="small" endIcon={<ArrowForwardRoundedIcon />} sx={actionSx}>
-      {actionLabel || 'View all'}
+    <Button onClick={onActionClick} size="small" endIcon={<ArrowForwardRoundedIcon />} sx={actionSx} className="widget-action" title={inSlot ? label : undefined}>
+      {actionContent}
     </Button>
   ) : null;
 
@@ -104,6 +118,15 @@ const WidgetCardInner = ({
       sx={{
         display: 'flex',
         flexDirection: 'column',
+        // Dashboard cards size their header to their own width (container query below).
+        ...(inSlot && {
+          containerType: 'inline-size',
+          '@container (max-width: 399px)': {
+            '& .widget-action': { minWidth: 0, px: 0.75 },
+            '& .widget-action .MuiButton-endIcon': { ml: 0 },
+            '& .widget-action-label': { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' },
+          },
+        }),
         width: '100%',
         minWidth: 0,
         position: 'relative',
@@ -187,10 +210,12 @@ const WidgetCardInner = ({
           direction="row"
           alignItems="center"
           useFlexGap
-          flexWrap="wrap"
+          // In a sized dashboard slot the header is one row at every width, so comparable
+          // cards share the same header height; elsewhere the action may wrap as before.
+          flexWrap={inSlot ? 'nowrap' : 'wrap'}
           columnGap={1.5}
           rowGap={1.25}
-          sx={{ px: { xs: 2, sm: 2.25 }, pt: { xs: 1.5, sm: 1.75 }, pb: 1.25, minWidth: 0 }}
+          sx={{ px: { xs: 2, sm: 2 }, pt: { xs: 1.5, sm: 1.5 }, pb: 1.25, minWidth: 0, flexShrink: 0 }}
         >
           {icon && (
             <IconTile
@@ -205,15 +230,15 @@ const WidgetCardInner = ({
               }}
             />
           )}
-          <Box sx={{ minWidth: 0, flex: '1 1 160px' }}>
+          <Box sx={{ minWidth: 0, flex: inSlot ? '1 1 auto' : '1 1 160px' }}>
             <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
-              <Typography variant="h6" component="h2" sx={{ lineHeight: 1.3, fontWeight: 600, letterSpacing: '-0.005em' }}>
+              <Typography variant="h6" component="h2" sx={{ lineHeight: 1.3, fontWeight: 600, letterSpacing: '-0.005em', minWidth: 0 }}>
                 {title}
               </Typography>
               {badge}
             </Stack>
             {subtitle && (
-              <Typography variant="caption" component="p" sx={{ display: 'block', mt: 0.25 }}>
+              <Typography variant="caption" component="p" sx={{ display: 'block', mt: 0.25, lineHeight: 1.4 }}>
                 {subtitle}
               </Typography>
             )}
@@ -229,7 +254,9 @@ const WidgetCardInner = ({
           display: 'flex',
           flexDirection: 'column',
           minWidth: 0,
-          ...(disablePadding ? {} : { px: { xs: 2, sm: 2.25 }, pb: { xs: 1.75, sm: 2 }, pt: title ? 0.25 : { xs: 2, sm: 2.25 } }),
+          // Lets the body shrink inside a fixed-height dashboard slot (FitList does the fitting).
+          minHeight: 0,
+          ...(disablePadding ? {} : { px: { xs: 2, sm: 2 }, pb: { xs: 1.75, sm: 1.75 }, pt: title ? 0.25 : { xs: 2, sm: 2 } }),
           ...bodySx,
         }}
       >

@@ -1,14 +1,14 @@
 {
-  "name": "EdunexusAI Student Portal",
-  "short_name": "EdunexusAI",
-  "description": "Unified university student experience portal for academic, financial, administrative, and campus services.",
+  "name": "Feddrick University Portal",
+  "short_name": "Feddrick",
+  "description": "Feddrick University portal for students, faculty and administrators: academic, financial, administrative and campus services. Powered by EduNexusAI.",
   "start_url": "/",
   "scope": "/",
   "id": "/",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#F7F8FC",
-  "theme_color": "#2563EB",
+  "theme_color": "#141850",
   "lang": "en",
   "dir": "ltr",
   "categories": [
@@ -53,21 +53,36 @@
       "short_name": "Dashboard",
       "description": "View today's schedule and academic updates",
       "url": "/dashboard",
-      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/icons/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "Schedule",
       "short_name": "Schedule",
       "description": "View enrolled weekly course schedule",
       "url": "/academics/schedule",
-      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/icons/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "Tuition & Accounts",
       "short_name": "Tuition",
       "description": "View balance and make payments",
       "url": "/finance/tuition",
-      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/icons/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }

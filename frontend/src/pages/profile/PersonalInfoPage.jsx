@@ -13,6 +13,8 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import VerifiedRoundedIcon from '@mui/icons-material/VerifiedRounded';
 import HourglassTopRoundedIcon from '@mui/icons-material/HourglassTopRounded';
 import { useAuth } from '../../context/AuthContext';
+import { sisStateLabel, useSisProfile } from '../../hooks/useSisProfile';
+import { pretty } from '../../components/sis/sisData';
 import { AddressChangeModal } from '../../components/profile/AddressChangeModal';
 import { NameChangeModal } from '../../components/profile/NameChangeModal';
 import { Button } from '../../components/common/Button';
@@ -37,6 +39,11 @@ const fieldGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minm
 export const PersonalInfoPage = () => {
   const { user, refreshUser } = useAuth();
   const profile = user ?? {};
+  // Institutional ID, program and standing are CampusCore's, read live; never the local columns.
+  const isSisPerson = (user?.roles ?? []).some((role) => role === 'STUDENT' || role === 'FACULTY');
+  const sis = useSisProfile({ enabled: isSisPerson });
+  const sisRecord = sis.student ?? sis.faculty;
+  const sisMissing = isSisPerson && !sisRecord ? sisStateLabel(sis.data, sis.loading) : null;
   const [isEditingContact, setIsEditingContact] = useState(false);
   const [contactForm, setContactForm] = useState({
     phone: user?.phone ?? '',
@@ -148,10 +155,21 @@ export const PersonalInfoPage = () => {
             >
               <Box sx={fieldGrid}>
                 <InfoField label="Current Legal Name">{profile.fullName ?? '—'}</InfoField>
-                <InfoField label="University ID">{profile.studentNumber ?? profile.employeeNumber ?? '—'}</InfoField>
-                <InfoField label="Degree Program">{profile.degree ?? '—'}</InfoField>
-                <InfoField label="Academic Standing" valueSx={{ color: 'success.main' }}>{profile.academicStanding ?? '—'}</InfoField>
+                <InfoField label="University ID">{sisRecord ? sisRecord.institutionalId : sisMissing ?? profile.employeeNumber ?? '—'}</InfoField>
+                {sis.faculty ? (
+                  <InfoField label="Department">{sis.faculty.department ?? '—'}</InfoField>
+                ) : (
+                  <InfoField label="Degree Program">{sis.student ? sis.student.program?.name ?? '—' : sisMissing ?? '—'}</InfoField>
+                )}
+                {!sis.faculty && (
+                  <InfoField label="Academic Standing" valueSx={sis.student ? { color: 'success.main' } : undefined}>{sis.student ? pretty(sis.academic?.standing ?? sis.student.standing) : sisMissing ?? '—'}</InfoField>
+                )}
               </Box>
+              {isSisPerson && (
+                <Typography variant="caption" component="p" sx={{ mt: 1.5 }}>
+                  {sisRecord ? 'Institutional record from CampusCore SIS. Changes are made by the registrar.' : sis.loading ? 'Loading your CampusCore record…' : sis.data?.message ?? 'Your CampusCore record is not available right now.'}
+                </Typography>
+              )}
             </WidgetCard>
 
             {/* Contact information */}

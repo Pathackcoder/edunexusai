@@ -23,13 +23,13 @@ const MOCK_UP = await mockServiceIsUp();
 const needsMock = MOCK_UP ? {} : { skip: 'mock external service is not running on port 5002' };
 
 describe('integration registry and configuration', () => {
-  it('registers the mock SIS, Canvas, Banner and Ethos', async () => {
+  it('registers the mock SIS, Canvas, Moodle, Banner and Ethos', async () => {
     const token = await login('admin');
     const { status, body } = await api('/admin/integrations', { token });
 
     assert.equal(status, 200);
     const keys = body.data.map((integration) => integration.key).sort();
-    assert.deepEqual(keys, ['banner-sis', 'canvas-lms', 'ethos-integration', 'mock-university']);
+    assert.deepEqual(keys, ['banner-sis', 'campuscore-sis', 'canvas-lms', 'ethos-integration', 'mock-university', 'moodle-lms']);
   });
 
   it('never returns a credential value, only its environment variable name', async () => {

@@ -45,6 +45,21 @@ const MODES = ['MOCK', 'LIVE', 'DISABLED'];
  * sync attempt. The log is what makes "we know when an integration failed" true rather
  * than aspirational.
  */
+/** Sync log outcomes, so an empty result, a missing method and a real failure read differently. */
+const OUTCOME_LABEL = {
+  RECORDS: 'Records returned',
+  EMPTY: 'Valid empty result',
+  NOT_IMPLEMENTED: 'Connector does not implement this',
+  NOT_SUPPORTED: 'Not supported for this connector',
+  FUNCTION_NOT_ENABLED: 'Moodle function not enabled',
+  PERMISSION_DENIED: 'Permission denied',
+  AUTH_FAILED: 'Authentication failed',
+  NETWORK: 'Network / service unavailable',
+  NOT_CONFIGURED: 'Not configured',
+  PARTIAL: 'Partially completed',
+  ERROR: 'Error',
+};
+
 export const AdminIntegrationDetailPage = () => {
   const { integrationId } = useParams();
   const { showToast } = useToast();
@@ -160,7 +175,17 @@ export const AdminIntegrationDetailPage = () => {
                 <Button variant="secondary" size="sm" icon={BoltRoundedIcon} loading={busy} onClick={handleTest}>
                   Test connection
                 </Button>
-                {data?.supportedDomains?.length > 0 && (
+                {data?.provider === 'CAMPUSCORE' && (
+                  <Button variant="primary" size="sm" component={RouterLink} to="/admin/integrations/campuscore">
+                    Manage CampusCore SIS
+                  </Button>
+                )}
+                {data?.provider === 'MOODLE' && (
+                  <Button variant="primary" size="sm" component={RouterLink} to="/admin/integrations/moodle">
+                    Manage Moodle LMS
+                  </Button>
+                )}
+                {data?.supportedDomains?.length > 0 && data?.provider !== 'MOODLE' && (
                   <Button variant="outline" size="sm" icon={SyncRoundedIcon} loading={busy} onClick={handleSync}>
                     Sync now
                   </Button>
@@ -234,8 +259,18 @@ export const AdminIntegrationDetailPage = () => {
                     />
                   </Box>
 
+                  {data?.provider === 'CAMPUSCORE' ? (
+                    <Alert severity="info">
+                      CampusCore SIS is read live through the SIS portal service and is never copied into local tables, so it serves no sync domains. Use Manage CampusCore SIS for capabilities, students and identity links.
+                    </Alert>
+                  ) : data?.provider === 'MOODLE' ? (
+                    <Alert severity="info">
+                      Moodle is an LMS connector. It serves no SIS data domains (official courses, enrolments, grades), so the SIS
+                      “Sync now” does not apply. Moodle data is read live; use Manage Moodle LMS → Read rosters for an LMS roster read.
+                    </Alert>
+                  ) : (
                   <Box>
-                    <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Data domains served</Typography>
+                    <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Data domains served (SIS sync)</Typography>
                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, minmax(0, 1fr))' }, columnGap: 1 }}>
                       {DOMAINS.map((domain) => (
                         <FormControlLabel
@@ -258,6 +293,7 @@ export const AdminIntegrationDetailPage = () => {
                       ))}
                     </Box>
                   </Box>
+                  )}
 
                   <FormControlLabel
                     label="Enabled"
@@ -308,9 +344,14 @@ export const AdminIntegrationDetailPage = () => {
                           <TableCell sx={{ pr: 0 }}><Icon sx={{ fontSize: 18, color: colour, display: 'block' }} /></TableCell>
                           <TableCell sx={{ fontWeight: 600 }}>{log.operation}</TableCell>
                           <TableCell>
-                            <Badge variant={log.status === 'SUCCESS' ? 'success' : log.status === 'RUNNING' ? 'neutral' : 'danger'}>
+                            <Badge variant={log.status === 'SUCCESS' ? 'success' : log.status === 'RUNNING' ? 'neutral' : ['NOT_IMPLEMENTED', 'NOT_SUPPORTED'].includes(log.outcome) ? 'neutral' : 'danger'}>
                               {log.status}
                             </Badge>
+                            {log.outcome && (
+                              <Typography variant="caption" component="div" sx={{ mt: 0.25 }}>
+                                {OUTCOME_LABEL[log.outcome] ?? log.outcome}
+                              </Typography>
+                            )}
                           </TableCell>
                           <TableCell sx={{ color: 'text.secondary' }}>{log.recordsProcessed}</TableCell>
                           <TableCell sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>{log.durationMs != null ? `${log.durationMs} ms` : '—'}</TableCell>

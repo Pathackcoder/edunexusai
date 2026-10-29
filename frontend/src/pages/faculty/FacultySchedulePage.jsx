@@ -6,16 +6,32 @@ import Typography from '@mui/material/Typography';
 import ScheduleRoundedIcon from '@mui/icons-material/ScheduleRounded';
 import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
 import { useApiQuery } from '../../hooks/useApiQuery';
-import { facultyApi } from '../../services/api';
+import { sisApi } from '../../services/api';
+import { SisNotice } from '../../components/sis/SisNotice';
 import { PageHeader } from '../../components/common/PageHeader';
 import { DataState } from '../../components/common/DataState';
 
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const DAYS = [['MON', 'Monday'], ['TUE', 'Tuesday'], ['WED', 'Wednesday'], ['THU', 'Thursday'], ['FRI', 'Friday']];
+const COLORS = ['#4651DE', '#0E9F6E', '#C2410C', '#7A4FD8', '#0891B2', '#BE185D'];
 
-/** Teaching timetable, grouped by weekday. */
+/**
+ * Teaching timetable from CampusCore SIS (the official teaching assignments), grouped by
+ * weekday. Unlinked accounts and outages show an explicit state, never local demo sections.
+ */
 export const FacultySchedulePage = () => {
-  const { data, loading, error, refetch } = useApiQuery(() => facultyApi.getSchedule());
-  const courses = data ?? [];
+  const { data, loading, error, refetch } = useApiQuery(() => sisApi.facultyTeaching());
+  const schedule = data?.state === 'OK' && data.schedule.state === 'OK' ? data.schedule.data : null;
+  const courses = (schedule?.items ?? []).flatMap((section, index) =>
+    (section.meetings ?? []).map((m) => ({
+      id: `${section.source.id}-${m.day}-${m.start}`,
+      day: m.day,
+      code: `${section.courseCode}-${section.sectionCode}`,
+      time: `${m.start} – ${m.end}`,
+      room: m.location ?? 'Room not listed',
+      color: COLORS[index % COLORS.length],
+    })),
+  ).sort((a, b) => a.time.localeCompare(b.time));
+  const notice = data && !schedule ? <SisNotice overview={data} section={data.state === 'OK' ? data.schedule : null} what="Your teaching schedule" onRetry={refetch} /> : null;
 
   return (
     <DataState
@@ -23,7 +39,7 @@ export const FacultySchedulePage = () => {
       error={error}
       onRetry={refetch}
       loadingLabel="Loading your teaching schedule…"
-      isEmpty={courses.length === 0}
+      isEmpty={Boolean(schedule) && courses.length === 0}
       emptyTitle="No scheduled teaching"
       emptyMessage="Sections you are assigned to teach will appear here."
     >
@@ -31,12 +47,13 @@ export const FacultySchedulePage = () => {
         <Box>
           <PageHeader
             title="Teaching Schedule"
-            description="Weekly lecture and lab commitments for the current term."
+            description={`Weekly teaching commitments${schedule?.term?.name ? ` for ${schedule.term.name}` : ''}, from CampusCore SIS.`}
           />
+          {notice && <Box sx={{ mb: 2 }}>{notice}</Box>}
 
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(5, minmax(0, 1fr))' }, gap: 2 }}>
-            {DAYS.map((day) => {
-              const dayCourses = courses.filter((course) => (course.days ?? []).includes(day));
+            {schedule && DAYS.map(([code, day]) => {
+              const dayCourses = courses.filter((course) => course.day === code);
               return (
                 <Card key={day} sx={{ display: 'flex', flexDirection: 'column', minHeight: 170 }}>
                   <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 1.75, py: 1.25, borderBottom: 1, borderColor: 'divider', bgcolor: 'background.subtle' }}>
@@ -57,7 +74,7 @@ export const FacultySchedulePage = () => {
                             p: 1.25,
                             pl: 1.75,
                             borderRadius: 2.5,
-                            bgcolor: course.bgColor ?? 'background.subtle',
+                            bgcolor: 'background.subtle',
                             '&::before': { content: '""', position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, bgcolor: course.color ?? 'primary.main' },
                           }}
                         >

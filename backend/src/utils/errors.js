@@ -5,12 +5,16 @@ export const ErrorCode = {
   UNAUTHENTICATED: 'UNAUTHENTICATED',
   TOKEN_EXPIRED: 'TOKEN_EXPIRED',
   FORBIDDEN: 'FORBIDDEN',
+  PASSWORD_CHANGE_REQUIRED: 'PASSWORD_CHANGE_REQUIRED',
   TENANT_MISMATCH: 'TENANT_MISMATCH',
   RESOURCE_NOT_FOUND: 'RESOURCE_NOT_FOUND',
   CONFLICT: 'CONFLICT',
   RATE_LIMITED: 'RATE_LIMITED',
   INTEGRATION_ERROR: 'INTEGRATION_ERROR',
   INTEGRATION_NOT_CONFIGURED: 'INTEGRATION_NOT_CONFIGURED',
+  // The operation does not apply to this integration (not implemented, or not allowed
+  // for its kind, e.g. SIS sync on an LMS-only connector). Not an outage.
+  OPERATION_NOT_SUPPORTED: 'OPERATION_NOT_SUPPORTED',
   PROFILE_NOT_FOUND: 'PROFILE_NOT_FOUND',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
 };
@@ -40,5 +44,7 @@ export const conflict = (message = 'Resource already exists.') =>
   new AppError(409, ErrorCode.CONFLICT, message);
 export const integrationError = (message, details) =>
   new AppError(502, ErrorCode.INTEGRATION_ERROR, message, details);
+export const operationNotSupported = (message, details, status = 409) =>
+  new AppError(status, ErrorCode.OPERATION_NOT_SUPPORTED, message, details);
 export const integrationNotConfigured = (message, details) =>
   new AppError(409, ErrorCode.INTEGRATION_NOT_CONFIGURED, message, details);

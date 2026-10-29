@@ -18,6 +18,6 @@ export default {
   'Student Follow-ups': 'Seguimiento de estudiantes', Users: 'Usuarios', 'Roles & Permissions': 'Roles y permisos', 'Widget Entitlements': 'Permisos de widgets',
   'Sign Out': 'Cerrar sesión', 'Install Portal App': 'Instalar la app', Language: 'Idioma',
   'Customize layout': 'Personalizar diseño', 'Reset layout': 'Restablecer diseño', 'Drag to reorder': 'Arrastra para reordenar',
-  'Ask EdunexusAI': 'Pregunta a EdunexusAI', 'Ask a question…': 'Escribe una pregunta…', Send: 'Enviar',
+  'Ask EduNexusAI': 'Pregunta a EduNexusAI', 'Ask a question…': 'Escribe una pregunta…', Send: 'Enviar',
   'Latest notifications': 'Últimas notificaciones', unread: 'sin leer', 'Up to date': 'Al día', 'View all': 'Ver todo',
 };

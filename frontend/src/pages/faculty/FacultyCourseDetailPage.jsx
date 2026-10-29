@@ -18,6 +18,7 @@ import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import CampaignOutlinedIcon from '@mui/icons-material/CampaignOutlined';
 import MailOutlineRoundedIcon from '@mui/icons-material/MailOutlineRounded';
+import GradingRoundedIcon from '@mui/icons-material/GradingRounded';
 import { useApiQuery } from '../../hooks/useApiQuery';
 import { facultyApi } from '../../services/api';
 import { Badge } from '../../components/common/Badge';
@@ -28,6 +29,7 @@ import { WidgetCard } from '../../components/common/WidgetCard';
 import { EmptyState } from '../../components/common/EmptyState';
 import { useToast } from '../../components/common/Toast';
 import { DataState } from '../../components/common/DataState';
+import { useAuth } from '../../context/AuthContext';
 
 /**
  * Course roster and class messaging.
@@ -39,6 +41,7 @@ import { DataState } from '../../components/common/DataState';
  */
 export const FacultyCourseDetailPage = () => {
   const { courseId } = useParams();
+  const { isFaculty } = useAuth();
   const { showToast } = useToast();
 
   const { data, loading, error, refetch } = useApiQuery(
@@ -130,6 +133,11 @@ export const FacultyCourseDetailPage = () => {
             description={`${course?.room} · ${(course?.days ?? []).join(', ')} · ${course?.time}`}
             actions={
               <>
+                {!isFaculty ? null : (
+                  <Button variant="secondary" size="sm" icon={GradingRoundedIcon} component={RouterLink} to={`/faculty/gradebook?course=${courseId}`}>
+                    Open gradebook
+                  </Button>
+                )}
                 <Button variant="secondary" size="sm" icon={CampaignOutlinedIcon} onClick={() => setIsAnnounceOpen(true)}>
                   Post announcement
                 </Button>

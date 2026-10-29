@@ -78,4 +78,13 @@ const TONE_GRADIENTS = {
   indigo: ['#4F46E5', '#8B5CF6'],
   grey: ['#4D5675', '#8B93AE'],
 };
-export const toneGradient = (variant = 'primary') => TONE_GRADIENTS[paletteKey(variant)] ?? TONE_GRADIENTS.primary;
+/**
+ * With a theme, the brand tones (primary, secondary) follow the institution's portal
+ * appearance; category and status tones keep their fixed meaning.
+ */
+export const toneGradient = (variant = 'primary', theme) => {
+  const key = paletteKey(variant);
+  if (theme && key === 'primary') return [theme.palette.primary.main, theme.palette.secondary.main];
+  if (theme && key === 'secondary') return [theme.palette.secondary.main, theme.palette.secondary.light];
+  return TONE_GRADIENTS[key] ?? TONE_GRADIENTS.primary;
+};

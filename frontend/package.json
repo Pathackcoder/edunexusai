@@ -7,24 +7,44 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "node ../scripts/audit-frontend.mjs"
+    "lint": "node ../scripts/audit-frontend.mjs",
+    "test": "node --test \"tests/**/*.test.mjs\""
   },
   "dependencies": {
+    "@emotion/cache": "11.14.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^6.5.0",
     "@mui/material": "^6.5.0",
+    "@puckeditor/core": "0.23.0",
+    "@tiptap/core": "3.32.0",
+    "@tiptap/extension-blockquote": "3.32.0",
+    "@tiptap/extension-bold": "3.32.0",
+    "@tiptap/extension-document": "3.32.0",
+    "@tiptap/extension-hard-break": "3.32.0",
+    "@tiptap/extension-heading": "3.32.0",
+    "@tiptap/extension-horizontal-rule": "3.32.0",
+    "@tiptap/extension-italic": "3.32.0",
+    "@tiptap/extension-link": "3.32.0",
+    "@tiptap/extension-list": "3.32.0",
+    "@tiptap/extension-paragraph": "3.32.0",
+    "@tiptap/extension-strike": "3.32.0",
+    "@tiptap/extension-text": "3.32.0",
+    "@tiptap/extension-text-align": "3.32.0",
+    "@tiptap/extension-underline": "3.32.0",
+    "@tiptap/pm": "3.32.0",
     "canvas-confetti": "^1.9.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-markdown": "9.0.1",
     "react-router-dom": "^6.26.2"
   },
   "devDependencies": {
+    "@babel/parser": "7.29.9",
+    "@babel/traverse": "7.29.8",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
-    "vite": "^5.4.2",
-    "@babel/parser": "7.29.9",
-    "@babel/traverse": "7.29.8"
+    "vite": "^5.4.2"
   }
 }

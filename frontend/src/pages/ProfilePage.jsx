@@ -15,6 +15,8 @@ import NotificationsNoneRoundedIcon from '@mui/icons-material/NotificationsNoneR
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import { useAuth } from '../context/AuthContext';
+import { sisStateLabel, useSisProfile } from '../hooks/useSisProfile';
+import { pretty } from '../components/sis/sisData';
 import { Badge } from '../components/common/Badge';
 import { IconTile } from '../components/common/IconTile';
 import { PageHeader } from '../components/common/PageHeader';
@@ -29,6 +31,12 @@ export const ProfilePage = () => {
   // outstanding petitions. A failure here just hides the pending badges.
   const { data } = useApiQuery(() => profileApi.getRequests());
   const profile = user ?? {};
+  // Status, program, ID, admit term and standing are CampusCore's, read live.
+  const isSisPerson = (user?.roles ?? []).some((role) => role === 'STUDENT' || role === 'FACULTY');
+  const sis = useSisProfile({ enabled: isSisPerson });
+  const sisStudent = sis.student;
+  const sisRecord = sis.student ?? sis.faculty;
+  const sisMissing = isSisPerson && !sisRecord ? sisStateLabel(sis.data, sis.loading) : null;
   const addressRequests = data?.addressRequests ?? [];
   const nameRequests = data?.nameRequests ?? [];
 
@@ -126,18 +134,22 @@ export const ProfilePage = () => {
                   <Typography variant="h3" component="h2" sx={{ fontSize: { xs: '1.375rem', sm: '1.625rem' } }}>
                     {profile.fullName ?? '—'}
                   </Typography>
-                  <Badge variant="success" dot>Active Student</Badge>
+                  {sisStudent && <Badge variant={sisStudent.status === 'ACTIVE' ? 'success' : 'warning'} dot>{pretty(sisStudent.status)} student</Badge>}
+                  {sis.faculty && <Badge variant="success" dot>{sis.faculty.title ?? 'Faculty'}</Badge>}
+                  {sisMissing && <Badge variant="neutral">{sisMissing}</Badge>}
                 </Stack>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                  {profile.degree} • {profile.department}
+                  {sisStudent ? [sisStudent.program?.name, pretty(sisStudent.level)].filter(Boolean).join(' • ') : sis.faculty ? sis.faculty.department ?? '' : profile.department ?? ''}
                 </Typography>
                 <Stack direction="row" useFlexGap flexWrap="wrap" spacing={2.5} sx={{ mt: 1.25 }}>
                   <Typography variant="caption">
-                    Student ID: <Box component="strong" sx={{ color: 'text.primary' }}>{profile.studentNumber ?? profile.employeeNumber ?? "—"}</Box>
+                    Student ID: <Box component="strong" sx={{ color: 'text.primary' }}>{sisRecord ? sisRecord.institutionalId : sisMissing ?? profile.employeeNumber ?? '—'}</Box>
                   </Typography>
-                  <Typography variant="caption">
-                    Admit Term: <Box component="strong" sx={{ color: 'text.primary' }}>{profile.admitTerm}</Box>
-                  </Typography>
+                  {sisStudent?.admitTerm && (
+                    <Typography variant="caption">
+                      Admit Term: <Box component="strong" sx={{ color: 'text.primary' }}>{sisStudent.admitTerm}</Box>
+                    </Typography>
+                  )}
                   <Typography variant="caption">
                     Institution: <Box component="strong" sx={{ color: 'text.primary' }}>{profile.institution}</Box>
                   </Typography>
@@ -145,10 +157,12 @@ export const ProfilePage = () => {
               </Box>
             </Stack>
 
-            <Box sx={{ px: 2.25, py: 1.5, bgcolor: 'background.paper', borderRadius: 3, border: 1, borderColor: 'divider', textAlign: { md: 'right' }, flexShrink: 0 }}>
-              <Typography variant="caption">Academic Standing</Typography>
-              <Typography variant="subtitle1" sx={{ color: 'success.main', fontWeight: 600 }}>{profile.academicStanding}</Typography>
-            </Box>
+            {!sis.faculty && isSisPerson && (
+              <Box sx={{ px: 2.25, py: 1.5, bgcolor: 'background.paper', borderRadius: 3, border: 1, borderColor: 'divider', textAlign: { md: 'right' }, flexShrink: 0 }}>
+                <Typography variant="caption">Academic Standing · CampusCore</Typography>
+                <Typography variant="subtitle1" sx={{ color: sisStudent ? 'success.main' : 'text.secondary', fontWeight: 600 }}>{sisStudent ? pretty(sis.academic?.standing ?? sisStudent.standing) : sisMissing}</Typography>
+              </Box>
+            )}
           </Stack>
         </Card>
 

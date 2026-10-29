@@ -1,4 +1,5 @@
 import { facultyWidgets } from '../../../../shared/facultyWidgets.js';
+import { alumniWidgets, staffWidgets } from '../../../../shared/communityWidgets.js';
 import { badRequest } from '../../utils/errors.js';
 import { prisma } from '../../db/prisma.js';
 
@@ -18,6 +19,8 @@ import { prisma } from '../../db/prisma.js';
 /** Widgets granted to a role that has no tier (faculty, admin). */
 const ROLE_DEFAULT_WIDGETS = {
   FACULTY: facultyWidgets.map((widget) => widget.key),
+  STAFF: staffWidgets.map((widget) => widget.key),
+  ALUMNI: alumniWidgets.map((widget) => widget.key),
   ADMIN: [
     'admin.users',
     'admin.roles',
@@ -28,48 +31,77 @@ const ROLE_DEFAULT_WIDGETS = {
   ],
 };
 
+const EMPTY = { tier: null, widgets: [], widgetDetails: [] };
+
+/** A student's widgets come from their tier's entitlement rows. No tier, no widgets. */
+async function tierEntitlements(tenantId, tierId) {
+  if (!tierId) return null;
+  const tier = await prisma.studentTier.findFirst({
+    where: { id: tierId, tenantId },
+    include: {
+      entitlements: {
+        where: { enabled: true },
+        include: { widget: true },
+        orderBy: { sortOrder: 'asc' },
+      },
+    },
+  });
+  if (!tier) return null;
+  return {
+    tier: { id: tier.id, key: tier.key, name: tier.name, description: tier.description, rank: tier.rank },
+    widgets: tier.entitlements.map((entitlement) => entitlement.widget.key),
+    widgetDetails: tier.entitlements.map((entitlement) => ({
+      key: entitlement.widget.key,
+      label: entitlement.widget.label,
+      category: entitlement.widget.category,
+      route: entitlement.widget.route,
+      sortOrder: entitlement.sortOrder,
+    })),
+  };
+}
+
+/** Faculty and admin widgets are role-driven (defaults minus the tenant's switched-off rows). */
+async function roleEntitlements(tenantId, roles) {
+  const overrides = await prisma.roleWidgetEntitlement.findMany({ where: { tenantId, roleKey: { in: roles } } });
+  const widgets = [...new Set(roles.flatMap((role) => (ROLE_DEFAULT_WIDGETS[role] ?? []).filter((key) =>
+    overrides.find((row) => row.roleKey === role && row.widgetKey === key)?.enabled !== false)))];
+  return { tier: null, widgets, widgetDetails: widgets.map((key) => ({ key, label: key, category: 'role', route: null, sortOrder: 0 })) };
+}
+
 /**
- * @returns {Promise<{widgets: string[], tier: object|null, source: string}>}
+ * The widgets of ONE role context ('student', 'faculty' or the 'admin' workspace).
+ * Contexts never borrow from each other: a student tier applies only to the student context,
+ * and being faculty never adds or upgrades a student widget (or the reverse).
+ */
+export async function resolveContextEntitlements({ tenantId, context, tierId = null }) {
+  if (context === 'student') return { ...((await tierEntitlements(tenantId, tierId)) ?? EMPTY), source: 'TIER' };
+  if (context === 'faculty') return { ...(await roleEntitlements(tenantId, ['FACULTY'])), source: 'ROLE' };
+  if (context === 'staff') return { ...(await roleEntitlements(tenantId, ['STAFF'])), source: 'ROLE' };
+  if (context === 'alumni') return { ...(await roleEntitlements(tenantId, ['ALUMNI'])), source: 'ROLE' };
+  if (context === 'admin') return { ...(await roleEntitlements(tenantId, ['ADMIN'])), source: 'ROLE' };
+  return { ...EMPTY, source: 'NONE' };
+}
+
+/**
+ * The legacy flat list behind `/auth/me` `entitlements` (kept for existing clients).
+ * For a single-role account it is exactly that role's list, as before. For several roles it
+ * is the union of each context's own list; the keys are namespaced per context (dashboard.* /
+ * feature.* for students, faculty.*, admin.*), so the union never widens any one context.
+ * Tier widgets require the STUDENT role (deny by default).
+ *
+ * @returns {Promise<{widgets: string[], tier: object|null, source: 'TIER'|'ROLE'|'COMBINED'}>}
  */
 export async function resolveEntitlements({ tenantId, roles, tierId }) {
-  // A student's widgets come from their tier's entitlement rows.
-  if (tierId) {
-    const tier = await prisma.studentTier.findFirst({
-      where: { id: tierId, tenantId },
-      include: {
-        entitlements: {
-          where: { enabled: true },
-          include: { widget: true },
-          orderBy: { sortOrder: 'asc' },
-        },
-      },
-    });
-
-    if (tier) {
-      return {
-        tier: { id: tier.id, key: tier.key, name: tier.name, description: tier.description, rank: tier.rank },
-        widgets: tier.entitlements.map((entitlement) => entitlement.widget.key),
-        widgetDetails: tier.entitlements.map((entitlement) => ({
-          key: entitlement.widget.key,
-          label: entitlement.widget.label,
-          category: entitlement.widget.category,
-          route: entitlement.widget.route,
-          sortOrder: entitlement.sortOrder,
-        })),
-        source: 'TIER',
-      };
-    }
-  }
-
-  // Faculty and admin are role-driven; they have no student tier.
-  const overrides = await prisma.roleWidgetEntitlement.findMany({ where: { tenantId, roleKey: { in: roles } } });
-  const widgets = roles.flatMap((role) => (ROLE_DEFAULT_WIDGETS[role] ?? []).filter((key) =>
-    overrides.find((row) => row.roleKey === role && row.widgetKey === key)?.enabled !== false));
+  const student = roles.includes('STUDENT') ? await tierEntitlements(tenantId, tierId) : null;
+  const byRole = await roleEntitlements(tenantId, roles.filter((role) => role !== 'STUDENT'));
+  if (student && !byRole.widgets.length) return { ...student, source: 'TIER' };
+  if (!student) return { ...byRole, source: 'ROLE' };
+  const widgets = [...new Set([...student.widgets, ...byRole.widgets])];
   return {
-    tier: null,
-    widgets: [...new Set(widgets)],
-    widgetDetails: [...new Set(widgets)].map((key) => ({ key, label: key, category: 'role', route: null, sortOrder: 0 })),
-    source: 'ROLE',
+    tier: student.tier,
+    widgets,
+    widgetDetails: [...student.widgetDetails, ...byRole.widgetDetails.filter((detail) => !student.widgets.includes(detail.key))],
+    source: 'COMBINED',
   };
 }
 

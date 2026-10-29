@@ -194,7 +194,7 @@ async function send(path, { method = 'GET', body, query, signal, auth = true, re
   } catch (error) {
     if (error.name === 'AbortError') throw error;
     throw new ApiError({
-      message: 'Cannot reach the EdunexusAI API. Check that the backend is running.',
+      message: 'Cannot reach the EduNexusAI API. Check that the backend is running.',
       code: 'NETWORK_ERROR',
       status: 0,
     });

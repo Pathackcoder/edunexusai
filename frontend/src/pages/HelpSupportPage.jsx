@@ -25,6 +25,7 @@ import { HelpDeskIllustration } from '../assets/illustrations/HelpDeskIllustrati
 import { useApiQuery } from '../hooks/useApiQuery';
 import { supportApi } from '../services/api';
 import { DataState } from '../components/common/DataState';
+import { CmsHelpArticles } from '../components/cms/CmsHelpArticles';
 
 const EMPTY_CONTACTS = {};
 
@@ -194,6 +195,7 @@ export const HelpSupportPage = () => {
               </Box>
             </WidgetCard>
           </Stack>
+          <CmsHelpArticles />
         </Box>
       )}
     </DataState>

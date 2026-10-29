@@ -105,7 +105,7 @@ export const LibraryPage = () => {
                 title="Patron Barcode"
                 value={libraryAccountSummary?.barcode || libraryAccountSummary?.patronId || 'LIB-984210'}
                 valueSx={{ fontSize: { xs: '1.0625rem', md: '1.25rem' } }}
-                subtitle="Demo University Main Library"
+                subtitle="Feddrick University Main Library"
                 icon={QrCode2RoundedIcon}
                 tone="neutral"
               />

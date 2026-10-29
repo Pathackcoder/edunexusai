@@ -24,7 +24,10 @@ import { IconTile } from '../common/IconTile';
 import { MetricLabel } from '../common/Section';
 import { useToast } from '../common/Toast';
 import { useApiQuery } from '../../hooks/useApiQuery';
-import { academicApi } from '../../services/api';
+import { sisApi } from '../../services/api';
+import { SisNotice } from '../sis/SisNotice';
+import { pretty } from '../sis/sisData';
+import { InstitutionLogo } from '../brand/Brand';
 import { DataState } from '../common/DataState';
 
 const EMPTY_SUMMARY = {};
@@ -40,9 +43,38 @@ const SummaryField = ({ label, children }) => (
  * The unofficial transcript. Summary and term history come from GET /transcripts, which
  * reads the registrar-owned academic record rows out of PostgreSQL.
  */
+/** CampusCore overview -> the transcript shape this view renders. Missing values stay empty. */
+function toTranscript(overview) {
+  if (overview?.state !== 'OK') return { notice: overview };
+  if (overview.grades.state !== 'OK') return { notice: null, section: overview.grades };
+  const profile = overview.profile.state === 'OK' ? overview.profile.data : null;
+  const academic = overview.academic.state === 'OK' ? overview.academic.data : null;
+  return {
+    summary: {
+      studentName: profile?.displayName ?? '—',
+      studentId: profile?.institutionalId ?? '—',
+      program: profile?.program?.name ?? '—',
+      degree: profile?.program?.credential ?? '—',
+      cumulativeGpa: academic?.gpa != null ? academic.gpa.toFixed(2) : '—',
+      creditsEarned: academic?.creditsEarned ?? '—',
+      totalDegreeRequirement: null,
+    },
+    terms: overview.grades.data.map((t) => ({
+      term: t.termName ?? t.termCode,
+      termGpa: t.gpa != null ? t.gpa.toFixed(2) : '—',
+      isInProgress: t.courses.some((c) => c.inProgress),
+      creditsAttempted: t.courses.reduce((n, c) => n + (Number(c.credits) || 0), 0),
+      academicStanding: academic ? pretty(academic.standing) : '—',
+      level: academic ? pretty(academic.level) : '—',
+      courses: t.courses.map((c) => ({ code: c.courseCode, title: c.courseTitle, credits: c.credits, grade: c.inProgress ? 'IP' : c.grade ?? '—', points: '—' })),
+    })),
+  };
+}
+
 export const UnofficialTranscriptView = () => {
   const { showToast } = useToast();
-  const { data, loading, error, refetch } = useApiQuery(() => academicApi.getTranscript());
+  // Published grades from CampusCore SIS (drafts are never exposed by CampusCore).
+  const { data, loading, error, refetch } = useApiQuery(() => sisApi.myOverview().then(toTranscript));
   const transcriptSummary = data?.summary ?? EMPTY_SUMMARY;
   const transcriptTerms = data?.terms ?? [];
 
@@ -68,6 +100,10 @@ export const UnofficialTranscriptView = () => {
 
   const gradeColor = (grade) =>
     grade && String(grade).startsWith('A') ? 'success.main' : grade === 'IP' ? 'warning.main' : 'text.primary';
+
+  if (!loading && !error && data && !data.summary) {
+    return <SisNotice overview={data.notice} section={data.section} what="Your transcript" onRetry={refetch} />;
+  }
 
   return (
     <DataState
@@ -112,10 +148,7 @@ export const UnofficialTranscriptView = () => {
             <Box sx={{ pb: 2.5, mb: 3, borderBottom: 2, borderColor: 'primary.main' }}>
               <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'flex-start' }} spacing={2}>
                 <Box>
-                  <Stack direction="row" alignItems="center" spacing={1.5}>
-                    <Box component="img" src="/logo.png" alt="EdunexusAI" sx={{ height: 30, width: 'auto' }} />
-                    <Typography variant="h4" component="span">Demo University</Typography>
-                  </Stack>
+                  <InstitutionLogo height={44} />
                   <Typography variant="caption" component="p" sx={{ mt: 0.75 }}>
                     Office of the University Registrar • Student Records Division • 100 University Plaza, Boston MA 02115
                   </Typography>
@@ -158,7 +191,7 @@ export const UnofficialTranscriptView = () => {
                   </Box>
                 </SummaryField>
                 <SummaryField label="Credits Earned / Required">
-                  {transcriptSummary.creditsEarned} / {transcriptSummary.totalDegreeRequirement} credits
+                  {transcriptSummary.creditsEarned}{transcriptSummary.totalDegreeRequirement ? ` / ${transcriptSummary.totalDegreeRequirement}` : ''} credits
                 </SummaryField>
               </Box>
             </Box>

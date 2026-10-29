@@ -14,6 +14,14 @@ if (!process.env.TEST_DATABASE_URL) {
   throw new Error('TEST_DATABASE_URL is not set. Copy .env.example to .env.');
 }
 
+// The suite never reaches a real CampusCore SIS, Moodle site or CMS: the developer's .env
+// settings are blanked here, and the SIS/Moodle/CMS tests point them at in-process stubs.
+// Blank, not deleted: Prisma re-reads .env when its client starts and would restore a
+// deleted key, but it never overwrites one that is already set.
+for (const key of ['SIS_PROVIDER', 'CAMPUSCORE_BASE_URL', 'CAMPUSCORE_CLIENT_ID', 'CAMPUSCORE_CLIENT_SECRET', 'CAMPUSCORE_EXPECTED_INSTITUTION', 'SIS_TENANT_KEY', 'MOODLE_BASE_URL', 'MOODLE_TOKEN', 'CMS_URL', 'CMS_ADMIN_URL', 'CMS_API_TOKEN', 'CMS_LAYOUTS_ENABLED', 'SMTP_URL', 'SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'MAIL_FROM', 'FORM_RECIPIENT_DOMAINS']) {
+  process.env[key] = '';
+}
+
 let bootstrap;
 
 /**
@@ -86,4 +94,17 @@ export async function login(persona) {
   }
   tokenCache.set(persona, body.data.accessToken);
   return body.data.accessToken;
+}
+
+/**
+ * Sign in an administrator-created account: its temporary password must be replaced before
+ * anything else works (PASSWORD_CHANGE_REQUIRED). Returns a token that can use the portal.
+ */
+export async function signInFirstTime(email, temporaryPassword, newPassword = 'ChosenByUser#2026') {
+  const first = await api('/auth/login', { method: 'POST', body: { email, password: temporaryPassword } });
+  if (first.status !== 200) throw new Error(`Login failed for ${email}: ${first.status} ${JSON.stringify(first.body)}`);
+  if (!first.body.data.user.passwordChangeRequired) return first.body.data.accessToken;
+  const changed = await api('/auth/password', { method: 'POST', token: first.body.data.accessToken, body: { currentPassword: temporaryPassword, newPassword } });
+  if (changed.status !== 200) throw new Error(`Password change failed for ${email}: ${changed.status} ${JSON.stringify(changed.body)}`);
+  return first.body.data.accessToken;
 }

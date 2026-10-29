@@ -17,3 +17,8 @@ export { planningApi } from './planningApi.js';
 export { careerApi } from './careerApi.js';
 export { advisingApi, interventionApi } from './successApi.js';
 export { assistantApi, calendarSyncApi } from './assistantApi.js';
+export { appearanceApi } from './appearanceApi.js';
+export { lmsApi, moodleAdminApi, facultyMoodleApi } from './lmsApi.js';
+export { sisApi, sisAdminApi } from './sisApi.js';
+export { contentApi, studioApi } from './cmsApi.js';
+export { ssoApi, SSO_ERROR_MESSAGES } from './ssoApi.js';

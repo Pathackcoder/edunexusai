@@ -207,7 +207,7 @@ export const PaymentModal = ({ isOpen, onClose, currentBalance, onPaymentSuccess
                   ${fullAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                 </Typography>
               </Box>
-              <Badge variant="primary">Demo University</Badge>
+              <Badge variant="primary">Feddrick University</Badge>
             </Stack>
 
             {/* Payment Amount Selection */}

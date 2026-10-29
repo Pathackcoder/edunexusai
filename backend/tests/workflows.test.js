@@ -159,8 +159,11 @@ describe('advanced features', () => {
 
   it('books, reschedules and cancels an advising appointment', async () => {
     const student = await login('student');
-    const slots = (await api('/advising/slots', { token: student })).body.data;
-    assert.ok(slots.length >= 2);
+    const open = (await api('/advising/slots', { token: student })).body.data;
+    // Rescheduling stays with the same advisor, so use two open slots from one advisor.
+    const first = open[0];
+    const slots = [first, open.find((slot) => slot.id !== first?.id && slot.advisorId === first?.advisorId)];
+    assert.ok(slots[0] && slots[1]);
     const booked = await api('/advising/appointments', { method: 'POST', token: student, body: { slotId: slots[0].id, topic: 'Test plan' } });
     assert.equal(booked.status, 201);
     const twice = await api('/advising/appointments', { method: 'POST', token: student, body: { slotId: slots[0].id, topic: 'Again' } });
@@ -199,6 +202,7 @@ describe('advanced features', () => {
       assert.equal(status, 200, path);
     }
     const answer = await api('/assistant/messages', { method: 'POST', token, body: { message: 'How many credits do I have left?' } });
-    assert.match(answer.body.data.messages[1].content, /credits/);
+    // Credits are CampusCore's; with no SIS link the assistant says so instead of quoting local rows.
+    assert.match(answer.body.data.messages[1].content, /CampusCore/);
   });
 });

@@ -51,7 +51,7 @@ export const CalendarEventModal = ({ event, isOpen, onClose }) => {
       isOpen={isOpen}
       onClose={onClose}
       title="Academic Calendar Event"
-      subtitle="Demo University Academic Schedule 2026–2027"
+      subtitle="Feddrick University Academic Schedule 2026–2027"
       maxWidth="500px"
       footer={
         <>

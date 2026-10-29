@@ -5,6 +5,7 @@ import { sendSuccess } from '../../utils/apiResponse.js';
 import { validate } from '../../middleware/validate.js';
 import { requireAuth, requireFacultyProfile } from '../../middleware/auth.js';
 import * as service from './facultyService.js';
+import * as gradebook from '../gradebook/gradebookService.js';
 import { getFacultyDashboard } from '../dashboard/dashboardService.js';
 
 const courseParamSchema = z.object({ courseId: z.string().uuid('Expected a course id.') });
@@ -92,4 +93,56 @@ facultyRoutes.get(
     const schedule = await service.getTeachingSchedule(...ctx(req));
     return sendSuccess(res, schedule, { count: schedule.length });
   }),
+);
+
+/* ----- Gradebook (instructor of record only; enforced in gradebookService) ----- */
+const twoDecimals = (value) => Math.abs(value * 100 - Math.round(value * 100)) < 1e-9;
+const scoresSchema = z.object({
+  scores: z
+    .array(
+      z.object({
+        assignmentId: z.string().uuid('Expected an assignment id.'),
+        studentProfileId: z.string().uuid('Expected a student id.'),
+        score: z
+          .number({ invalid_type_error: 'Scores must be numbers.' })
+          .finite()
+          .min(0, 'Scores cannot be negative.')
+          .refine(twoDecimals, 'Use at most two decimal places.')
+          .nullable(),
+      }),
+    )
+    .min(1, 'Nothing to save.')
+    .max(2000),
+});
+const publishSchema = z.object({ assignmentId: z.string().uuid().optional() });
+const gradingSettingsSchema = z.object({
+  gradingMethod: z.enum(['POINTS', 'WEIGHTED']),
+  missingWorkPolicy: z.enum(['EXCLUDE', 'ZERO']),
+  atRiskThreshold: z.number().int().min(0).max(100),
+  weights: z
+    .array(z.object({ assignmentId: z.string().uuid(), weight: z.number().finite().min(0).max(100).nullable() }))
+    .max(500)
+    .default([]),
+});
+
+facultyRoutes.get('/gradebook/courses', asyncHandler(async (req, res) => sendSuccess(res, await gradebook.listGradebookCourses(req.auth))));
+facultyRoutes.get(
+  '/courses/:courseId/gradebook',
+  validate({ params: courseParamSchema }),
+  asyncHandler(async (req, res) => sendSuccess(res, await gradebook.getGradebook(req.auth, req.params.courseId))),
+);
+facultyRoutes.put(
+  '/courses/:courseId/gradebook/scores',
+  validate({ params: courseParamSchema, body: scoresSchema }),
+  asyncHandler(async (req, res) => sendSuccess(res, await gradebook.saveScores(req.auth, req.params.courseId, req.body.scores))),
+);
+facultyRoutes.post(
+  '/courses/:courseId/gradebook/publish',
+  validate({ params: courseParamSchema, body: publishSchema }),
+  asyncHandler(async (req, res) => sendSuccess(res, await gradebook.publishGrades(req.auth, req.params.courseId, req.body))),
+);
+facultyRoutes.put(
+  '/courses/:courseId/gradebook/settings',
+  validate({ params: courseParamSchema, body: gradingSettingsSchema }),
+  asyncHandler(async (req, res) => sendSuccess(res, await gradebook.updateSettings(req.auth, req.params.courseId, req.body))),
 );

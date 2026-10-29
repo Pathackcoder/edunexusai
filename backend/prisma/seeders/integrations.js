@@ -1,4 +1,4 @@
-import { env } from '../../src/config/env.js';
+import { env, moodleConfig, sisConfig } from '../../src/config/env.js';
 
 /**
  * Registers the integrations for the demo tenant.
@@ -51,6 +51,41 @@ export async function seedIntegrations(prisma, tenant) {
       // the system of record. Enable a domain here to let Canvas serve it instead.
       enabled: true,
       timeoutMs: env.integrations.canvas.timeoutMs,
+      supportedDomains: [],
+      status: 'NOT_CONFIGURED',
+    },
+    {
+      key: 'moodle-lms',
+      provider: 'MOODLE',
+      displayName: 'Moodle LMS',
+      description:
+        'Moodle web services (REST): course shells, LMS accounts, enrolments, course content, assignments and LMS grades. LMS only; never the source of official student records. The site URL comes from MOODLE_BASE_URL and the token from MOODLE_TOKEN, both backend-only.',
+      mode: 'LIVE',
+      // The automated test suite must never reach a real Moodle site.
+      baseUrl: env.isTest ? null : moodleConfig().baseUrl || null,
+      apiVersion: 'rest',
+      authType: 'API_KEY',
+      credentialRef: 'MOODLE_TOKEN',
+      enabled: true,
+      timeoutMs: moodleConfig().timeoutMs,
+      // Serves no SIS domain, so it can never replace the academic system of record.
+      supportedDomains: [],
+      status: 'NOT_CONFIGURED',
+    },
+    {
+      key: 'campuscore-sis',
+      provider: 'CAMPUSCORE',
+      displayName: 'CampusCore SIS',
+      description:
+        'Feddrick University student information system (system of record for student identity, programs, terms, sections, registrations, schedules, published grades and GPA). Read live over OAuth 2.0 client credentials; never copied into local tables. Credentials stay in the backend environment.',
+      mode: 'LIVE',
+      // The automated test suite must never reach a real SIS.
+      baseUrl: env.isTest ? null : sisConfig().baseUrl || null,
+      apiVersion: 'v1',
+      authType: 'OAUTH2_CLIENT_CREDENTIALS',
+      credentialRef: 'CAMPUSCORE_CLIENT_SECRET',
+      enabled: true,
+      timeoutMs: sisConfig().timeoutMs,
       supportedDomains: [],
       status: 'NOT_CONFIGURED',
     },
