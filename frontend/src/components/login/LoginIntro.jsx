@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import Box from '@mui/material/Box';
 import { institution } from '../../branding';
+import { logoPlate, useInstitutionLogo } from '../brand/Brand';
 
 /**
  * Login entrance over the campus video (about two seconds):
@@ -137,6 +138,7 @@ export function useLoginIntro({ logoRef }) {
 
 /** The flying logo. Rendered only while the intro runs. */
 export function LoginIntroOverlay({ intro }) {
+  const customLogo = useInstitutionLogo();
   const { active, phase, geo } = intro;
   if (!active || !geo) return null;
   const { plate, scale: s } = geo;
@@ -160,7 +162,7 @@ export function LoginIntroOverlay({ intro }) {
     >
       <Box
         component="img"
-        src={institution.logoInverse}
+        src={customLogo ? customLogo.url : institution.logoInverse}
         alt=""
         sx={{
           display: 'block',
@@ -169,6 +171,8 @@ export function LoginIntroOverlay({ intro }) {
           filter: 'drop-shadow(0 8px 24px rgba(0, 0, 0, 0.45))',
           '@keyframes fuIntroLogo': { from: { opacity: 0, transform: 'scale(0.94)' }, to: { opacity: 1, transform: 'none' } },
           animation: `fuIntroLogo 600ms ${SETTLE} both`,
+          // The uploaded logo: the same light plate it docks onto, scaled, and contained (never stretched).
+          ...(customLogo ? { boxSizing: 'border-box', objectFit: 'contain', bgcolor: '#FFFFFF', p: `${logoPlate(plate.height).pad * s}px`, borderRadius: `${logoPlate(plate.height).radius * s}px` } : {}),
         }}
       />
     </Box>

@@ -9,6 +9,7 @@ import { financeRoutes } from '../modules/finance/financeRoutes.js';
 import { financialAidRoutes } from '../modules/financialAid/financialAidRoutes.js';
 import { notificationRoutes } from '../modules/notifications/notificationRoutes.js';
 import {
+  campusDirectoryRoutes,
   campusMapRoutes,
   campusSafetyRoutes,
   directoryRoutes,
@@ -29,6 +30,7 @@ import { lmsRoutes } from '../modules/lms/lmsRoutes.js';
 import { sisRoutes } from '../modules/sis/sisRoutes.js';
 import { academicAliasRoutes } from '../modules/academics/academicsAliasRoutes.js';
 import { publicRoutes } from '../modules/public/publicRoutes.js';
+import { chatRoutes } from '../modules/chat/chatRoutes.js';
 
 /**
  * The v1 surface. One line per domain; each module owns its own routes, validation and
@@ -57,12 +59,16 @@ apiV1.use('/library', libraryRoutes);
 apiV1.use('/campus-safety', campusSafetyRoutes);
 apiV1.use('/profile', profileRoutes);
 apiV1.use('/help', supportRoutes);
+// One-to-one messaging (realtime delivery: modules/chat/chatSocket.js on /socket.io)
+apiV1.use('/chat', chatRoutes);
 
 // Feddrick CMS: Studio (ADMIN) and published content delivery. Mounted before the
 // root-level workflow routes so those never intercept these paths.
 apiV1.use('/studio', studioRoutes);
 apiV1.use('/content', contentRoutes);
 
+// Campus Directory (Keycloak, read-only) before the other /campus routes.
+apiV1.use('/campus/directory', campusDirectoryRoutes);
 apiV1.use('/campus', campusMapRoutes);
 
 // Cross-persona workflows: requests, help desk tickets, forms, resources, attachments

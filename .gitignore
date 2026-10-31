@@ -23,3 +23,5 @@ build/
 
 # Prisma
 .prisma/
+# uploaded files (institution logos); kept outside version control
+backend/storage/

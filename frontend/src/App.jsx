@@ -12,6 +12,7 @@ const PublicCmsPage = lazy(() => import('./pages/public/PublicLandingPage').then
 import { AppearanceSessionSync } from './context/AppearanceContext';
 import { FinanceProvider } from './context/FinanceContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { ChatProvider } from './context/ChatContext';
 import { ToastProvider } from './components/common/Toast';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { PWAProvider } from './context/PWAContext';
@@ -43,6 +44,7 @@ import { FinancialAidPage } from './pages/FinancialAidPage';
 // Campus
 import { CampusPage } from './pages/CampusPage';
 import { PeopleSearchPage } from './pages/campus/PeopleSearchPage';
+import { CampusDirectoryPage } from './pages/campus/CampusDirectoryPage';
 import { LibraryPage } from './pages/campus/LibraryPage';
 import { CampusSecurityPage } from './pages/campus/CampusSecurityPage';
 
@@ -194,6 +196,7 @@ function AppRoutes() {
         {/* Campus */}
         <Route path="campus" element={<CampusPage />} />
         <Route path="campus/people" element={<PeopleSearchPage />} />
+        <Route path="campus/directory" element={<CampusDirectoryPage />} />
         <Route path="campus/library" element={<RoleRoute allow={['STUDENT']}><LibraryPage /></RoleRoute>} />
         <Route path="campus/security" element={<CampusSecurityPage />} />
         <Route path="campus/map" element={<CampusMapPage />} />
@@ -279,10 +282,12 @@ export function App() {
           <NotificationProvider>
             <FinanceProvider>
               <ToastProvider>
-                <BrowserRouter>
-                  <AppRoutes />
-                  <PWAInstallModal />
-                </BrowserRouter>
+                <ChatProvider>
+                  <BrowserRouter>
+                    <AppRoutes />
+                    <PWAInstallModal />
+                  </BrowserRouter>
+                </ChatProvider>
               </ToastProvider>
             </FinanceProvider>
           </NotificationProvider>

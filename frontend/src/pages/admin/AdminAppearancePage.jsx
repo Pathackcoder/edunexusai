@@ -22,6 +22,8 @@ import { appearanceApi } from '../../services/api';
 import { createPortalTheme } from '../../theme/theme';
 import { APPEARANCE_FONTS, APPEARANCE_THEMES, DEFAULT_FONT_KEY, DEFAULT_THEME_KEY, RETIRED_THEMES } from '../../../../shared/appearancePresets.js';
 import Alert from '@mui/material/Alert';
+import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
+import { InstitutionLogoSettings } from './InstitutionLogoSettings';
 
 /** A selectable preset card (radio semantics). */
 function OptionCard({ selected, onSelect, label, description, children }) {
@@ -179,7 +181,7 @@ export const AdminAppearancePage = () => {
       <PageHeader
         eyebrow="Administration"
         title="Portal Appearance"
-        description="Choose the colour theme and typography for every student, faculty and administrator at Feddrick University."
+        description="Choose the colour theme, typography and logo for every student, faculty and administrator at Feddrick University."
         actions={
           <Stack direction="row" spacing={1}>
             <MuiButton
@@ -226,6 +228,10 @@ export const AdminAppearancePage = () => {
               </OptionCard>
             ))}
           </Box>
+        </WidgetCard>
+
+        <WidgetCard title="Institution logo" subtitle="One logo for the whole portal, including the sign-in page. Without an upload, the logo bundled with the deployment is used." icon={ImageOutlinedIcon} hoverable={false}>
+          <InstitutionLogoSettings />
         </WidgetCard>
 
         <WidgetCard

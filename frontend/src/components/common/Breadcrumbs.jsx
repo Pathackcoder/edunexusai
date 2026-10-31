@@ -35,6 +35,7 @@ const routeLabels = {
 
   // Campus
   people: 'People Search',
+  directory: 'Campus Directory',
   library: 'Library',
   security: 'Campus Security',
 

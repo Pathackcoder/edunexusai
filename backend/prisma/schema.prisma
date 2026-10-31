@@ -177,10 +177,12 @@ model Tenant {
   facultyProfiles         FacultyProfile[]
   staffProfiles           StaffProfile[]
   identityProviders       IdentityProvider[]
+  brandAssets             TenantBrandAsset[]
   federatedIdentities     FederatedIdentity[]
+  conversations           Conversation[]
+  sisSectionMoodleCourses SisSectionMoodleCourse[]
 
   @@map("tenants")
-  sisSectionMoodleCourses SisSectionMoodleCourse[]
 }
 
 model Role {
@@ -229,24 +231,24 @@ model User {
   refreshTokens         RefreshToken[]
   instructedCourses     Course[]                  @relation("CourseInstructor")
 
-  serviceRequests      ServiceRequest[]         @relation("RequestRequester")
-  decidedRequests      ServiceRequest[]         @relation("RequestDecider")
+  serviceRequests      ServiceRequest[]          @relation("RequestRequester")
+  decidedRequests      ServiceRequest[]          @relation("RequestDecider")
   requestEvents        ServiceRequestEvent[]
-  supportTickets       SupportTicket[]          @relation("TicketRequester")
-  assignedTickets      SupportTicket[]          @relation("TicketAssignee")
+  supportTickets       SupportTicket[]           @relation("TicketRequester")
+  assignedTickets      SupportTicket[]           @relation("TicketAssignee")
   ticketMessages       SupportTicketMessage[]
   createdForms         PortalForm[]
-  formSubmissions      FormSubmission[]         @relation("FormSubmitter")
-  reviewedSubmissions  FormSubmission[]         @relation("FormReviewer")
+  formSubmissions      FormSubmission[]          @relation("FormSubmitter")
+  reviewedSubmissions  FormSubmission[]          @relation("FormReviewer")
   resources            PortalResource[]
   broadcasts           CommunicationBroadcast[]
   auditLogs            AuditLog[]
   attachments          Attachment[]
   dashboardLayouts     DashboardLayout[]
-  interventionsCreated StudentIntervention[]    @relation("InterventionCreator")
+  interventionsCreated StudentIntervention[]     @relation("InterventionCreator")
   advisingSlots        AdvisingSlot[]
-  advisingAsStudent    AdvisingAppointment[]    @relation("AppointmentStudent")
-  advisingAsAdvisor    AdvisingAppointment[]    @relation("AppointmentAdvisor")
+  advisingAsStudent    AdvisingAppointment[]     @relation("AppointmentStudent")
+  advisingAsAdvisor    AdvisingAppointment[]     @relation("AppointmentAdvisor")
   savedOpportunities   SavedOpportunity[]
   portfolioItems       PortfolioItem[]
   groupMemberships     GroupMembership[]
@@ -257,6 +259,8 @@ model User {
   federatedIdentities  FederatedIdentity[]
   roleSources          RoleAssignmentSource[]
   ssoSessions          SsoSession[]
+  chatParticipations   ConversationParticipant[]
+  chatMessages         ChatMessage[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -2290,4 +2294,89 @@ model SsoHandoff {
 
   @@index([expiresAt])
   @@map("sso_handoffs")
+}
+
+/// An institution's own logo, uploaded by its administrators in Portal Appearance (one per institution:
+/// kind `logo`). The image file lives in the backend's branding storage directory
+/// (BRANDING_STORAGE_DIR); this row keeps only its storage key and metadata. Without a row the portal
+/// uses the logo bundled with the deployment. `data` is kept, nullable, only for rows written by the
+/// first version of this feature (none exist; new rows never use it).
+model TenantBrandAsset {
+  id              String   @id @default(uuid())
+  tenantId        String
+  kind            String
+  mimeType        String
+  data            Bytes?
+  storageKey      String?
+  byteSize        Int
+  width           Int
+  height          Int
+  sha256          String
+  updatedByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, kind])
+  @@map("tenant_brand_assets")
+}
+
+/// Portal messaging. A conversation has participants and messages; DIRECT conversations have exactly two
+/// participants and one row per pair (directKey), so either person reopens the same thread. GROUP and
+/// attachments can be added later without changing these tables.
+enum ConversationKind {
+  DIRECT
+}
+
+model Conversation {
+  id            String           @id @default(uuid())
+  tenantId      String
+  kind          ConversationKind @default(DIRECT)
+  /// DIRECT only: the two participants' user ids, sorted and joined with ":".
+  directKey     String?
+  lastMessageAt DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  tenant       Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  participants ConversationParticipant[]
+  messages     ChatMessage[]
+
+  @@unique([tenantId, directKey])
+  @@index([tenantId, lastMessageAt])
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String    @id @default(uuid())
+  conversationId String
+  userId         String
+  joinedAt       DateTime  @default(now())
+  /// Everything this participant received up to here has been read (read receipts and unread counts).
+  lastReadAt     DateTime?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_participants")
+}
+
+model ChatMessage {
+  id             String   @id @default(uuid())
+  conversationId String
+  senderId       String
+  body           String
+  /// The sender's own id for the message, so a retried send is stored once.
+  clientId       String?
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, senderId, clientId])
+  @@index([conversationId, createdAt])
+  @@map("chat_messages")
 }

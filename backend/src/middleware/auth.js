@@ -35,66 +35,76 @@ export function verifyAccessToken(token) {
   }
 }
 
+/**
+ * Resolve a portal access token to the request context (`req.auth`), or throw. Shared by REST
+ * (`requireAuth`) and the realtime socket (modules/chat/chatSocket.js), so both trust exactly the
+ * same things: a signed, unexpired token for an active user in an active tenant, and (for an
+ * institutional sign-in) a live SSO session. `allowPendingPasswordChange`: the session endpoints only.
+ */
+export async function authenticateAccessToken(token, { allowPendingPasswordChange = false } = {}) {
+  if (!token) throw unauthenticated('Authentication required.');
+
+  const payload = verifyAccessToken(token);
+
+  const user = await prisma.user.findUnique({
+    where: { id: payload.sub },
+    include: {
+      userRoles: { include: { role: true } },
+      studentProfile: { include: { tier: true } },
+      facultyProfile: true,
+      staffProfile: true,
+      tenant: { select: { id: true, slug: true, name: true, shortName: true, isActive: true } },
+    },
+  });
+
+  if (!user || user.status !== 'ACTIVE') throw unauthenticated('Account is not active.');
+  if (!user.tenant?.isActive) throw forbidden('This institution is not active.');
+
+  // The token carries the tenant it was issued for; a mismatch means a stale or
+  // tampered token and is never allowed to resolve to live data.
+  if (payload.tenantId && payload.tenantId !== user.tenantId) {
+    throw new AppError(403, ErrorCode.TENANT_MISMATCH, 'Token does not belong to this institution.');
+  }
+
+  // A temporary password issued by an administrator must be replaced before the account
+  // can do anything else; only the session endpoints (/auth/me, /auth/password, logout) remain.
+  // An institutional (SSO) session never used the local password, so a pending local password change
+  // does not block it.
+  const ssoSession = Array.isArray(payload.amr) && payload.amr.includes('oidc');
+  if (user.passwordChangeRequired && !ssoSession && !allowPendingPasswordChange) {
+    throw new AppError(403, ErrorCode.PASSWORD_CHANGE_REQUIRED, 'Choose a new password before continuing.');
+  }
+  // ...and it lasts only while its sso_sessions row is live (not logged out at the portal or the provider,
+  // identity still linked, provider still enabled).
+  if (ssoSession && !(await activeSsoSession(payload.sid, user.id))) {
+    throw unauthenticated('Your institutional sign-in has ended. Please sign in again.');
+  }
+
+  return {
+    userId: user.id,
+    tenantId: user.tenantId,
+    tenantSlug: user.tenant.slug,
+    tenantName: user.tenant.name,
+    email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    roles: user.userRoles.map((link) => link.role.key),
+    tierKey: user.studentProfile?.tier?.key ?? null,
+    tierId: user.studentProfile?.tierId ?? null,
+    studentProfileId: user.studentProfile?.id ?? null,
+    facultyProfileId: user.facultyProfile?.id ?? null,
+    staffProfileId: user.staffProfile?.id ?? null,
+    // How this session started: PASSWORD, or SSO with the institution's provider key.
+    signIn: ssoSession ? { method: 'SSO', provider: payload.idp ?? null, sid: payload.sid } : { method: 'PASSWORD', provider: null },
+    // Seconds since the epoch at which this access token stops being valid.
+    tokenExpiresAt: payload.exp ?? null,
+  };
+}
+
 /** Reject the request unless it carries a valid access token for an active user. */
 export async function requireAuth(req, _res, next) {
   try {
-    const token = extractBearer(req);
-    if (!token) throw unauthenticated('Authentication required.');
-
-    const payload = verifyAccessToken(token);
-
-    const user = await prisma.user.findUnique({
-      where: { id: payload.sub },
-      include: {
-        userRoles: { include: { role: true } },
-        studentProfile: { include: { tier: true } },
-        facultyProfile: true,
-        staffProfile: true,
-        tenant: { select: { id: true, slug: true, name: true, shortName: true, isActive: true } },
-      },
-    });
-
-    if (!user || user.status !== 'ACTIVE') throw unauthenticated('Account is not active.');
-    if (!user.tenant?.isActive) throw forbidden('This institution is not active.');
-
-    // The token carries the tenant it was issued for; a mismatch means a stale or
-    // tampered token and is never allowed to resolve to live data.
-    if (payload.tenantId && payload.tenantId !== user.tenantId) {
-      throw new AppError(403, ErrorCode.TENANT_MISMATCH, 'Token does not belong to this institution.');
-    }
-
-    // A temporary password issued by an administrator must be replaced before the account
-    // can do anything else; only the session endpoints (/auth/me, /auth/password, logout) remain.
-    // An institutional (SSO) session never used the local password, so a pending local password change
-    // does not block it.
-    const ssoSession = Array.isArray(payload.amr) && payload.amr.includes('oidc');
-    if (user.passwordChangeRequired && !ssoSession && !String(req.baseUrl).endsWith('/auth')) {
-      throw new AppError(403, ErrorCode.PASSWORD_CHANGE_REQUIRED, 'Choose a new password before continuing.');
-    }
-    // ...and it lasts only while its sso_sessions row is live (not logged out at the portal or the provider,
-    // identity still linked, provider still enabled).
-    if (ssoSession && !(await activeSsoSession(payload.sid, user.id))) {
-      throw unauthenticated('Your institutional sign-in has ended. Please sign in again.');
-    }
-
-    req.auth = {
-      userId: user.id,
-      tenantId: user.tenantId,
-      tenantSlug: user.tenant.slug,
-      tenantName: user.tenant.name,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      roles: user.userRoles.map((link) => link.role.key),
-      tierKey: user.studentProfile?.tier?.key ?? null,
-      tierId: user.studentProfile?.tierId ?? null,
-      studentProfileId: user.studentProfile?.id ?? null,
-      facultyProfileId: user.facultyProfile?.id ?? null,
-      staffProfileId: user.staffProfile?.id ?? null,
-      // How this session started: PASSWORD, or SSO with the institution's provider key.
-      signIn: ssoSession ? { method: 'SSO', provider: payload.idp ?? null, sid: payload.sid } : { method: 'PASSWORD', provider: null },
-    };
-
+    req.auth = await authenticateAccessToken(extractBearer(req), { allowPendingPasswordChange: String(req.baseUrl).endsWith('/auth') });
     return next();
   } catch (error) {
     return next(error);

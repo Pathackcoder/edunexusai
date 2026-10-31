@@ -4,7 +4,7 @@ import { notFound } from '../../utils/errors.js';
 
 /** DIRECTORY ------------------------------------------------------------------ */
 
-function presentDirectoryEntry(person) {
+function presentDirectoryEntry(person, viewerId) {
   return {
     id: person.externalKey,
     profileId: person.id,
@@ -21,10 +21,13 @@ function presentDirectoryEntry(person) {
     initials: person.initials,
     bio: person.bio,
     officeHours: person.officeHours,
+    // Chat: only with the active portal account this entry is linked to (never matched by name or email).
+    canMessage: Boolean(person.userId && person.user?.status === 'ACTIVE' && person.userId !== viewerId),
+    isYou: Boolean(viewerId && person.userId === viewerId),
   };
 }
 
-export async function listDirectory(tenantId, { search, type, department } = {}) {
+export async function listDirectory(tenantId, { search, type, department } = {}, viewerId = null) {
   const people = await prisma.directoryProfile.findMany({
     where: {
       tenantId,
@@ -44,6 +47,7 @@ export async function listDirectory(tenantId, { search, type, department } = {})
         : {}),
     },
     orderBy: [{ type: 'asc' }, { name: 'asc' }],
+    include: { user: { select: { status: true } } },
   });
 
   const departments = await prisma.directoryProfile.findMany({
@@ -54,7 +58,7 @@ export async function listDirectory(tenantId, { search, type, department } = {})
   });
 
   return {
-    people: people.map(presentDirectoryEntry),
+    people: people.map((person) => presentDirectoryEntry(person, viewerId)),
     departments: [
       'All Departments',
       ...departments.map((row) => row.department).filter(Boolean),

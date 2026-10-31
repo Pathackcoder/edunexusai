@@ -25,6 +25,7 @@ import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import NotificationsNoneRoundedIcon from '@mui/icons-material/NotificationsNoneRounded';
+import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
 import CreditCardRoundedIcon from '@mui/icons-material/CreditCardRounded';
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded';
@@ -38,6 +39,7 @@ import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import { useAuth } from '../context/AuthContext';
 import { sisStateLabel, useSisProfile } from '../hooks/useSisProfile';
 import { useNotifications } from '../context/NotificationContext';
+import { useChat } from '../context/ChatContext';
 import { useFinance } from '../context/FinanceContext';
 import { useToast } from '../components/common/Toast';
 import { NotificationDropdown } from '../components/notifications/NotificationDropdown';
@@ -66,6 +68,8 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
   const sisRecord = sis.student ?? sis.faculty;
   const { isInstalled, promptInstall } = usePWA();
   const { unreadCount } = useNotifications();
+  const chat = useChat();
+  const chatUnread = chat?.unreadTotal ?? 0;
   const { resetFinanceBalance } = useFinance();
   const { showToast } = useToast();
   const [notifAnchor, setNotifAnchor] = useState(null);
@@ -391,6 +395,21 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
 
           {/* Notifications Popover Trigger */}
           <LanguageSelector />
+          {/* Messages: the inbox panel; the count is the signed-in person's unread chat messages. */}
+          {chat && (
+            <Tooltip title="Messages">
+              <IconButton
+                onClick={chat.openInbox}
+                aria-label={chatUnread ? `Messages, ${chatUnread} unread` : 'Messages'}
+                sx={{ color: chat.panel.open ? 'primary.main' : 'text.secondary', bgcolor: chat.panel.open ? 'primary.lighter' : undefined }}
+              >
+                <Badge color="error" badgeContent={chatUnread} max={99} invisible={!chatUnread} overlap="circular"
+                  sx={{ '& .MuiBadge-badge': { border: '2px solid #fff', fontSize: '0.65rem', fontWeight: 700, height: 18, minWidth: 18, px: 0.5 } }}>
+                  <ChatBubbleOutlineRoundedIcon />
+                </Badge>
+              </IconButton>
+            </Tooltip>
+          )}
           <Tooltip title="Notifications">
             <IconButton
               data-notif-trigger="true"

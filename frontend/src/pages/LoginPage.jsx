@@ -474,9 +474,9 @@ export const LoginPage = () => {
                 </Stack>
               </Box>
               <InstitutionSignIn error={ssoError} />
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
+              {/* <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
                 Thinking of applying or visiting? <Link component={RouterLink} to="/visit" sx={{ fontWeight: 600 }}>Explore without an account</Link>
-              </Typography>
+              </Typography> */}
             </Box>
           </Box>
         </Box>

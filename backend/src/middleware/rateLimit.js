@@ -29,3 +29,19 @@ export const apiRateLimiter = rateLimit({
     error: { code: ErrorCode.RATE_LIMITED, message: 'Too many requests. Please slow down.' },
   },
 });
+
+/**
+ * Campus Directory: a per-account ceiling (it runs after requireAuth) so a signed-in session cannot
+ * page through every name and email in the identity provider at machine speed.
+ */
+export const directoryRateLimiter = rateLimit({
+  windowMs: 60_000,
+  max: env.isTest ? 100_000 : 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `directory:${req.auth?.userId ?? 'anonymous'}`,
+  message: {
+    success: false,
+    error: { code: ErrorCode.RATE_LIMITED, message: 'Too many directory searches. Please wait a minute and try again.' },
+  },
+});

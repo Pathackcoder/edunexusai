@@ -9,6 +9,7 @@ import Tooltip from '@mui/material/Tooltip';
 import MuiButton from '@mui/material/Button';
 import MailOutlineRoundedIcon from '@mui/icons-material/MailOutlineRounded';
 import PhoneOutlinedIcon from '@mui/icons-material/PhoneOutlined';
+import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
 import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
 import ScheduleRoundedIcon from '@mui/icons-material/ScheduleRounded';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
@@ -20,6 +21,7 @@ import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import { DetailDrawer, DrawerSection, DetailList, DetailRow } from '../common/DetailDrawer';
 import { heroChipSx } from '../dashboard/HeroBanner';
 import { useToast } from '../common/Toast';
+import { useChat } from '../../context/ChatContext';
 
 const TYPE_LABEL = { student: 'Student', faculty: 'Faculty', staff: 'Staff' };
 
@@ -30,6 +32,7 @@ const TYPE_LABEL = { student: 'Student', faculty: 'Faculty', staff: 'Staff' };
  */
 export const PersonProfileDrawer = ({ person, open, onClose }) => {
   const { showToast } = useToast();
+  const chat = useChat();
   // Keep the last person while the drawer animates closed.
   const last = useRef(person);
   if (person) last.current = person;
@@ -73,6 +76,20 @@ export const PersonProfileDrawer = ({ person, open, onClose }) => {
       }
       footer={
         <>
+          {/* Chat: the one conversation with this person, in the messaging panel (this drawer closes first). */}
+          {chat && !p.isYou && (
+            p.canMessage ? (
+              <MuiButton variant="outlined" startIcon={<ChatBubbleOutlineRoundedIcon />} onClick={() => { onClose(); chat.openWithProfile(p.profileId); }}>
+                Chat
+              </MuiButton>
+            ) : (
+              <Tooltip title="This person is not on EdunexusAI messaging yet">
+                <span>
+                  <MuiButton variant="outlined" startIcon={<ChatBubbleOutlineRoundedIcon />} disabled>Chat</MuiButton>
+                </span>
+              </Tooltip>
+            )
+          )}
           {p.phone && (
             <MuiButton variant="outlined" startIcon={<PhoneOutlinedIcon />} href={`tel:${p.phone.replace(/[^\d+]/g, '')}`}>
               Call

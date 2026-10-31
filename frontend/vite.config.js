@@ -57,6 +57,12 @@ export default defineConfig({
         target: process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:5001',
         changeOrigin: true,
       },
+      // Portal chat: Socket.IO on the same backend (WebSocket upgrade, with long-polling fallback).
+      '/socket.io': {
+        target: process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:5001',
+        changeOrigin: true,
+        ws: true,
+      },
     },
     allowedHosts: [
       '7a30-2401-4900-bbaf-974f-690e-f9bc-c63b-88f1.ngrok-free.app',

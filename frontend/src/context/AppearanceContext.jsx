@@ -15,9 +15,17 @@ import { appearanceApi } from '../services/api';
  */
 const CACHE_KEY = 'enx.appearance';
 
+// The uploaded institution logo: only an address of this API's logo endpoint, with its pixel size.
+// null while the bundled logo is used.
+const LOGO_PATH = /^\/api\/v1\/appearance\/logo\/[a-z0-9-]+\?v=[0-9a-f]+$/;
+const sanitiseLogo = (logo) => (logo && typeof logo.url === 'string' && LOGO_PATH.test(logo.url) && Number(logo.width) > 0 && Number(logo.height) > 0
+  ? { url: logo.url, width: Number(logo.width), height: Number(logo.height) }
+  : null);
+
 const sanitise = (value) => ({
   themeKey: RENDERABLE_THEME_KEYS.includes(value?.themeKey) ? value.themeKey : DEFAULT_THEME_KEY,
   fontKey: FONT_KEYS.includes(value?.fontKey) ? value.fontKey : DEFAULT_FONT_KEY,
+  logo: sanitiseLogo(value?.logo),
 });
 
 const readCache = () => {
@@ -42,14 +50,18 @@ export function AppearanceProvider({ children }) {
     return initial;
   });
 
+  // A value without `logo` (e.g. the session's theme/typography) keeps the logo already known.
   const apply = useCallback((value) => {
-    const next = sanitise(value);
-    setAppearanceState((current) => (current.themeKey === next.themeKey && current.fontKey === next.fontKey ? current : next));
-    try {
-      localStorage.setItem(CACHE_KEY, JSON.stringify(next));
-    } catch {
-      /* the cache is only a convenience */
-    }
+    setAppearanceState((current) => {
+      const next = sanitise(value && 'logo' in value ? value : { ...value, logo: current.logo });
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(next));
+      } catch {
+        /* the cache is only a convenience */
+      }
+      const same = current.themeKey === next.themeKey && current.fontKey === next.fontKey && JSON.stringify(current.logo) === JSON.stringify(next.logo);
+      return same ? current : next;
+    });
   }, []);
 
   useLayoutEffect(() => writeCssVars(appearance.themeKey), [appearance.themeKey]);

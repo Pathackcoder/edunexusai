@@ -159,6 +159,19 @@ async function refreshSession() {
   return refreshInFlight;
 }
 
+/**
+ * Refresh the access token for a non-REST caller (the realtime chat socket), sharing the same single
+ * in-flight attempt. When it cannot be refreshed the session has ended, exactly as for a REST call.
+ */
+export async function refreshAccessToken() {
+  const refreshed = await refreshSession();
+  if (!refreshed) announceSessionExpired();
+  return refreshed;
+}
+
+/** Origin of the API, where the realtime socket (/socket.io) also lives. */
+export const apiOrigin = () => new URL(BASE_URL, window.location.origin).origin;
+
 async function parseBody(response) {
   const text = await response.text();
   if (!text) return null;

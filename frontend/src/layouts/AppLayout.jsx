@@ -9,6 +9,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { ChatPanel } from '../components/chat/ChatPanel';
 import { Breadcrumbs } from '../components/common/Breadcrumbs';
 import { ErrorBoundary } from '../components/common/ErrorBoundary';
 import { brand, layout, motion } from '../theme/theme';
@@ -167,6 +168,7 @@ const AppShellInner = () => {
       {/* Main area */}
       <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <Header onOpenMobile={() => setIsMobileOpen(true)} showMenuButton={isMobile} />
+        <ChatPanel />
         {showRail && isMobile && <StudioRail horizontal />}
         <Box
           component="main"

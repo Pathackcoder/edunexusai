@@ -210,7 +210,7 @@ export const StudentDashboard = () => {
           {/* Welcome banner */}
           <HeroBanner
             eyebrow={sisSchedule?.term?.name ?? 'Current term'}
-            title={<>Good Morning, </>}
+            title={<>Welcome Back, </>}
             highlight={`${data?.greetingName || user?.firstName || ''}`}
             description="Here’s what matters today — from your next class to the moments that keep campus moving."
             chips={

@@ -251,3 +251,44 @@ export function mailConfig() {
     configured: problems.length === 0,
   };
 }
+
+/**
+ * Campus Directory: the Keycloak Admin REST API, read through a dedicated service-account client
+ * (OAuth 2.0 client credentials, realm-management view-users + query-users). Server-side only:
+ * the secret is never returned here, only whether it is configured. Read on every call so tests
+ * can point it at a stub. Missing values switch the directory off with a reason.
+ */
+export function keycloakDirectoryConfig() {
+  const baseUrl = (process.env.KEYCLOAK_DIRECTORY_BASE_URL ?? '').trim().replace(/\/+$/, '');
+  const realm = (process.env.KEYCLOAK_DIRECTORY_REALM ?? '').trim();
+  const clientId = (process.env.KEYCLOAK_DIRECTORY_CLIENT_ID ?? '').trim();
+  const tenantSlug = (process.env.KEYCLOAK_DIRECTORY_TENANT ?? '').trim();
+  const problems = [];
+  if (!baseUrl) problems.push('KEYCLOAK_DIRECTORY_BASE_URL is not set.');
+  else {
+    try {
+      const url = new URL(baseUrl);
+      const local = ['localhost', '127.0.0.1'].includes(url.hostname);
+      if (!['http:', 'https:'].includes(url.protocol)) problems.push('KEYCLOAK_DIRECTORY_BASE_URL must be an http(s) URL.');
+      else if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:' && !local) problems.push('KEYCLOAK_DIRECTORY_BASE_URL must use https in production.');
+    } catch {
+      problems.push('KEYCLOAK_DIRECTORY_BASE_URL is not a valid URL.');
+    }
+  }
+  if (!/^[\w.-]{1,100}$/.test(realm)) problems.push('KEYCLOAK_DIRECTORY_REALM is not set.');
+  if (!clientId) problems.push('KEYCLOAK_DIRECTORY_CLIENT_ID is not set.');
+  if (clientId === 'admin-cli') problems.push('KEYCLOAK_DIRECTORY_CLIENT_ID must be a dedicated service-account client, not admin-cli.');
+  if (!process.env.KEYCLOAK_DIRECTORY_CLIENT_SECRET) problems.push('KEYCLOAK_DIRECTORY_CLIENT_SECRET is not set.');
+  if (!tenantSlug) problems.push('KEYCLOAK_DIRECTORY_TENANT is not set.');
+  return {
+    baseUrl,
+    realm,
+    clientId,
+    clientSecretConfigured: Boolean(process.env.KEYCLOAK_DIRECTORY_CLIENT_SECRET),
+    tenantSlug,
+    providerKey: (process.env.KEYCLOAK_DIRECTORY_PROVIDER_KEY ?? '').trim() || null,
+    timeoutMs: Math.min(Math.max(toInt(process.env.KEYCLOAK_DIRECTORY_TIMEOUT_MS, 8000), 1000), 30000),
+    problems,
+    valid: problems.length === 0,
+  };
+}
