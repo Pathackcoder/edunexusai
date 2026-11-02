@@ -2,7 +2,10 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../db/prisma.js';
 import { recordAudit } from '../audit/auditService.js';
 import { issueSession } from '../auth/authService.js';
-import { verifyRelationship } from '../sis/sisService.js';
+import { provisionFromSignIn, verifyRelationship } from '../sis/sisService.js';
+import { provisionLmsAfterSignIn } from '../people/lmsFollowUp.js';
+import { refreshDirectoryEntry } from '../people/directorySync.js';
+import { logger } from '../../utils/logger.js';
 import { grantRole, withdrawSource, auditRoleChange } from '../roles/roleAssignments.js';
 import { decideAccountLink, planRoleSync, readClaim, resolveCommunityRoles } from './identityPolicy.js';
 import { evaluateClaims } from './providerService.js';
@@ -12,7 +15,9 @@ import { activeSsoSession, redeemHandoff, startSsoSession } from './ssoSessions.
  * Institutional sign-in, after the provider's response has been verified (oidcClient.completeLogin):
  *
  *   1. the account: the stable link (issuer + subject), or at first sign-in the account whose VERIFIED
- *      institutional numbers equal the provider's claims (email must agree; never email alone)
+ *      institutional numbers equal the provider's claims (email must agree; never email alone), or, when the
+ *      provider's JIT switch is on and nobody has those numbers, an account created from the CampusCore
+ *      person who holds them (sisService.provisionFromSignIn)
  *   2. the records: each record-backed role is checked (Student/Faculty: live in CampusCore when it is
  *      connected; Staff: a staff record, or the provider's staff policy)
  *   3. the roles: this institution's mapping rules turn claims into community roles, granted only with
@@ -85,15 +90,25 @@ export async function signInWithProvider({ tenant, provider, identity }) {
     claims: { email: claims.email ?? null, emailVerified: claims.email_verified === true, studentIds, employeeIds },
     matches: existing ? [] : await matchesFor(tenant.id, provider.id, { studentIds, employeeIds }),
   });
+  // SSO-first (the provider's switch): nobody has these numbers yet, so the account is created from CampusCore.
+  if (decision.decision === 'REFUSE' && decision.reason === 'NO_MATCHING_RECORD' && provider.jitProvisioning) {
+    const created = await provisionFromSignIn({ tenant, providerLabel: provider.displayName, email: claims.email ?? null, emailVerified: claims.email_verified === true, studentIds, employeeIds });
+    if (created.refused) await refuse(tenant.id, created.refused, provider.key);
+    Object.assign(decision, { decision: 'LINK', userId: created.userId, via: ['JIT_PROVISIONED'] });
+    // Moodle account and enrolments follow in the background (MOODLE_JIT_PROVISIONING); the sign-in never waits.
+    setImmediate(() => provisionLmsAfterSignIn({ tenantId: tenant.id, userId: created.userId }).catch((error) => logger.warn('Moodle follow-up could not start', { code: error.code ?? null })));
+    // People Search lists the new account (derived from CampusCore), so others can find and message them.
+    setImmediate(() => refreshDirectoryEntry(tenant.id, created.userId));
+  }
   if (decision.decision === 'REFUSE') await refuse(tenant.id, decision.reason, provider.key);
   if (decision.decision === 'LINK') {
     try {
-      await prisma.federatedIdentity.create({ data: { tenantId: tenant.id, userId: decision.userId, providerId: provider.id, issuer: identity.issuer, subject: identity.subject, emailAtLink: claims.email ?? null, linkMethod: 'INSTITUTIONAL_ID' } });
+      await prisma.federatedIdentity.create({ data: { tenantId: tenant.id, userId: decision.userId, providerId: provider.id, issuer: identity.issuer, subject: identity.subject, emailAtLink: claims.email ?? null, linkMethod: decision.via[0] === 'JIT_PROVISIONED' ? 'JIT_PROVISIONED' : 'INSTITUTIONAL_ID' } });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') await refuse(tenant.id, 'ACCOUNT_LINKED_TO_ANOTHER_IDENTITY', provider.key);
       throw error;
     }
-    await recordAudit({ tenantId: tenant.id, actorUserId: decision.userId, action: 'SSO_IDENTITY_LINKED', entityType: 'User', entityId: decision.userId, summary: `Linked ${provider.displayName} sign-in at first sign-in (verified ${decision.via.join(' and ').toLowerCase().replace(/_/g, ' ')})` });
+    await recordAudit({ tenantId: tenant.id, actorUserId: decision.userId, action: 'SSO_IDENTITY_LINKED', entityType: 'User', entityId: decision.userId, summary: decision.via[0] === 'JIT_PROVISIONED' ? `Linked ${provider.displayName} sign-in to the account created at this first sign-in` : `Linked ${provider.displayName} sign-in at first sign-in (verified ${decision.via.join(' and ').toLowerCase().replace(/_/g, ' ')})` });
   }
   const userId = decision.userId;
   let user = await prisma.user.findUnique({ where: { id: userId }, include: accountInclude });

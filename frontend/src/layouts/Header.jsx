@@ -489,10 +489,12 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
               <ListItemIcon><PersonOutlineRoundedIcon fontSize="small" /></ListItemIcon>
               My Profile
             </MenuItem>
-            <MenuItem component={RouterLink} to="/profile/password" onClick={() => setIsUserMenuOpen(false)}>
-              <ListItemIcon><KeyRoundedIcon fontSize="small" /></ListItemIcon>
-              Change password
-            </MenuItem>
+            {user?.hasPassword !== false && (
+              <MenuItem component={RouterLink} to="/profile/password" onClick={() => setIsUserMenuOpen(false)}>
+                <ListItemIcon><KeyRoundedIcon fontSize="small" /></ListItemIcon>
+                Change password
+              </MenuItem>
+            )}
             <MenuItem component={RouterLink} to="/help" onClick={() => setIsUserMenuOpen(false)}>
               <ListItemIcon><HelpOutlineRoundedIcon fontSize="small" /></ListItemIcon>
               Help & FAQs

@@ -624,21 +624,25 @@ async function provisionIdentity(auth, { entityType, internalId, personUserId = 
         return { externalId: found.user.id, result: { action: 'LINKED_EXISTING', moodleUserId: Number(found.user.id), username: found.user.username, passwordDelivery: 'EXISTING_MOODLE_PASSWORD', loginUrl: moodleLoginUrl() } };
       }
 
-      if (mode === 'ONE_TIME') oneTimePassword = throwawayPassword();
+      // With MOODLE_ACCOUNT_AUTH=oauth2 the account signs in through the university sign-in: no Moodle password.
+      const universitySignIn = moodleConfig().accountAuth === 'oauth2' && mode !== 'SEED';
+      if (mode === 'ONE_TIME' && !universitySignIn) oneTimePassword = throwawayPassword();
       const created = await writeOnce(() =>
         connector.createUser({
           username: target.username,
-          auth: 'manual',
+          auth: universitySignIn ? 'oauth2' : 'manual',
           firstname: target.firstname,
           lastname: target.lastname,
           email: target.email,
           idnumber: target.idnumber,
           // See MOODLE_CREDENTIALS. None of these passwords is stored anywhere in EduNexusAI.
-          ...(mode === 'EMAIL'
-            ? { createpassword: 1 }
-            : mode === 'ONE_TIME'
-              ? { password: oneTimePassword, preferences: FORCE_CHANGE }
-              : { password: mode === 'SEED' ? password : throwawayPassword() }),
+          ...(universitySignIn
+            ? {}
+            : mode === 'EMAIL'
+              ? { createpassword: 1 }
+              : mode === 'ONE_TIME'
+                ? { password: oneTimePassword, preferences: FORCE_CHANGE }
+                : { password: mode === 'SEED' ? password : throwawayPassword() }),
         }),
       );
 
@@ -653,7 +657,7 @@ async function provisionIdentity(auth, { entityType, internalId, personUserId = 
       await recordAudit({ tenantId: auth.tenantId, actorUserId: auth.userId, action: 'MOODLE_ACCOUNT_PROVISIONED', entityType: auditEntity, entityId: internalId, summary: `Created Moodle user ${created.id} for ${label}` });
       return {
         externalId: created.id,
-        result: { action: 'CREATED', moodleUserId: created.id, username: created.username, passwordDelivery: mode === 'SEED' ? 'SET_BY_SEED' : DELIVERY[mode], loginUrl: moodleLoginUrl() },
+        result: { action: 'CREATED', moodleUserId: created.id, username: created.username, passwordDelivery: universitySignIn ? 'UNIVERSITY_SIGN_IN' : mode === 'SEED' ? 'SET_BY_SEED' : DELIVERY[mode], loginUrl: moodleLoginUrl() },
       };
     },
   });

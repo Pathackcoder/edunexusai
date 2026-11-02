@@ -21,12 +21,15 @@ before(async () => {
     unlinked: await createMultiRoleUser({ key: 'apps.unlinked', firstName: 'Uli', roles: ['STUDENT'], student: { studentNumber: 'APPS-S-2', tierKey: 'STANDARD' } }),
     revoked: await createMultiRoleUser({ key: 'apps.revoked', firstName: 'Rae', roles: ['FACULTY'], faculty: { employeeNumber: 'APPS-F-3' } }),
     alumnus: await createMultiRoleUser({ key: 'apps.alumnus', firstName: 'Al', roles: ['ALUMNI'] }),
+    both: await createMultiRoleUser({ key: 'apps.both', firstName: 'Bo', roles: ['STUDENT', 'FACULTY'], student: { studentNumber: 'APPS-S-4', tierKey: 'STANDARD' }, faculty: { employeeNumber: 'APPS-F-4' } }),
   };
   const mirror = (user, entityType, status = 'ACTIVE') => prisma.externalIdentity.create({ data: { tenantId: tenant.id, provider: 'CAMPUSCORE', entityType, internalId: user.id, externalId: `cc-${user.id}-${entityType}`, linkMethod: 'TEST', status } });
   await mirror(people.linked.user, 'STUDENT');
   await mirror(people.revoked.user, 'FACULTY', 'SUSPENDED');
   // A link of a type whose role the account does not hold opens nothing either.
   await mirror(people.alumnus.user, 'STUDENT');
+  await mirror(people.both.user, 'STUDENT');
+  await mirror(people.both.user, 'FACULTY');
 });
 
 after(async () => {
@@ -43,6 +46,14 @@ describe('Open CampusCore SIS', () => {
   it('a person with an active CampusCore record behind their role gets the entry (CampusCore’s own sign-in)', async () => {
     const apps = await appsOf(await loginFixture(people.linked.email));
     assert.deepEqual(apps.map((a) => [a.key, a.url]), [['campuscore', 'http://sis.test/api/app/auth/oidc/start']]);
+  });
+
+  it('a person with both records gets one entry per CampusCore area, each opening that area directly', async () => {
+    const apps = await appsOf(await loginFixture(people.both.email));
+    assert.deepEqual(apps.map((a) => [a.key, a.url]), [
+      ['campuscore-faculty', 'http://sis.test/api/app/auth/oidc/start?returnTo=%2Ffaculty'],
+      ['campuscore-student', 'http://sis.test/api/app/auth/oidc/start?returnTo=%2Fstudent'],
+    ]);
   });
 
   it('no verified record, a suspended link, or a record for a role not held: no entry', async () => {

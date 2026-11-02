@@ -61,7 +61,7 @@ export const PeopleSearchPage = () => {
 
     return directoryData.filter(person => {
       // Type category filter
-      if (selectedType !== 'all' && person.type !== selectedType) {
+      if (selectedType !== 'all' && !(person.roles?.length ? person.roles : [person.type]).includes(selectedType)) {
         return false;
       }
       // Department filter
@@ -72,8 +72,8 @@ export const PeopleSearchPage = () => {
       if (searchQuery.trim() !== '') {
         const query = searchQuery.toLowerCase().trim();
         const matchName = person.name.toLowerCase().includes(query);
-        const matchRole = person.role.toLowerCase().includes(query);
-        const matchDept = person.department.toLowerCase().includes(query);
+        const matchRole = (person.role ?? '').toLowerCase().includes(query);
+        const matchDept = (person.department ?? '').toLowerCase().includes(query);
         const matchEmail = person.email.toLowerCase().includes(query);
         const matchProgram = (person.program || '').toLowerCase().includes(query);
         return matchName || matchRole || matchDept || matchEmail || matchProgram;

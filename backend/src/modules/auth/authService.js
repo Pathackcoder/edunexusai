@@ -201,6 +201,7 @@ export async function logout({ userId, refreshToken }) {
  */
 export async function changePassword({ userId, currentPassword, newPassword, refreshToken }) {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, tenantId: true, passwordHash: true } });
+  if (user && !user.passwordHash) throw new AppError(409, ErrorCode.CONFLICT, 'This account signs in with your institution\'s sign-in only, so it has no portal password to change.', { reason: 'SSO_ONLY_ACCOUNT' });
   if (!user || !(await verifyPassword(currentPassword, user.passwordHash))) throw invalidCredentials('Your current password is not correct.');
   if (await verifyPassword(newPassword, user.passwordHash)) {
     throw new AppError(400, ErrorCode.VALIDATION_ERROR, 'Choose a password different from the current one.');

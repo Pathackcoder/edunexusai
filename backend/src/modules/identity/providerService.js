@@ -34,6 +34,7 @@ export function presentProvider(p) {
     studentIdClaim: p.studentIdClaim,
     employeeIdClaim: p.employeeIdClaim,
     employeeIdEstablishesStaff: p.employeeIdEstablishesStaff,
+    jitProvisioning: p.jitProvisioning,
     enabled: p.enabled,
     allowInsecureHttp: p.allowInsecureHttp,
     mappingCount: p._count?.roleMappings ?? undefined,
@@ -70,7 +71,7 @@ export function validateProvider(input, { partial = false } = {}) {
     if (v && !CLAIM.test(v)) errors[k] = 'Use a claim name or a dotted path such as "student_number".';
     else out[k] = v;
   }
-  for (const k of ['enabled', 'employeeIdEstablishesStaff', 'allowInsecureHttp']) if (has(k)) out[k] = input[k] === true;
+  for (const k of ['enabled', 'employeeIdEstablishesStaff', 'jitProvisioning', 'allowInsecureHttp']) if (has(k)) out[k] = input[k] === true;
   if (out.allowInsecureHttp && production()) errors.allowInsecureHttp = 'Plain-http providers are only for local development.';
   if (out.issuer?.startsWith('http:') && !(out.allowInsecureHttp ?? input.allowInsecureHttp)) errors.issuer = 'The issuer must use https (plain http only for a development provider marked as such).';
   return Object.keys(errors).length ? { ok: false, errors } : { ok: true, provider: out };

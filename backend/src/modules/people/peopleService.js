@@ -268,7 +268,7 @@ export async function onboardPerson(auth, input) {
 function moodleAccountMessage(r) {
   if (r.action === 'ALREADY_LINKED') return `Already linked to Moodle user ${r.moodleUserId}; the person keeps their existing Moodle password.`;
   if (r.action === 'LINKED_EXISTING') return `Linked the existing Moodle account "${r.username}" (matched by ${r.username ? 'ID number or email' : 'evidence'}); its password is unchanged.`;
-  const how = { EMAILED_BY_MOODLE: 'Moodle emails a generated password to the institutional email and asks for a new one at first login.', ONE_TIME_HANDOFF: 'A one-time password is shown once below; Moodle requires a new one at first login.', NONE_USE_FORGOTTEN_PASSWORD: 'No password was set; the person uses "Forgotten password".' };
+  const how = { UNIVERSITY_SIGN_IN: 'It signs in with the university sign-in (no Moodle password).', EMAILED_BY_MOODLE: 'Moodle emails a generated password to the institutional email and asks for a new one at first login.', ONE_TIME_HANDOFF: 'A one-time password is shown once below; Moodle requires a new one at first login.', NONE_USE_FORGOTTEN_PASSWORD: 'No password was set; the person uses "Forgotten password".' };
   return `Created Moodle account "${r.username}". ${how[r.passwordDelivery] ?? ''}`.trim();
 }
 

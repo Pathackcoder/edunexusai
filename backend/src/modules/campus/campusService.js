@@ -9,6 +9,7 @@ function presentDirectoryEntry(person, viewerId) {
     id: person.externalKey,
     profileId: person.id,
     type: person.type,
+    roles: person.roles?.length ? person.roles : [person.type],
     name: person.name,
     role: person.role,
     department: person.department,
@@ -32,7 +33,7 @@ export async function listDirectory(tenantId, { search, type, department } = {},
     where: {
       tenantId,
       isVisible: true,
-      ...(type && type !== 'all' ? { type } : {}),
+      ...(type && type !== 'all' ? { roles: { has: type } } : {}),
       ...(department && department !== 'All Departments' ? { department } : {}),
       ...(search
         ? {

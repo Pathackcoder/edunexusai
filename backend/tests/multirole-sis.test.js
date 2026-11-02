@@ -72,7 +72,7 @@ describe('one account, a student record and a faculty record', () => {
   it('links the same person’s student record to the SAME account (CampusCore confirms one person)', async () => {
     const res = await relate(rahul, { recordType: 'STUDENT', sisRecordId: 'stu-rahul' });
     assert.equal(res.status, 201, JSON.stringify(res.body));
-    assert.equal(res.body.data.evidence.samePerson, 'CAMPUSCORE_USER');
+    assert.equal(res.body.data.evidence.samePerson, 'CAMPUSCORE_PERSON');
     const roles = res.body.data.access.roles.map((r) => `${r.key}:${r.status}:${r.sisLink}`).sort();
     assert.deepEqual(roles, ['FACULTY:ACTIVE:LINKED', 'STUDENT:ACTIVE:LINKED']);
     assert.equal(await prisma.user.count({ where: { email: { contains: 'rahul' } } }), 1, 'still one account');

@@ -9,7 +9,7 @@ import http from 'node:http';
 export async function startCampusCoreStub({ clientId, clientSecret }) {
   const S = {
     institution: { id: 'inst-feddrick', slug: 'feddrick', name: 'Feddrick University', shortName: 'FU' },
-    scopes: ['institution:read', 'terms:read', 'calendar:read', 'programs:read', 'sections:read', 'students:read', 'students:create', 'students:update', 'students:deactivate', 'identity:read', 'identity:write', 'audit:read', 'integration:configure', 'faculty:read', 'registrations:read', 'schedules:read', 'grades:read'],
+    scopes: ['institution:read', 'terms:read', 'calendar:read', 'programs:read', 'sections:read', 'students:read', 'students:create', 'students:update', 'students:deactivate', 'identity:read', 'identity:write', 'audit:read', 'integration:configure', 'faculty:read', 'registrations:read', 'schedules:read', 'grades:read', 'people:read'],
     policies: { 'student.create': true, 'student.update': true, 'student.contact': true, 'student.academic': false, 'student.deactivate': true, 'registration.write': false, 'attendance.write': false, 'grade.write': false, 'identity.link': true },
     disabled: [],
     expiresIn: 900,
@@ -72,8 +72,36 @@ export async function startCampusCoreStub({ clientId, clientSecret }) {
   const err = (status, code, message, extra = {}) => ({ status, body: { error: { code, message, requestId: `req-${S.seq++}`, ...extra } } });
   const sectionDto = (sec) => ({ ...sec, enrolled: S.registrations.filter((r) => r.sectionId === sec.id).length });
 
+  // The person registry, as CampusCore derives it: records sharing a personId are one person.
+  const personOf = (r) => r.personId ?? `per-${r.id}`;
+  const CURRENT = { STUDENT: ['ACTIVE', 'ADMITTED', 'LEAVE_OF_ABSENCE'], FACULTY: ['ACTIVE'] };
+  const people = () => {
+    const by = new Map();
+    for (const [type, map] of [['FACULTY', S.faculty], ['STUDENT', S.students]]) {
+      for (const r of map.values()) {
+        const id = personOf(r);
+        const p = by.get(id) ?? { id, personNumber: `P${String(by.size + 1).padStart(7, '0')}`, records: [] };
+        p.records.push({ type, r });
+        by.set(id, p);
+      }
+    }
+    return [...by.values()].map(({ id, personNumber, records }) => ({ ...personView(id, personNumber, records), identityExcluded: records.some(({ r }) => r.identityExcluded) }));
+  };
+  const personView = (id, personNumber, records) => {
+    {
+      const relationships = records.map(({ type, r }) => ({ type, sisId: r.id, number: type === 'STUDENT' ? r.studentNumber : r.employeeNumber, email: r.email, status: r.status, current: CURRENT[type].includes(r.status), ...(type === 'FACULTY' ? { title: r.title ?? null, department: r.department?.name ?? null } : { program: r.program?.name ?? null }) }));
+      const named = (records.find((x) => x.type === 'FACULTY') ?? records[0]).r;
+      const primary = relationships.find((x) => x.type === 'FACULTY' && x.current) ?? relationships.find((x) => x.current) ?? relationships[0];
+      return { id, personNumber: named.personNumber ?? personNumber, firstName: named.firstName, lastName: named.lastName, preferredName: null, primaryEmail: norm(primary.email), emails: [...new Set(relationships.map((x) => norm(x.email)))], status: relationships.some((x) => x.current) ? 'ACTIVE' : 'INACTIVE', relationships };
+    }
+  };
+
   function route(method, path, q, body, headers) {
     let m;
+    if (method === 'GET' && path === '/people') {
+      if (!S.scopes.includes('people:read') || (currentTokenScopes && !currentTokenScopes.includes('people:read'))) return err(403, 'insufficient_scope', 'This operation requires the scope(s): people:read.');
+      return { body: paged(people().filter((p) => !p.identityExcluded).filter((p) => (!q.get('studentNumber') || p.relationships.some((x) => x.type === 'STUDENT' && x.number === q.get('studentNumber'))) && (!q.get('employeeNumber') || p.relationships.some((x) => x.type === 'FACULTY' && x.number === q.get('employeeNumber')))), q) };
+    }
     if (method === 'GET' && path === '/me') return { body: { clientId, name: 'Stub client', institution: S.institution, scopes: S.scopes } };
     if (method === 'GET' && path === '/capabilities') return { body: { data: { institution: S.institution, scopes: S.scopes, operations: capabilities() } } };
     if (method === 'PUT' && path === '/integration/write-preferences') {
@@ -203,19 +231,17 @@ export async function startCampusCoreStub({ clientId, clientSecret }) {
       if (!body.confirm) return err(400, 'validation_error', 'confirm must be true.');
       const record = recordOf(body.recordType, body.sisRecordId);
       if (!record) return err(404, 'not_found', 'Not found.');
+      if (record.identityExcluded) return err(422, 'person_identity_excluded', 'This person is excluded from identity provisioning in CampusCore.');
       if (S.links.some((l) => l.status === 'ACTIVE' && l.externalUserId === body.externalUserId && l.recordType === body.recordType)) return err(409, 'identity_already_linked', 'This account is already linked to a record of this type.');
-      // A second relationship must be the same CampusCore person (records carry `personId`, CampusCore's user id).
+      // A second relationship must belong to the same CampusCore person (the person registry; every record has one).
       const other = S.links.find((l) => l.status === 'ACTIVE' && l.externalUserId === body.externalUserId && l.recordType !== body.recordType);
       let samePerson = null;
       if (other) {
-        const a = recordOf(other.recordType, other.sisId)?.personId ?? null;
-        const b = record.personId ?? null;
-        if (a && b && a !== b) return err(422, 'identity_different_person', 'This record belongs to a different CampusCore person.');
-        if (!(a && b) && !body.evidenceMismatchReason) return err(422, 'identity_person_unverified', 'CampusCore cannot confirm these records are the same person.');
-        samePerson = a && b ? 'CAMPUSCORE_USER' : 'ADMIN_VERIFIED';
+        if (personOf(recordOf(other.recordType, other.sisId)) !== personOf(record)) return err(422, 'identity_different_person', 'This record belongs to a different CampusCore person.');
+        samePerson = 'CAMPUSCORE_PERSON';
       }
       if (S.links.some((l) => l.status === 'ACTIVE' && l.sisId === body.sisRecordId)) return err(409, 'record_already_linked', 'This record is already linked.');
-      const otherEmailMatches = samePerson === 'CAMPUSCORE_USER' && norm(body.externalEmail) === norm(recordOf(other.recordType, other.sisId).email);
+      const otherEmailMatches = samePerson === 'CAMPUSCORE_PERSON' && norm(body.externalEmail) === norm(recordOf(other.recordType, other.sisId).email);
       if (norm(body.externalEmail) !== norm(record.email) && !otherEmailMatches && !body.evidenceMismatchReason) return err(422, 'identity_evidence_mismatch', 'The external email does not match the SIS record. Give a verification reason to link anyway.');
       const link = { id: `link-${S.seq++}`, externalSystem: body.externalSystem, externalUserId: body.externalUserId, externalEmail: body.externalEmail, recordType: body.recordType, sisId: body.sisRecordId, status: 'ACTIVE', evidence: { mismatchReason: body.evidenceMismatchReason ?? null, ...(samePerson ? { samePerson } : {}) }, actingUser: headers['x-acting-user'] };
       S.links.push(link);

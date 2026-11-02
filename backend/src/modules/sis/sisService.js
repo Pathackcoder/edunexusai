@@ -6,6 +6,7 @@ import { logger } from '../../utils/logger.js';
 import { recordAudit } from '../audit/auditService.js';
 import { hashPassword } from '../auth/passwords.js';
 import { grantRole } from '../roles/roleAssignments.js';
+import { refreshDirectoryEntry } from '../people/directorySync.js';
 import { CampusCoreAdapter } from '../../integrations/campuscore/connector/adapters/CampusCoreAdapter.js';
 import { SisPortalService } from '../../integrations/campuscore/connector/portal/SisPortalService.js';
 import { SisError } from '../../integrations/campuscore/connector/errors.js';
@@ -658,6 +659,7 @@ export async function provisionAccount(auth, { recordType, sisRecordId, password
     s.portal.invalidate(userId);
     await syncMirror({ tenantId: auth.tenantId, userId }, { status: 'LINKED', recordType, sisId: sisRecordId }, recordType);
     await actorAudit(auth, 'SIS_ACCOUNT_PROVISIONED', summary, { outcome: 'ACCEPTED', userId, recordType, linkId: link?.id ?? null }, userId);
+    await refreshDirectoryEntry(auth.tenantId, userId);
     return {
       user: { id: userId, email, firstName: record.firstName, lastName: record.lastName, roles: [roleKey] },
       sisRecord: { recordType, sisId: sisRecordId, institutionalId: record.institutionalId },
@@ -731,8 +733,8 @@ export async function lookupRecords(auth, { recordType, email, institutionalId, 
  * Add a relationship to an EXISTING account: link its CampusCore student or faculty record, create the
  * local record anchor (institutional number only; CampusCore owns the data) and grant the role, as one
  * step. A faculty member who becomes a student (or the reverse) keeps one account. CampusCore checks
- * that a second record belongs to the same person as the first (its own person account), and refuses
- * otherwise unless an administrator records a verification reason. Nothing is matched on email alone.
+ * that a second record belongs to the same person as the first (its person registry), and refuses
+ * otherwise (CampusCore fixes such records with "same person"). Nothing is matched on email alone.
  */
 export async function addRelationship(auth, { userId, recordType, sisRecordId, evidenceMismatchReason, tierKey }) {
   const user = await prisma.user.findFirst({ where: { id: userId, tenantId: auth.tenantId }, include: { studentProfile: true, facultyProfile: true, userRoles: { include: { role: true } } } });
@@ -781,8 +783,110 @@ export async function addRelationship(auth, { userId, recordType, sisRecordId, e
     s.portal.invalidate(user.id);
     await syncMirror({ tenantId: auth.tenantId, userId: user.id }, { status: 'LINKED', recordType, sisId: sisRecordId }, recordType);
     await actorAudit(auth, 'SIS_RELATIONSHIP_LINKED', summary, { outcome: 'ACCEPTED', recordType, linkId: link?.id ?? null, samePerson: link?.evidence?.samePerson ?? null }, user.id);
+    await refreshDirectoryEntry(auth.tenantId, user.id);
     return { userId: user.id, recordType, institutionalId: number, linkId: link?.id ?? null, evidence: link?.evidence ?? null };
   });
+}
+
+/**
+ * The CampusCore person (person registry) behind these institutional numbers, or null: not configured, unreachable,
+ * no such person, numbers of different people, or a person CampusCore excludes from identity provisioning (the
+ * People API does not offer them). Read-only; used to describe a portal account with institutional data.
+ */
+export async function institutionalPerson({ studentNumbers = [], employeeNumbers = [] }) {
+  if (!sisConfig().valid || (!studentNumbers.length && !employeeNumbers.length)) return null;
+  try {
+    return await withSis(async (s) => {
+      const people = new Map();
+      for (const query of [...studentNumbers.map((n) => ({ studentNumber: n })), ...employeeNumbers.map((n) => ({ employeeNumber: n }))]) {
+        for (const person of (await s.adapter.client.get('/people', query)).data) people.set(person.id, person);
+      }
+      return people.size === 1 ? [...people.values()][0] : null;
+    });
+  } catch (error) {
+    logger.warn('CampusCore person lookup failed', { code: error.code ?? null });
+    return null;
+  }
+}
+
+/**
+ * Institutional sign-in, first time, no portal account (JIT). Called only when the provider's switch is on and
+ * no account matched the token's verified institutional numbers. CampusCore's person registry decides:
+ *   - every claimed number must belong to ONE CampusCore person (else AMBIGUOUS_RECORDS);
+ *   - the provider's VERIFIED email must be one of that person's institutional addresses (else EVIDENCE_MISMATCH);
+ *   - at least one relationship must be current (else NO_ELIGIBLE_RECORD); every current one is provisioned, so a
+ *     person who teaches and studies gets one account with both;
+ *   - nobody may already hold the address or the records (EMAIL_IN_USE / RECORD_ALREADY_LINKED): an administrator
+ *     links those instead. Nothing is decided on email alone, and no administrative role is ever granted.
+ * The account has no portal password (institutional sign-in only). Returns { userId, ... } or { refused: REASON }.
+ */
+export async function provisionFromSignIn({ tenant, providerLabel, email, emailVerified, studentIds, employeeIds }) {
+  if (!sisConfig().valid) return { refused: 'NO_MATCHING_RECORD' };
+  if (!emailVerified) return { refused: 'EMAIL_NOT_VERIFIED' };
+  const tokenEmail = String(email ?? '').trim().toLowerCase();
+  const norm = (v) => String(v ?? '').trim().toLowerCase();
+  try {
+    return await withSis(async (s) => {
+      const people = new Map();
+      for (const query of [...studentIds.map((n) => ({ studentNumber: n })), ...employeeIds.map((n) => ({ employeeNumber: n }))]) {
+        for (const person of (await s.adapter.client.get('/people', query)).data) people.set(person.id, person);
+      }
+      if (!people.size) return { refused: 'NO_MATCHING_RECORD' };
+      if (people.size > 1) return { refused: 'AMBIGUOUS_RECORDS' };
+      const [person] = people.values();
+      const holds = (type, number) => person.relationships.some((r) => r.type === type && r.number === number);
+      if (!studentIds.every((n) => holds('STUDENT', n)) || !employeeIds.every((n) => holds('FACULTY', n))) return { refused: 'AMBIGUOUS_RECORDS' };
+      if (!tokenEmail || !person.emails.map(norm).includes(tokenEmail)) return { refused: 'EVIDENCE_MISMATCH' };
+      const eligible = person.relationships.filter((r) => PROVISIONABLE[r.type]?.includes(r.status));
+      if (!eligible.length) return { refused: 'NO_ELIGIBLE_RECORD' };
+      if (await prisma.user.findUnique({ where: { tenantId_email: { tenantId: tenant.id, email: tokenEmail } }, select: { id: true } })) return { refused: 'EMAIL_IN_USE' };
+      for (const r of eligible) {
+        if ((await s.adapter.listIdentityLinks({ externalSystem: EXTERNAL_SYSTEM, sisRecordId: r.sisId, status: 'ACTIVE' })).data.length) return { refused: 'RECORD_ALREADY_LINKED' };
+      }
+      // The record carrying the address the person signed in with is linked first; CampusCore then accepts the
+      // other record because both belong to the same person.
+      eligible.sort((a, b) => Number(norm(b.email) === tokenEmail) - Number(norm(a.email) === tokenEmail));
+      const tier = eligible.some((r) => r.type === 'STUDENT') ? await prisma.studentTier.findFirst({ where: { tenantId: tenant.id }, orderBy: { rank: 'asc' } }) : null;
+      const userId = randomUUID();
+      const actingUser = `${EXTERNAL_SYSTEM}:jit-sign-in`;
+      const firstName = person.preferredName || person.firstName || 'University';
+      const lastName = person.lastName || 'member';
+      const links = [];
+      try {
+        await prisma.$transaction(async (tx) => {
+          await tx.user.create({ data: { id: userId, tenantId: tenant.id, email: tokenEmail, passwordHash: null, passwordChangeRequired: false, firstName, lastName, status: 'ACTIVE' } });
+          for (const r of eligible) {
+            await grantRole(tx, { tenantId: tenant.id, userId, roleKey: r.type, source: 'SIS', evidence: { sisRecordId: r.sisId, institutionalId: r.number, personId: person.id, via: 'JIT_SIGN_IN' } });
+            if (r.type === 'STUDENT') await tx.studentProfile.create({ data: { tenantId: tenant.id, userId, tierId: tier?.id ?? null, studentNumber: r.number, academicStanding: null, currentTerm: null } });
+            else await tx.facultyProfile.create({ data: { tenantId: tenant.id, userId, employeeNumber: r.number, title: null, department: null } });
+          }
+          for (const r of eligible) {
+            links.push(await s.adapter.linkIdentity(
+              { externalSystem: EXTERNAL_SYSTEM, externalUserId: userId, externalEmail: tokenEmail, externalLabel: `${firstName} ${lastName}`, recordType: r.type, sisRecordId: r.sisId },
+              { actingUser, idempotencyKey: `jit-${userId}-${r.type}` },
+            ));
+          }
+        }, { timeout: 30_000, maxWait: 10_000 });
+      } catch (error) {
+        // The account was rolled back: withdraw any CampusCore link already made for it.
+        const made = links.length ? links : (await s.adapter.listIdentityLinks({ externalSystem: EXTERNAL_SYSTEM, externalUserId: userId, status: 'ACTIVE' }).then((r) => r.data).catch(() => []));
+        for (const l of made) await s.adapter.revokeIdentityLink(l.id, 'Account creation at first sign-in did not complete; link withdrawn automatically.', { actingUser }).catch((e) => logger.warn('Could not withdraw orphan CampusCore link', { linkId: l.id, code: e.code ?? null }));
+        throw error;
+      }
+      s.portal.invalidate(userId);
+      for (const r of eligible) await syncMirror({ tenantId: tenant.id, userId }, { status: 'LINKED', recordType: r.type, sisId: r.sisId }, r.type);
+      await recordAudit({ tenantId: tenant.id, actorUserId: userId, action: 'SIS_ACCOUNT_PROVISIONED', entityType: 'User', entityId: userId, summary: `Created portal account at first ${providerLabel} sign-in for CampusCore person ${person.personNumber} (${eligible.map((r) => `${r.type.toLowerCase()} ${r.number}`).join(', ')})`, metadata: { via: 'JIT_SIGN_IN', personId: person.id, recordTypes: eligible.map((r) => r.type) } });
+      return { userId, personNumber: person.personNumber, recordTypes: eligible.map((r) => r.type) };
+    });
+  } catch (error) {
+    if (error.code === 'SIS_UNAVAILABLE') return { refused: 'SIS_UNAVAILABLE' };
+    // CampusCore refused a call: this connection may not read the person registry (people:read) or create links.
+    if (error.status === 403) {
+      logger.warn('JIT account creation not permitted by CampusCore', { sisCode: error.details?.sisCode ?? null });
+      return { refused: 'JIT_NOT_PERMITTED' };
+    }
+    throw error;
+  }
 }
 
 /**

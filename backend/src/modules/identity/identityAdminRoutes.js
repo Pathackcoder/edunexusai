@@ -26,6 +26,7 @@ const providerBody = z.object({
   studentIdClaim: z.string().nullable().optional(),
   employeeIdClaim: z.string().nullable().optional(),
   employeeIdEstablishesStaff: z.boolean().optional(),
+  jitProvisioning: z.boolean().optional(),
   enabled: z.boolean().optional(),
   allowInsecureHttp: z.boolean().optional(),
 }).strict();

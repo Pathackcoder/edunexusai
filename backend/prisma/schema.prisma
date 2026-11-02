@@ -202,7 +202,8 @@ model User {
   tenantId               String
   email                  String
   /// Always a bcrypt hash (see src/modules/auth/passwords.js).
-  passwordHash           String
+  /// Null for an account that signs in with the institution's sign-in only (created at first sign-in).
+  passwordHash           String?
   /// Set when an administrator issued a temporary password; cleared when the user sets their own.
   passwordChangeRequired Boolean    @default(false)
   firstName              String
@@ -986,6 +987,8 @@ model DirectoryProfile {
   userId      String?  @unique
   externalKey String
   type        String
+  /// Every community role of the person (e.g. faculty + student): one entry per person, filtered by any of them.
+  roles       String[] @default([])
   name        String
   role        String?
   department  String?
@@ -2158,6 +2161,9 @@ model IdentityProvider {
   employeeIdClaim            String?
   /// Institutional policy: the provider's employee number establishes a staff record.
   employeeIdEstablishesStaff Boolean  @default(false)
+  /// SSO-first: at the first sign-in of someone with no portal account, create it from the CampusCore person
+  /// behind the token's verified institutional numbers (one person, a current relationship, the person's email).
+  jitProvisioning            Boolean  @default(false)
   enabled                    Boolean  @default(false)
   /// Development only (an http issuer such as a local Keycloak); refused in production.
   allowInsecureHttp          Boolean  @default(false)

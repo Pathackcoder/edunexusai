@@ -140,6 +140,12 @@ export function moodleConfig() {
     // refuses to create accounts without it.
     siteUserQuota: toPositiveInt(process.env.MOODLE_SITE_USER_QUOTA),
     defaultCategoryId: toPositiveInt(process.env.MOODLE_DEFAULT_CATEGORY_ID),
+    // How NEW Moodle accounts sign in: 'manual' (a Moodle password, the default) or 'oauth2' (the same university
+    // sign-in as the portal, configured in Moodle as an OAuth 2 service; the account gets no Moodle password).
+    accountAuth: process.env.MOODLE_ACCOUNT_AUTH === 'oauth2' ? 'oauth2' : 'manual',
+    // After an account is created at its first institutional sign-in (JIT), also create the person's Moodle account
+    // and the enrolments that follow from CampusCore, in the background. Needs writes enabled. Off by default.
+    jitProvisioning: toBool(process.env.MOODLE_JIT_PROVISIONING),
     problems,
     valid: problems.length === 0,
   };

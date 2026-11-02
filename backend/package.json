@@ -25,6 +25,8 @@
     "db:setup": "prisma migrate deploy && node prisma/seed.js",
     "db:status": "prisma migrate status",
     "moodle:smoke": "node scripts/moodle-smoke.mjs",
+    "directory:rebuild": "node scripts/directory-rebuild.mjs",
+    "identity:consistency": "node scripts/identity-consistency.mjs",
     "moodle:seed": "node scripts/moodle-seed.mjs",
     "passwords:hash-plaintext": "node scripts/hash-plaintext-passwords.mjs"
   },

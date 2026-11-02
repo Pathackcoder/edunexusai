@@ -68,7 +68,7 @@ export const PersonProfileDrawer = ({ person, open, onClose }) => {
             <Typography id="person-profile-title" variant="h4" component="h2" sx={{ color: '#fff' }}>{p.name}</Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.25 }}>{p.role}</Typography>
             <Stack direction="row" useFlexGap flexWrap="wrap" spacing={0.75} sx={{ mt: 1 }}>
-              <Chip size="small" label={TYPE_LABEL[p.type] ?? p.type} sx={heroChipSx} />
+              {(p.roles?.length ? p.roles : [p.type]).map((r) => <Chip key={r} size="small" label={TYPE_LABEL[r] ?? r} sx={heroChipSx} />)}
               {p.department && <Chip size="small" icon={<ApartmentOutlinedIcon />} label={p.department} sx={{ ...heroChipSx, maxWidth: '100%' }} />}
             </Stack>
           </Box>

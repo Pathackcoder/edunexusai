@@ -42,7 +42,9 @@ GET /api/v1/auth/oidc/callback
       audience, expiry, nonce, state); code replay rejected by the provider
    2. account: federated_identities (issuer + subject); first sign-in: the account whose VERIFIED
       institutional numbers equal the ID token's student/employee numbers, with the verified email
-      agreeing — never email alone; ambiguous, mismatched, unverified, disabled → refused (audited)
+      agreeing — never email alone; ambiguous, mismatched, unverified, disabled → refused (audited);
+      nobody has those numbers and the provider's JIT switch is on → the account is created from the
+      CampusCore person who holds them (section 15)
    3. records: Student/Faculty verified LIVE in CampusCore (link exists, number matches, record active);
       Staff: staff record, or the provider's staff policy (employee number establishes it)
    4. roles: this institution's mapping rules → community roles, granted only with their records; the
@@ -255,3 +257,55 @@ panel has its own loading, error and empty state. Pure logic: `frontend/src/page
   university session and CampusCore stay) or **Sign out of all university apps** (default; Keycloak
   end-session, which back-channels CampusCore). CampusCore offers the same two choices.
 - Moodle is separate: it keeps its own login; no Moodle SSO is configured.
+
+## 15. SSO-first account creation (JIT) and the person registry
+
+The identity architecture across CampusCore, Keycloak, EdunexusAI and Moodle is described in
+`campuscoresis/docs/IDENTITY_ARCHITECTURE.md`. In EdunexusAI:
+
+- **Switch:** "Create portal accounts at first sign-in" on a sign-in option (Admin → Sign-in & role mapping;
+  `identity_providers.jitProvisioning`, off by default). It needs the CampusCore client to hold `people:read`.
+- **When:** only when no account matches the token's verified numbers. `sisService.provisionFromSignIn`:
+  1. reads the CampusCore person behind every claimed number (`GET /people`): exactly one person, and every
+     claimed number must be theirs;
+  2. checks that the token's verified email is one of the person's addresses;
+  3. needs at least one current relationship;
+  4. checks that nobody already holds the address or the records;
+  5. creates one account with **every** current relationship (a person who teaches and studies gets both): no
+     portal password, profiles, SIS-sourced roles and the CampusCore links, in one transaction. The links are
+     withdrawn if anything fails.
+- **The sign-in link** is `federated_identities.linkMethod = JIT_PROVISIONED`. Roles are then evaluated as for
+  any sign-in.
+- **Refusals** (shown on the sign-in page): `NO_ELIGIBLE_RECORD`, `EMAIL_IN_USE`, `RECORD_ALREADY_LINKED`,
+  `JIT_NOT_PERMITTED`, `SIS_UNAVAILABLE`, plus the existing `AMBIGUOUS_RECORDS`, `EVIDENCE_MISMATCH` and
+  `EMAIL_NOT_VERIFIED`.
+- **No password:** an SSO-only account (`users.passwordHash` NULL, `hasPassword: false`) is not offered
+  "Change password", and `POST /auth/password` answers 409.
+- **Moodle:** `MOODLE_JIT_PROVISIONING=true` creates the person's Moodle account and CampusCore-derived
+  enrolments in the background after JIT (`people/lmsFollowUp.js`), one Moodle account per person.
+  `MOODLE_ACCOUNT_AUTH=oauth2` makes new Moodle accounts use the university sign-in (no Moodle password), once
+  Moodle's OAuth 2 service is configured (see section 9).
+- **Two CampusCore links:** a person with both records gets "CampusCore · Teaching" and "CampusCore · Student
+  records", each opening that area (`returnTo`) of their one CampusCore account.
+- **Migration** `20261101120000_sso_jit_provisioning` (additive).
+
+
+## 16. One identity per person: People Search and the consistency check
+
+- **People Search is derived, not a source of people** (`modules/people/directorySync.js`).
+  - One entry per active portal account.
+  - CampusCore's person registry supplies the name, primary email, faculty title and department, and student
+    programme. `directory_profiles.roles` lists every role, so a person who teaches and studies is one entry,
+    found under either filter.
+  - No entry for: people CampusCore excludes from identity provisioning, accounts whose record can't be found,
+    and rows without an account.
+  - Refreshed after JIT, provisioning and new relationships. Full rebuild: `npm run directory:rebuild`.
+  - Migration `20261102100000_directory_roles` (additive).
+- **`npm run identity:consistency`** (read-only; exit code 0 = consistent, 2 = not). Checks, by immutable ids and
+  the OIDC `sub`, that:
+  - every human Keycloak user has exactly one portal account;
+  - every portal account has exactly one Keycloak identity;
+  - no Student/Faculty role lacks its CampusCore link;
+  - People Search lists exactly the active accounts.
+
+  It uses the read-only `KEYCLOAK_DIRECTORY_*` client. Run it after an identity sync or any manual account change.
