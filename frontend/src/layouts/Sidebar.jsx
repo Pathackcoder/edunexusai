@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { groupOwnsPath } from './navState';
 import { NavLink, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -7,6 +8,7 @@ import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import ListSubheader from '@mui/material/ListSubheader';
+import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded';
 import Collapse from '@mui/material/Collapse';
 import Tooltip from '@mui/material/Tooltip';
 import IconButton from '@mui/material/IconButton';
@@ -23,9 +25,12 @@ import LocationCityOutlinedIcon from '@mui/icons-material/LocationCityOutlined';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
-import { buildNavSections, personaWorkspaceLabel } from './navigation';
+import { buildNavGroups } from './navigation';
+import { useCmsNavPages } from '../components/cms/useCmsNavPages';
 import { useI18n } from '../i18n';
 import { DarkSurface } from '../components/common/DarkSurface';
+import { InstitutionLogo, PoweredBy } from '../components/brand/Brand';
+import { institution } from '../branding';
 
 /*
  * Geometry is identical in both states so nothing moves while the width animates:
@@ -51,20 +56,20 @@ const rowSx = (active) => (theme) => ({
   mb: '2px',
   color: active ? '#FFFFFF' : 'text.secondary',
   bgcolor: 'transparent',
-  backgroundImage: active ? `linear-gradient(100deg, ${alpha('#6366F1', 0.45)}, ${alpha('#8B5CF6', 0.22)})` : 'none',
-  boxShadow: active ? `inset 0 0 0 1px ${alpha('#A5B4FC', 0.22)}, 0 8px 20px -12px ${alpha('#6366F1', 0.9)}` : 'none',
+  backgroundImage: active ? 'linear-gradient(100deg, color-mix(in srgb, var(--enx-primary) 60%, transparent), color-mix(in srgb, var(--enx-secondary) 28%, transparent))' : 'none',
+  boxShadow: active ? 'inset 0 0 0 1px color-mix(in srgb, var(--enx-accent) 24%, transparent), 0 8px 20px -12px color-mix(in srgb, var(--enx-primary) 90%, transparent)' : 'none',
   position: 'relative',
   overflow: 'hidden',
   transition: 'background-color 160ms ease, color 160ms ease',
   '& .MuiListItemIcon-root': {
     minWidth: 36,
-    color: active ? '#A5F3FC' : theme.palette.grey[500],
+    color: active ? 'var(--enx-accent)' : theme.palette.grey[500],
     transition: 'color 160ms ease',
   },
   '&:hover': {
     bgcolor: active ? 'transparent' : theme.palette.action.hover,
     color: '#FFFFFF',
-    '& .MuiListItemIcon-root': { color: active ? '#A5F3FC' : '#FFFFFF', transform: 'translateX(1px)' },
+    '& .MuiListItemIcon-root': { color: active ? 'var(--enx-accent)' : '#FFFFFF', transform: 'translateX(1px)' },
   },
   '&::before': {
     content: '""',
@@ -74,37 +79,39 @@ const rowSx = (active) => (theme) => ({
     bottom: 9,
     width: 3,
     borderRadius: '0 3px 3px 0',
-    backgroundImage: 'linear-gradient(180deg, #67E8F9, #A78BFA)',
-    boxShadow: '0 0 10px rgba(103, 232, 249, 0.8)',
+    backgroundImage: 'linear-gradient(180deg, var(--enx-accent), var(--enx-secondary))',
+    boxShadow: '0 0 10px color-mix(in srgb, var(--enx-accent) 80%, transparent)',
     opacity: active ? 1 : 0,
     transition: 'opacity 160ms ease',
   },
 });
 
-const labelProps = (active) => ({ variant: 'body2', fontWeight: active ? 600 : 500, noWrap: true });
+// Navigation labels have their own size (not body2), so denser page text never makes them harder to read.
+const labelProps = (active) => ({ variant: 'body2', fontSize: '0.875rem', lineHeight: 1.35, fontWeight: active ? 600 : 500, noWrap: true });
 
 /**
  * Persona-aware navigation. Renders inside the push sidebar on desktop/tablet (where
  * `collapsed` turns it into an icon rail) and inside a temporary drawer on mobile.
  */
 export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile = false }) => {
-  const { user, isFaculty, isAdmin, can } = useAuth();
+  const { user, isFaculty, isAdmin, can, canIn, contexts, workspaces } = useAuth();
   const { unreadCount } = useNotifications();
   const { t } = useI18n();
   const location = useLocation();
 
-  const navSections = buildNavSections({ isAdmin, isFaculty, can, unreadCount });
-  const supportIds = ['help', 'notifications'];
-  const primarySections = navSections.filter((section) => !supportIds.includes(section.id));
-  const supportSections = navSections.filter((section) => supportIds.includes(section.id));
+  const cmsPages = useCmsNavPages();
+  // One group per active role context for multi-role accounts; the usual single group otherwise.
+  const nav = buildNavGroups({ isAdmin, isFaculty, can, canIn, contexts: contexts.map((c) => c.key), workspaces, unreadCount, cmsPages });
+  const supportSections = nav.support;
+  const navSections = [...nav.groups.flatMap((group) => group.sections), ...supportSections];
 
   // Accordion state: Track which sections are expanded
   const [expandedSections, setExpandedSections] = useState(() => {
     const initial = {};
     navSections.forEach((sec) => {
       if (sec.children) {
-        // Auto-expand if the current path matches this section
-        initial[sec.id] = location.pathname.startsWith(sec.pathPrefix);
+        // Auto-expand only the group that owns the current route
+        initial[sec.id] = groupOwnsPath(sec, location.pathname);
       }
     });
     // Default open academics if on /academics or dashboard
@@ -115,7 +122,7 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
   // Keep expanded state in sync with URL changes
   useEffect(() => {
     navSections.forEach((sec) => {
-      if (sec.children && location.pathname.startsWith(sec.pathPrefix)) {
+      if (sec.children && groupOwnsPath(sec, location.pathname)) {
         setExpandedSections((prev) => ({ ...prev, [sec.id]: true }));
       }
     });
@@ -137,6 +144,7 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
 
   const initials = `${(user?.firstName ?? '').charAt(0)}${(user?.lastName ?? '').charAt(0)}`.toUpperCase() || '—';
   const userId = user?.studentNumber ?? user?.employeeNumber ?? '—';
+  const termLabel = user?.currentTerm ?? 'Fall 2026';
 
   const renderDirect = (section) => {
     const Icon = section.icon;
@@ -194,7 +202,7 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
   const renderGroup = (section) => {
     const Icon = section.icon;
     const isExpanded = !!expandedSections[section.id];
-    const isParentActive = location.pathname.startsWith(section.pathPrefix);
+    const isParentActive = groupOwnsPath(section, location.pathname);
     const highlight = isParentActive && (collapsed || !isExpanded);
 
     return (
@@ -257,7 +265,7 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
                   },
                 })}
               >
-                <ListItemText primary={t(child.label)} primaryTypographyProps={{ variant: 'body2', fontSize: '0.8125rem', noWrap: true }} />
+                <ListItemText primary={t(child.label)} primaryTypographyProps={{ variant: 'body2', fontSize: '0.84375rem', lineHeight: 1.35, noWrap: true }} />
               </ListItemButton>
             ))}
           </List>
@@ -280,20 +288,8 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
       <Box sx={{ px: GUTTER, pt: 1.25, pb: 0.75, flexShrink: 0 }}>
         <Box sx={{ position: 'relative', height: 40, display: 'flex', alignItems: 'center' }}>
           {/* Full wordmark (expanded) */}
-          <Box
-            sx={{
-              ...fade(collapsed),
-              ml: '6px',
-              px: 1,
-              height: 36,
-              display: 'flex',
-              alignItems: 'center',
-              borderRadius: '10px',
-              bgcolor: '#FFFFFF',
-              boxShadow: '0 8px 18px -10px rgba(0,0,0,0.6)',
-            }}
-          >
-            <Box component="img" src="/logo.png" alt="EdunexusAI" sx={{ height: 24, width: 'auto', maxWidth: 'none', display: 'block' }} />
+          <Box sx={{ ...fade(collapsed), ml: '8px', display: 'flex', alignItems: 'center', filter: 'drop-shadow(0 6px 12px rgba(0,0,0,0.35))' }}>
+            <InstitutionLogo inverse height={40} />
           </Box>
 
           {/* Mark only (collapsed rail): doubles as the expand control */}
@@ -333,10 +329,8 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
                   '&:focus-visible': { outline: (theme) => `2px solid ${theme.palette.primary.main}`, outlineOffset: 1 },
                 }}
               >
-                <Box className="mark" sx={{ width: 36, height: 36, borderRadius: '10px', bgcolor: '#FFFFFF', display: 'grid', placeItems: 'center', overflow: 'hidden', boxShadow: '0 8px 18px -10px rgba(0,0,0,0.6)' }}>
-                  <Box sx={{ width: 24, height: 24, overflow: 'hidden' }}>
-                    <Box component="img" src="/logo.png" alt="" sx={{ height: 24, width: 'auto', maxWidth: 'none', display: 'block' }} />
-                  </Box>
+                <Box className="mark" sx={{ display: 'grid', placeItems: 'center', filter: 'drop-shadow(0 6px 12px rgba(0,0,0,0.35))' }}>
+                  <InstitutionLogo variant="mark" height={36} alt="" />
                 </Box>
                 <KeyboardDoubleArrowRightRoundedIcon className="arrow" sx={{ fontSize: 20 }} />
               </Box>
@@ -367,7 +361,7 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
         </Box>
 
         {/* Institution context */}
-        <Tooltip title={collapsed ? 'Demo University • Fall 2026' : ''} placement="right">
+        <Tooltip title={collapsed ? `${institution.name} · ${termLabel}` : ''} placement="right">
           <Stack
             direction="row"
             alignItems="center"
@@ -384,9 +378,9 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
               overflow: 'hidden',
             }}
           >
-            <LocationCityOutlinedIcon sx={{ fontSize: 17, color: '#67E8F9', flexShrink: 0 }} />
+            <LocationCityOutlinedIcon sx={{ fontSize: 17, color: 'var(--enx-accent)', flexShrink: 0 }} />
             <Typography variant="caption" noWrap sx={{ ...fade(collapsed), color: 'text.secondary', fontWeight: 500 }}>
-              Demo University • Fall 2026
+              {termLabel} · Main campus
             </Typography>
           </Stack>
         </Tooltip>
@@ -398,9 +392,25 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
         aria-label="Sidebar Navigation"
         sx={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', px: GUTTER, pb: 2 }}
       >
-        <List disablePadding subheader={subheader(t(personaWorkspaceLabel({ isAdmin, isFaculty })))}>
-          {primarySections.map(renderSection)}
-        </List>
+        {nav.groups.map((group, index) => (
+          <List key={group.id} disablePadding subheader={subheader(t(group.label), index ? { mt: 1 } : undefined)}>
+            {group.sections.map(renderSection)}
+          </List>
+        ))}
+        {/* Other university systems this person may open. Each starts that system's own university
+            sign-in in a new tab; the system decides access from its own account and role. */}
+        {(user?.apps ?? []).length > 0 && (
+          <List disablePadding subheader={subheader('University systems', { mt: 1 })}>
+            {user.apps.map((app) => (
+              <Tooltip key={app.key} title={collapsed ? app.label : app.description ?? ''} placement="right">
+                <ListItemButton component="a" href={app.url} target="_blank" rel="noopener noreferrer" aria-label={`${app.label} (opens in a new tab)`} sx={rowSx(false)}>
+                  <ListItemIcon><OpenInNewRoundedIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText primary={app.label} primaryTypographyProps={labelProps(false)} sx={{ ...fade(collapsed), minWidth: 0 }} />
+                </ListItemButton>
+              </Tooltip>
+            ))}
+          </List>
+        )}
         <List disablePadding subheader={subheader('Support', { mt: 1 })}>
           {supportSections.map(renderSection)}
         </List>
@@ -410,7 +420,7 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
       <Box sx={{ flexShrink: 0, borderTop: 1, borderColor: 'divider', px: GUTTER, py: 1 }}>
         <Tooltip title={collapsed ? `${user?.fullName ?? '—'} · ID ${userId}` : ''} placement="right">
           <Stack direction="row" alignItems="center" spacing={1.25} sx={{ pl: '11px', pr: 1, py: 0.75, overflow: 'hidden' }}>
-            <Avatar sx={{ width: 32, height: 32, fontSize: '0.75rem', color: '#fff', background: 'linear-gradient(135deg, #6366F1, #A855F7)', boxShadow: '0 0 0 2px rgba(255,255,255,0.14)', flexShrink: 0 }}>{initials}</Avatar>
+            <Avatar sx={{ width: 32, height: 32, fontSize: '0.75rem', color: '#fff', background: 'linear-gradient(135deg, var(--enx-primary), var(--enx-secondary))', boxShadow: '0 0 0 2px rgba(255,255,255,0.14)', flexShrink: 0 }}>{initials}</Avatar>
             <Box sx={{ ...fade(collapsed), flex: 1, minWidth: 0 }}>
               <Typography variant="subtitle2" noWrap>
                 {user?.fullName ?? '—'}
@@ -421,7 +431,10 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
             </Box>
           </Stack>
         </Tooltip>
-
+        {/* Platform attribution, kept quiet beneath the university identity. */}
+        <Box sx={{ ...fade(collapsed), pl: '13px', pt: 0.25, pb: 0.25 }}>
+          <PoweredBy tone="dark" />
+        </Box>
       </Box>
 
       {/* Collapsed-rail flyout for grouped sections */}

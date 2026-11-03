@@ -3,6 +3,7 @@ import { formatShortDate } from '../../utils/format.js';
 import { forbidden, notFound } from '../../utils/errors.js';
 import { notifyUsers } from '../notifications/notificationService.js';
 import { recordAudit } from '../audit/auditService.js';
+import { communityAudiences } from '../users/roleContexts.js';
 
 /**
  * Resources: institutional documents (published by administrators) and teaching
@@ -10,7 +11,9 @@ import { recordAudit } from '../audit/auditService.js';
  * their audience; owners manage drafts.
  */
 
-const audienceFor = (roles) => (roles.includes('FACULTY') ? 'FACULTY' : roles.includes('STUDENT') ? 'STUDENT' : 'ALL');
+// Every community audience the caller belongs to (a faculty member who also studies sees
+// both STUDENT and FACULTY resources). No community role: ALL only, as before.
+const audiencesFor = (roles) => ['ALL', ...communityAudiences(roles)];
 
 function present(resource) {
   return {
@@ -38,11 +41,10 @@ function present(resource) {
 const include = { createdBy: { select: { firstName: true, lastName: true } } };
 
 export async function listPublishedResources(auth, { category, search } = {}) {
-  const audience = audienceFor(auth.roles);
   const where = {
     tenantId: auth.tenantId,
     status: 'PUBLISHED',
-    ...(auth.roles.includes('ADMIN') ? {} : { audience: { in: ['ALL', audience] } }),
+    ...(auth.roles.includes('ADMIN') ? {} : { audience: { in: audiencesFor(auth.roles) } }),
     ...(category && category !== 'ALL' ? { category } : {}),
     ...(search
       ? { OR: [{ title: { contains: search, mode: 'insensitive' } }, { description: { contains: search, mode: 'insensitive' } }] }
@@ -57,7 +59,11 @@ export async function openResource(auth, id) {
   const resource = await prisma.portalResource.findFirst({ where: { id, tenantId: auth.tenantId }, include });
   if (!resource) throw notFound('Resource not found.');
   const isOwner = resource.createdByUserId === auth.userId || auth.roles.includes('ADMIN');
-  if (resource.status !== 'PUBLISHED' && !isOwner) throw notFound('Resource not found.');
+  // Same rule as the listing: published AND addressed to one of the caller's audiences.
+  // Owners and administrators (who manage resources) keep access to their drafts and to
+  // resources outside their own audience. A refusal is a 404, so an id reveals nothing.
+  const listed = resource.status === 'PUBLISHED' && audiencesFor(auth.roles).includes(resource.audience);
+  if (!listed && !isOwner) throw notFound('Resource not found.');
   if (resource.status === 'PUBLISHED') {
     await prisma.portalResource.update({ where: { id }, data: { viewCount: { increment: 1 } } });
   }

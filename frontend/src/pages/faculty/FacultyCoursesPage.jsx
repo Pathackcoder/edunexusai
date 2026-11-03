@@ -1,5 +1,8 @@
 import React from 'react';
 import { Link as RouterLink } from 'react-router-dom';
+import { SisTeachingPanel } from '../../components/sis/SisTeachingPanel';
+import Alert from '@mui/material/Alert';
+import MuiButton from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
@@ -39,6 +42,10 @@ export const FacultyCoursesPage = () => {
             title="My Courses"
             description="Sections you teach this term, with enrolment counts and the system each record came from."
           />
+          <SisTeachingPanel />
+          <Alert severity="info" sx={{ mb: 2.5 }} action={<MuiButton component={RouterLink} to="/faculty/moodle" size="small">Moodle Teaching</MuiButton>}>
+            The sections below are local EduNexusAI demo records, not CampusCore or Moodle data. Official sections are above; Moodle courses, assignments and grading are under Moodle Teaching.
+          </Alert>
 
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 2.5 }}>
             {courses.map((course) => (

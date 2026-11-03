@@ -53,6 +53,23 @@ export const GradeCard = ({ course }) => {
         value={Math.min(100, Number(percentage) || 0)}
         sx={{ height: 6, bgcolor: 'grey.100', '& .MuiLinearProgress-bar': { bgcolor: gradeColor } }}
       />
+
+      {/* Published gradebook totals from the instructor (drafts are never shown). */}
+      {course?.coursework && (
+        <Typography variant="caption" component="p" sx={{ pt: 1.25, borderTop: 1, borderColor: 'divider' }}>
+          {course.coursework.graded > 0 ? (
+            <>
+              Published coursework:{' '}
+              <Box component="strong" sx={{ color: 'text.primary' }}>
+                {course.coursework.percentage}%{course.coursework.letter ? ` (${course.coursework.letter})` : ''}
+              </Box>{' '}
+              · {course.coursework.graded} of {course.coursework.total} graded · {course.coursework.method === 'WEIGHTED' ? 'weighted' : 'points'}
+            </>
+          ) : (
+            'No coursework grades have been published yet.'
+          )}
+        </Typography>
+      )}
     </Card>
   );
 };

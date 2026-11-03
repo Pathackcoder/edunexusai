@@ -159,6 +159,24 @@ async function refreshSession() {
   return refreshInFlight;
 }
 
+/**
+ * Refresh the access token for a non-REST caller (the realtime chat socket), sharing the same single
+ * in-flight attempt. When it cannot be refreshed the session has ended, exactly as for a REST call.
+ */
+export async function refreshAccessToken() {
+  const refreshed = await refreshSession();
+  if (!refreshed) announceSessionExpired();
+  return refreshed;
+}
+
+/**
+ * Origin of the realtime socket (/socket.io): the API's origin. When REST calls reach the API through the app's own
+ * origin by a rewrite that cannot carry WebSockets (Vercel), VITE_REALTIME_ORIGIN names the API host directly
+ * (e.g. https://api.example.edu); the socket authenticates with the access token, not cookies.
+ */
+const REALTIME_ORIGIN = (import.meta.env?.VITE_REALTIME_ORIGIN ?? '').replace(/\/$/, '');
+export const apiOrigin = () => REALTIME_ORIGIN || new URL(BASE_URL, window.location.origin).origin;
+
 async function parseBody(response) {
   const text = await response.text();
   if (!text) return null;
@@ -194,7 +212,7 @@ async function send(path, { method = 'GET', body, query, signal, auth = true, re
   } catch (error) {
     if (error.name === 'AbortError') throw error;
     throw new ApiError({
-      message: 'Cannot reach the EdunexusAI API. Check that the backend is running.',
+      message: 'Cannot reach the EduNexusAI API. Check that the backend is running.',
       code: 'NETWORK_ERROR',
       status: 0,
     });

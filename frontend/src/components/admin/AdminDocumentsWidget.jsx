@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { TextField, Alert, MenuItem, Link } from '@mui/material';
 import Box from '@mui/material/Box';
+import ButtonBase from '@mui/material/ButtonBase';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
@@ -11,11 +12,14 @@ import { WidgetCard } from '../common/WidgetCard';
 import { Badge } from '../common/Badge';
 import { Button } from '../common/Button';
 import { DataState } from '../common/DataState';
+import { FitList, WidgetEmpty } from '../common/FitList';
+import { useWidgetSlot } from '../common/widgetSlot';
 import { useToast } from '../common/Toast';
 import { useApiQuery } from '../../hooks/useApiQuery';
 import { workflowApi } from '../../services/api';
 import { statusTone } from '../workflows/status';
 
+const AUDIENCE_NAME = { ALL: 'Everyone', STUDENT: 'Students', FACULTY: 'Faculty', STAFF: 'Staff', ALUMNI: 'Alumni' };
 const EMPTY = { title: '', description: '', category: '', audience: 'ALL', url: '', content: '', status: 'DRAFT' };
 
 /**
@@ -23,7 +27,11 @@ const EMPTY = { title: '', description: '', category: '', audience: 'ALL', url: 
  * faculty (`faculty` prop) manage their own teaching resources, published to students.
  * Published resources appear for the audience in Help & Support → Resources.
  */
+const ADD_TILE = { id: '__add-resource' };
+
 export const AdminDocumentsWidget = ({ faculty = false }) => {
+  // On a dashboard (wide card) the resources sit in two columns and fit the card.
+  const inSlot = Boolean(useWidgetSlot().size);
   const { showToast } = useToast();
   const { data: docs = [], loading, error, refetch } = useApiQuery(() => workflowApi.listManagedResources(), [], { initialData: [] });
   const [open, setOpen] = useState(false);
@@ -72,20 +80,51 @@ export const AdminDocumentsWidget = ({ faculty = false }) => {
         hoverable={!faculty}
         headerAction={<Button size="sm" variant="outline" icon={FileUploadOutlinedIcon} onClick={() => setOpen(true)}>Add resource</Button>}
       >
-        <DataState loading={loading} error={error} onRetry={refetch} minHeight={100}>
+        <DataState loading={loading} error={error} onRetry={refetch} minHeight={100} fill={inSlot}>
           {() => (
-            <Stack spacing={1.25}>
-              {(docs ?? []).length === 0 && <Typography color="text.secondary">{faculty ? 'No teaching resources yet. Add a lab guide or reading list for your students.' : 'No resources yet.'}</Typography>}
-              {(docs ?? []).map((doc) => (
-                <Box key={doc.id} sx={{ p: 1.5, borderRadius: 2.5, border: 1, borderColor: 'divider', bgcolor: 'background.subtle', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, flexWrap: 'wrap' }}>
+            (docs ?? []).length === 0 ? (
+              <WidgetEmpty icon={DescriptionOutlinedIcon} title={faculty ? 'No teaching resources yet' : 'No resources yet'}>
+                {faculty ? 'Add a lab guide or reading list for your students.' : 'Publish a catalog, policy or guide for the portal.'}
+              </WidgetEmpty>
+            ) : (
+            <FitList
+              // An odd count leaves a free cell in the two-column card: offer the real "add" action there.
+              items={inSlot && faculty && docs.length % 2 === 1 && docs.length < 4 ? [...docs, ADD_TILE] : docs ?? []}
+              gap={1.25}
+              columns={inSlot ? { xs: 1, sm: 2 } : undefined}
+              moreTo={faculty ? '/help/resources' : undefined}
+              moreLabel="more resources"
+              renderItem={(doc) => doc === ADD_TILE ? (
+                <ButtonBase
+                  onClick={() => setOpen(true)}
+                  sx={{
+                    width: '100%',
+                    height: '100%',
+                    minHeight: 72,
+                    gap: 1,
+                    borderRadius: 2.5,
+                    border: '1.5px dashed',
+                    borderColor: 'divider',
+                    color: 'primary.main',
+                    typography: 'body2',
+                    fontWeight: 600,
+                    transition: 'border-color 200ms ease, background-color 200ms ease',
+                    '&:hover': { borderColor: 'primary.light', bgcolor: 'primary.lighter' },
+                  }}
+                >
+                  <FileUploadOutlinedIcon fontSize="small" />
+                  Add a lab guide or reading list
+                </ButtonBase>
+              ) : (
+                <Box sx={{ p: 1.5, height: inSlot ? '100%' : 'auto', borderRadius: 2.5, border: 1, borderColor: 'divider', bgcolor: 'background.subtle', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, flexWrap: 'wrap' }}>
                   <Box sx={{ minWidth: 0, flex: 1 }}>
                     <Stack direction="row" alignItems="center" spacing={1}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }} noWrap>{doc.title}</Typography>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{doc.title}</Typography>
                       <Badge variant={statusTone(doc.status)}>{doc.status}</Badge>
                     </Stack>
                     <Typography variant="caption" color="text.secondary">
                       {doc.category} · {doc.fileLabel ?? 'Portal page'} · {doc.viewCount.toLocaleString()} views · {doc.updatedLabel}
-                      {!faculty ? ` · ${doc.audience === 'ALL' ? 'Everyone' : doc.audience === 'STUDENT' ? 'Students' : 'Faculty'}` : ''}
+                      {!faculty ? ` · ${AUDIENCE_NAME[doc.audience] ?? doc.audience}` : ''}
                     </Typography>
                   </Box>
                   <Stack direction="row" spacing={0.75}>
@@ -97,8 +136,9 @@ export const AdminDocumentsWidget = ({ faculty = false }) => {
                     <Button size="sm" variant="outline" icon={VisibilityOutlinedIcon} onClick={() => setView(doc)} sx={{ minHeight: 28, fontSize: '0.75rem', px: 1 }}>View</Button>
                   </Stack>
                 </Box>
-              ))}
-            </Stack>
+              )}
+            />
+            )
           )}
         </DataState>
       </WidgetCard>
@@ -114,6 +154,8 @@ export const AdminDocumentsWidget = ({ faculty = false }) => {
                 <MenuItem value="ALL">Everyone</MenuItem>
                 <MenuItem value="STUDENT">Students</MenuItem>
                 <MenuItem value="FACULTY">Faculty</MenuItem>
+                <MenuItem value="STAFF">Staff</MenuItem>
+                <MenuItem value="ALUMNI">Alumni</MenuItem>
               </TextField>
             )}
           </Stack>

@@ -116,3 +116,16 @@ describe('Canvas canonical mapper', () => {
     assert.equal(parseNextLink('<https://x/?page=1>; rel="current"'), null);
   });
 });
+
+describe('Moodle grade report formatting', () => {
+  it('shows the grade text without Moodle display markup and keeps pass/fail as data', async () => {
+    const { mapGradeItems } = await import('../src/integrations/mappers/moodleMapper.js');
+    const report = { usergrades: [{ gradeitems: [
+      { itemname: 'Report', itemtype: 'mod', gradeformatted: '<i class="icon fa fa-check text-success fa-fw inline"  title="Pass" role="img" aria-label="Pass"></i>72.00', percentageformatted: '90.00 %', grademax: 80, hidden: 0 },
+      { itemname: 'Quiz', itemtype: 'mod', gradeformatted: '<i class="icon fa fa-times text-danger fa-fw inline" title="Fail" role="img" aria-label="Fail"></i>20.00', percentageformatted: '25.00 %', grademax: 80, hidden: 0 },
+      { itemname: 'Not graded', itemtype: 'mod', gradeformatted: '-', hidden: 0 },
+    ] }] };
+    const items = mapGradeItems(report).items;
+    assert.deepEqual(items.map((i) => [i.grade, i.percentage, i.passed]), [['72.00', '90.00 %', true], ['20.00', '25.00 %', false], [null, null, null]]);
+  });
+});

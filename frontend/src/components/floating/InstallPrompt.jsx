@@ -8,6 +8,8 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import { usePWA } from '../../context/PWAContext';
 import { DarkSurface } from '../common/DarkSurface';
+import { InstitutionLogo } from '../brand/Brand';
+import { institution } from '../../branding';
 import { brand } from '../../theme/theme';
 import { DOCK_EASE, usePresence, useDockLift } from './FloatingDock';
 
@@ -70,7 +72,7 @@ export function InstallPrompt() {
     <Box
       ref={ref}
       role="dialog"
-      aria-label="Install the EdunexusAI portal"
+      aria-label={`Install the ${institution.portalName}`}
       sx={{
         position: 'absolute',
         right: 0,
@@ -84,13 +86,11 @@ export function InstallPrompt() {
     >
       <DarkSurface glow="tr" sx={{ borderRadius: '18px', p: 1.75, boxShadow: '0 24px 48px -18px rgba(20, 24, 80, 0.65)', border: '1px solid rgba(255,255,255,0.1)' }}>
         <Stack direction="row" spacing={1.5} alignItems="flex-start">
-          <Box sx={{ width: 40, height: 40, borderRadius: '12px', bgcolor: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0, boxShadow: '0 8px 18px -10px rgba(0,0,0,0.6)', overflow: 'hidden' }}>
-            <Box sx={{ width: 26, height: 26, overflow: 'hidden' }}>
-              <Box component="img" src="/logo.png" alt="" sx={{ height: 26, width: 'auto', maxWidth: 'none', display: 'block' }} />
-            </Box>
+          <Box sx={{ width: 40, height: 40, display: 'grid', placeItems: 'center', flexShrink: 0, filter: 'drop-shadow(0 6px 12px rgba(0,0,0,0.4))' }}>
+            <InstitutionLogo variant="mark" height={38} alt="" />
           </Box>
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography sx={{ fontFamily: '"Rubik", sans-serif', fontWeight: 600, fontSize: '0.9375rem', lineHeight: 1.3 }}>Install EdunexusAI</Typography>
+            <Typography sx={{ fontFamily: '"Rubik", sans-serif', fontWeight: 600, fontSize: '0.9375rem', lineHeight: 1.3 }}>Install the {institution.shortName} portal</Typography>
             <Typography variant="caption" component="p" sx={{ mt: 0.25, lineHeight: 1.45 }}>
               Open your campus portal from your home screen or dock in one tap.
             </Typography>

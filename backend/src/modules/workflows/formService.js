@@ -3,6 +3,7 @@ import { formatShortDate, formatTimeAgo } from '../../utils/format.js';
 import { badRequest, notFound } from '../../utils/errors.js';
 import { notifyAdmins, notifyUsers } from '../notifications/notificationService.js';
 import { recordAudit } from '../audit/auditService.js';
+import { communityAudiences } from '../users/roleContexts.js';
 
 /**
  * Forms & surveys.
@@ -20,7 +21,8 @@ const REVIEW_LABELS = {
   ACKNOWLEDGED: 'Acknowledged',
 };
 
-const audienceFor = (roles) => (roles.includes('FACULTY') ? 'FACULTY' : roles.includes('STUDENT') ? 'STUDENT' : null);
+// Every community audience the caller belongs to; ALL forms are open to everyone signed in.
+const audiencesFor = (roles) => ['ALL', ...communityAudiences(roles)];
 
 function normaliseFields(fields = []) {
   if (!Array.isArray(fields) || fields.length === 0) throw badRequest('Add at least one question.');
@@ -80,13 +82,12 @@ function presentSubmission(submission) {
 /* ----- requester side ----- */
 
 export async function listAvailableForms(auth) {
-  const audience = audienceFor(auth.roles);
   const now = new Date();
   const forms = await prisma.portalForm.findMany({
     where: {
       tenantId: auth.tenantId,
       status: 'PUBLISHED',
-      audience: { in: ['ALL', audience].filter(Boolean) },
+      audience: { in: audiencesFor(auth.roles) },
       OR: [{ closesAt: null }, { closesAt: { gte: now } }],
     },
     include: { submissions: { where: { userId: auth.userId } } },
@@ -108,8 +109,7 @@ export async function listAvailableForms(auth) {
 export async function submitForm(auth, formId, { answers }) {
   const form = await prisma.portalForm.findFirst({ where: { id: formId, tenantId: auth.tenantId, status: 'PUBLISHED' } });
   if (!form) throw notFound('This form is not open.');
-  const audience = audienceFor(auth.roles);
-  if (form.audience !== 'ALL' && form.audience !== audience) throw badRequest('This form is not addressed to you.');
+  if (!audiencesFor(auth.roles).includes(form.audience)) throw badRequest('This form is not addressed to you.');
   if (form.closesAt && form.closesAt < new Date()) throw badRequest('This form has closed.');
   const existing = await prisma.formSubmission.findUnique({ where: { formId_userId: { formId, userId: auth.userId } } });
   if (existing) throw badRequest('You have already submitted this form.');

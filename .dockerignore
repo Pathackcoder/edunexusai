@@ -1,0 +1,12 @@
+# Docker build context is the repository root (backend/Dockerfile); send only what the API image needs.
+*
+!backend
+!shared
+backend/node_modules
+backend/.env
+backend/.env.*
+backend/tests
+backend/storage
+backend/scripts
+**/.DS_Store
+**/*.log

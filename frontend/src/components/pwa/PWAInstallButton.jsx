@@ -41,7 +41,7 @@ export const PWAInstallButton = ({
   if (iconOnly) {
     return (
       <Tooltip title={label} placement="right">
-        <IconButton onClick={promptInstall} aria-label="Install EdunexusAI Portal App" className={className} style={style} sx={sx}>
+        <IconButton onClick={promptInstall} aria-label="Install the Feddrick University portal app" className={className} style={style} sx={sx}>
           <FileDownloadOutlinedIcon fontSize="small" />
         </IconButton>
       </Tooltip>
@@ -57,8 +57,8 @@ export const PWAInstallButton = ({
       color={variant === 'primary' ? 'primary' : 'inherit'}
       size={size === 'lg' ? 'large' : size === 'md' ? 'medium' : 'small'}
       startIcon={<FileDownloadOutlinedIcon />}
-      title="Install EdunexusAI as a Progressive Web App (PWA)"
-      aria-label="Install EdunexusAI Portal App"
+      title="Install the Feddrick University portal as an app"
+      aria-label="Install the Feddrick University portal app"
       sx={sx}
     >
       {label}

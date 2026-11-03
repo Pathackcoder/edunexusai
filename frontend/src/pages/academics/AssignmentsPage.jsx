@@ -2,112 +2,82 @@ import React, { useState } from 'react';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Card from '@mui/material/Card';
-import { AssignmentCard } from '../../components/assignments/AssignmentCard';
-import { SubmitModal } from '../../components/assignments/SubmitModal';
-import { useToast } from '../../components/common/Toast';
+import Alert from '@mui/material/Alert';
+import { MoodleAssignmentCard } from '../../components/assignments/MoodleAssignmentCard';
+import { MoodleNotice, MoodleUnavailablePart } from '../../components/lms/MoodleNotice';
 import { PageHeader } from '../../components/common/PageHeader';
 import { FilterChips } from '../../components/common/FilterChips';
 import { EmptyState } from '../../components/common/EmptyState';
 import { useApiQuery } from '../../hooks/useApiQuery';
-import { academicApi } from '../../services/api';
+import { lmsApi } from '../../services/api';
 import { DataState } from '../../components/common/DataState';
 
-export const AssignmentsPage = () => {
-  // Assignments are provider-owned (pulled from the LMS/SIS) and joined on the server
-  // with this student's own submission state.
-  const { data, loading, error, refetch, setData } = useApiQuery(() => academicApi.getAssignments());
-  const assignments = data ?? [];
-  const [assignmentFilter, setAssignmentFilter] = useState('all');
-  const [selectedAssignment, setSelectedAssignment] = useState(null);
-  const { showToast } = useToast();
+const WEEK = 7 * 24 * 60 * 60 * 1000;
+const open = (a) => ['NOT_SUBMITTED', 'DRAFT'].includes(a.state);
 
-  const filteredAssignments = assignments.filter(a => {
-    if (assignmentFilter === 'due-soon') return a.urgency === 'due-soon' && a.status !== 'Completed';
-    if (assignmentFilter === 'in-progress') return a.status === 'In Progress';
-    if (assignmentFilter === 'completed') return a.status === 'Completed';
+/**
+ * Assignments & Deadlines: live from Moodle for the signed-in student's own courses.
+ * No local assignment records are shown, and nothing is filled in when Moodle is empty
+ * or unavailable. Submitting happens in Moodle.
+ */
+export const AssignmentsPage = () => {
+  const { data, loading, error, refetch } = useApiQuery(() => lmsApi.myMoodleAssignments());
+  const assignments = data?.assignments ?? [];
+  const [filter, setFilter] = useState('all');
+  const now = Date.now();
+  const dueSoon = (a) => open(a) && a.dueDate && new Date(a.dueDate).getTime() - now < WEEK;
+
+  const filtered = assignments.filter((a) => {
+    if (filter === 'due-soon') return dueSoon(a);
+    if (filter === 'to-submit') return open(a);
+    if (filter === 'submitted') return ['SUBMITTED', 'GRADED_NOT_RELEASED'].includes(a.state);
+    if (filter === 'graded') return a.state === 'GRADED';
     return true;
   });
 
-  const handleAssignmentSubmit = async (id, details) => {
-    // Optimistic update, then persist. A failure re-reads the server state.
-    setData((prev) =>
-      (prev ?? []).map((a) => (a.id === id ? { ...a, status: 'Completed', urgency: 'completed' } : a)),
-    );
-    try {
-      await academicApi.submitAssignment(id, { note: details?.note, submissionRef: details?.submissionRef });
-      showToast('Assignment submitted successfully!');
-    } catch (caught) {
-      showToast(caught?.message ?? 'Submission could not be saved.');
-      refetch();
-    }
-  };
-
-  const counts = {
-    all: assignments.length,
-    dueSoon: assignments.filter(a => a.urgency === 'due-soon' && a.status !== 'Completed').length,
-    inProgress: assignments.filter(a => a.status === 'In Progress').length,
-    completed: assignments.filter(a => a.status === 'Completed').length
-  };
-
   return (
-    <DataState
-      loading={loading}
-      error={error}
-      onRetry={refetch}
-      loadingLabel="Loading your assignments…"
-      emptyTitle="No assignments yet"
-      emptyMessage="Coursework for your enrolled courses will appear here once it is published."
-      isEmpty={assignments.length === 0}
-    >
-      {() => (
-        <Box>
-          <PageHeader
-            title="Assignments & Deadlines"
-            description="Track problem sets, lab reports, project milestones, and submit completed coursework."
-          />
-
+    <Box>
+      <PageHeader title="Assignments & Deadlines" description="Your Moodle assignments, due dates, submission status and released grades, read live from Moodle." />
+      <DataState loading={loading} error={error} onRetry={refetch} loadingLabel="Loading your Moodle assignments…">
+        {() => (
           <Stack spacing={2.5}>
-            {/* Filter Controls */}
-            <FilterChips
-              ariaLabel="Filter assignments"
-              value={assignmentFilter}
-              onChange={setAssignmentFilter}
-              options={[
-                { id: 'all', label: 'All Assignments', count: counts.all },
-                { id: 'due-soon', label: 'Due Soon', count: counts.dueSoon },
-                { id: 'in-progress', label: 'In Progress', count: counts.inProgress },
-                { id: 'completed', label: 'Completed', count: counts.completed }
-              ]}
-            />
-
-            {/* Assignments List */}
-            <Stack spacing={1.5}>
-              {filteredAssignments.map(assignment => (
-                <AssignmentCard
-                  key={assignment.id}
-                  assignment={assignment}
-                  onSubmitClick={setSelectedAssignment}
+            <MoodleNotice data={data} onRetry={refetch} />
+            <MoodleUnavailablePart part={data?.unavailable} what="Assignments" />
+            {data?.status === 'CONNECTED' && !data?.unavailable && (
+              <>
+                <Alert severity="info">
+                  Submissions are made in Moodle (each assignment opens there). The status here updates from Moodle once you have submitted.
+                </Alert>
+                <FilterChips
+                  ariaLabel="Filter assignments"
+                  value={filter}
+                  onChange={setFilter}
+                  options={[
+                    { id: 'all', label: 'All', count: assignments.length },
+                    { id: 'due-soon', label: 'Due soon', count: assignments.filter(dueSoon).length },
+                    { id: 'to-submit', label: 'To submit', count: assignments.filter(open).length },
+                    { id: 'submitted', label: 'Submitted', count: assignments.filter((a) => ['SUBMITTED', 'GRADED_NOT_RELEASED'].includes(a.state)).length },
+                    { id: 'graded', label: 'Graded', count: assignments.filter((a) => a.state === 'GRADED').length },
+                  ]}
                 />
-              ))}
-
-              {filteredAssignments.length === 0 && (
-                <Card>
-                  <EmptyState compact title="No assignments found matching this filter." description="Try a different filter to see more coursework." />
-                </Card>
-              )}
-            </Stack>
+                <Stack spacing={1.5}>
+                  {filtered.map((a) => <MoodleAssignmentCard key={a.assignmentId} assignment={a} />)}
+                  {filtered.length === 0 && (
+                    <Card>
+                      <EmptyState
+                        compact
+                        title={assignments.length ? 'No assignments match this filter.' : 'No assignments in your Moodle courses yet.'}
+                        description={assignments.length ? 'Try a different filter.' : 'Assignments appear here as soon as your instructors publish them in Moodle.'}
+                      />
+                    </Card>
+                  )}
+                </Stack>
+              </>
+            )}
           </Stack>
-
-          {/* Submit Assignment Modal */}
-          <SubmitModal
-            isOpen={!!selectedAssignment}
-            onClose={() => setSelectedAssignment(null)}
-            assignment={selectedAssignment}
-            onSubmitSuccess={handleAssignmentSubmit}
-          />
-        </Box>
-      )}
-    </DataState>
+        )}
+      </DataState>
+    </Box>
   );
 };
 

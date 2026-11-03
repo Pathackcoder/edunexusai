@@ -1,3 +1,4 @@
+import { createBaselineTuitionAccount } from '../../src/modules/onboarding/baselines.js';
 import { loadFixture, parseDisplayDate, utcDate } from './shared.js';
 import { mockUniversityMapper } from '../../src/integrations/mappers/mockUniversityMapper.js';
 import { readFile } from 'node:fs/promises';
@@ -146,32 +147,11 @@ export async function seedCohortTuition(prisma, tenant, { skipStudentProfileIds 
     include: { tuitionAccount: true },
   });
 
+  const billing = { academicYear: template.academicYear, termLabel: template.term, dueDate: utcDate(template.dueDateIso) };
   let created = 0;
   for (const student of students) {
     if (student.tuitionAccount) continue;
-    // Derived from the student number so re-running the seed produces the same figures.
-    const seedNumber = Number(student.studentNumber.replace(/[^0-9]/g, '').slice(-3)) || 0;
-    const balance = Number((2200 + (seedNumber % 20) * 437.25).toFixed(2));
-    const account = await prisma.tuitionAccount.create({
-      data: {
-        tenantId: tenant.id,
-        studentProfileId: student.id,
-        academicYear: template.academicYear,
-        termLabel: template.term,
-        currentBalance: balance,
-        openingBalance: balance,
-        dueDate: utcDate(template.dueDateIso),
-        statusLabel: 'Payment due',
-      },
-    });
-    await prisma.tuitionCharge.createMany({
-      data: [
-        { tuitionAccountId: account.id, label: 'Tuition (16 Graduate Credits)', amount: 7500, sortOrder: 0 },
-        { tuitionAccountId: account.id, label: 'Campus & Technology Fees', amount: 650, sortOrder: 1 },
-        { tuitionAccountId: account.id, label: 'Student Health Insurance Plan', amount: 850, sortOrder: 2 },
-        { tuitionAccountId: account.id, label: 'Institutional Aid Applied', amount: -(9000 - balance), sortOrder: 3 },
-      ],
-    });
+    await createBaselineTuitionAccount(prisma, { tenantId: tenant.id, studentProfile: student, template: billing });
     created += 1;
   }
   return created;

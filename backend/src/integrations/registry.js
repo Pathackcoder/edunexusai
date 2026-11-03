@@ -1,8 +1,11 @@
 import { MockUniversityConnector } from './connectors/MockUniversityConnector.js';
 import { CanvasConnector } from './connectors/CanvasConnector.js';
 import { SisPlaceholderConnector } from './connectors/SisPlaceholderConnector.js';
+import { MoodleConnector } from './connectors/MoodleConnector.js';
+import { CampusCoreSisConnector } from './connectors/CampusCoreSisConnector.js';
 import { mockUniversityMapper } from './mappers/mockUniversityMapper.js';
 import { canvasMapper } from './mappers/canvasMapper.js';
+import { moodleMapper } from './mappers/moodleMapper.js';
 import { resolveCredential } from '../config/env.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
 
@@ -22,6 +25,21 @@ const REGISTRY = {
     connector: CanvasConnector,
     mapper: canvasMapper,
     label: 'Canvas LMS',
+    liveCapable: true,
+  },
+  // LMS only. Moodle is never registered for SIS domains (students, official courses,
+  // registration, finance); those stay with the system of record.
+  MOODLE: {
+    connector: MoodleConnector,
+    mapper: moodleMapper,
+    label: 'Moodle LMS',
+    liveCapable: true,
+  },
+  // SIS system of record, read live (no local sync, so no mapper).
+  CAMPUSCORE: {
+    connector: CampusCoreSisConnector,
+    mapper: null,
+    label: 'CampusCore SIS',
     liveCapable: true,
   },
   BANNER: {

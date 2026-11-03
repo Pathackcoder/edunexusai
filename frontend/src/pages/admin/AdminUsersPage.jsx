@@ -6,10 +6,6 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import InputAdornment from '@mui/material/InputAdornment';
-import Checkbox from '@mui/material/Checkbox';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import FormHelperText from '@mui/material/FormHelperText';
-import Alert from '@mui/material/Alert';
 import Avatar from '@mui/material/Avatar';
 import Table from '@mui/material/Table';
 import TableHead from '@mui/material/TableHead';
@@ -19,21 +15,26 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import PersonAddAlt1OutlinedIcon from '@mui/icons-material/PersonAddAlt1Outlined';
-import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
 import { useApiQuery } from '../../hooks/useApiQuery';
 import { adminApi } from '../../services/api';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
-import { Modal } from '../../components/common/Modal';
 import { PageHeader } from '../../components/common/PageHeader';
 import { FilterChips } from '../../components/common/FilterChips';
 import { useToast } from '../../components/common/Toast';
 import { DataState } from '../../components/common/DataState';
+import { OnboardPersonDialog } from '../../components/admin/OnboardPersonDialog';
+import { PersonSystemsDialog } from '../../components/admin/PersonSystemsDialog';
+import { AccountAccessDrawer, ROLE_LABEL } from '../../components/admin/AccountAccessDrawer';
 
-const ROLES = ['STUDENT', 'FACULTY', 'ADMIN'];
+const ROLES = ['STUDENT', 'FACULTY', 'STAFF', 'ALUMNI', 'ADMIN'];
+const ROLE_STATUS_HINT = { UNLINKED: 'record missing', SIS_NOT_LINKED: 'SIS link missing' };
 
 /**
- * User management.
+ * User management. One row per account, whatever its roles: a faculty member who is also a student
+ * appears once, with both roles. Each role badge shows whether its record is linked; Access opens
+ * the account's roles, records, links and sign-in identities, where roles are added and removed
+ * under the rules (Student/Faculty only by linking the institutional record).
  *
  * Changing a student's tier here is the configurability demonstration: the next dashboard
  * that student loads returns a different widget set, with no code change and no deploy.
@@ -54,17 +55,8 @@ export const AdminUsersPage = () => {
   const tierOptions = tiers ?? [];
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState(null);
-  const [form, setForm] = useState({
-    email: '',
-    password: '',
-    firstName: '',
-    lastName: '',
-    roles: ['STUDENT'],
-    tierKey: 'STANDARD',
-    department: '',
-  });
+  const [systemsFor, setSystemsFor] = useState(null);
+  const [accessFor, setAccessFor] = useState(null);
 
   const handleTierChange = async (user, tierKey) => {
     try {
@@ -87,34 +79,12 @@ export const AdminUsersPage = () => {
     }
   };
 
-  const handleCreate = async (event) => {
-    event.preventDefault();
-    setSaving(true);
-    setFormError(null);
-    try {
-      const created = await adminApi.createUser({
-        ...form,
-        tierKey: form.roles.includes('STUDENT') ? form.tierKey : undefined,
-        department: form.department || undefined,
-      });
-      showToast(`${created.fullName} created.`);
-      setIsCreateOpen(false);
-      setForm({ email: '', password: '', firstName: '', lastName: '', roles: ['STUDENT'], tierKey: 'STANDARD', department: '' });
-      refetch();
-    } catch (caught) {
-      setFormError(caught);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const fieldErrors = formError?.fieldErrors ?? {};
 
   return (
     <Box>
       <PageHeader
         title="Users & Roles"
-        description="Accounts for this institution. Role controls which experience a person gets; tier controls which widgets a student sees."
+        description="One row per person. Community roles are relationships backed by a record; administrative roles are what the person may manage. Open Access to manage an account's roles, records and sign-in."
         actions={
           <Button variant="primary" size="sm" icon={PersonAddAlt1OutlinedIcon} onClick={() => setIsCreateOpen(true)}>
             Add user
@@ -143,7 +113,7 @@ export const AdminUsersPage = () => {
             ariaLabel="Filter by role"
             value={roleFilter || 'all'}
             onChange={(id) => (id !== 'all' ? setSearchParams({ role: id }) : setSearchParams({}))}
-            options={['', ...ROLES].map((role) => ({ id: role || 'all', label: role || 'All roles' }))}
+            options={['', ...ROLES].map((role) => ({ id: role || 'all', label: role ? ROLE_LABEL[role] : 'All roles' }))}
           />
         </Stack>
 
@@ -183,9 +153,13 @@ export const AdminUsersPage = () => {
                         </TableCell>
                         <TableCell>
                           <Stack direction="row" useFlexGap flexWrap="wrap" spacing={0.5}>
-                            {user.roles.map((role) => (
-                              <Badge key={role} variant={role === 'ADMIN' ? 'purple' : role === 'FACULTY' ? 'primary' : 'neutral'}>
-                                {role}
+                            {(user.roleDetails ?? user.roles.map((key) => ({ key, category: key === 'ADMIN' ? 'ADMINISTRATIVE' : 'COMMUNITY', status: 'ACTIVE' }))).map((role) => (
+                              <Badge
+                                key={role.key}
+                                variant={role.status !== 'ACTIVE' ? 'warning' : role.category === 'ADMINISTRATIVE' ? 'purple' : role.key === 'FACULTY' ? 'primary' : 'neutral'}
+                                dot={role.status !== 'ACTIVE'}
+                              >
+                                {ROLE_LABEL[role.key] ?? role.key}{role.status !== 'ACTIVE' ? ` · ${ROLE_STATUS_HINT[role.status] ?? role.status.toLowerCase()}` : ''}
                               </Badge>
                             ))}
                           </Stack>
@@ -215,6 +189,8 @@ export const AdminUsersPage = () => {
                           <Badge variant={user.status === 'ACTIVE' ? 'success' : 'warning'} dot>{user.status}</Badge>
                         </TableCell>
                         <TableCell align="right">
+                          <Button variant="ghost" size="sm" onClick={() => setAccessFor(user.id)}>Access</Button>
+                          <Button variant="ghost" size="sm" onClick={() => setSystemsFor(user.id)}>Systems</Button>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -234,97 +210,9 @@ export const AdminUsersPage = () => {
         </DataState>
       </Stack>
 
-      {/* Create user */}
-      <Modal
-        isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        title="Add a user"
-        subtitle="Creating a student also creates their student record"
-      >
-        <Box component="form" onSubmit={handleCreate}>
-          <Stack spacing={2.25}>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
-              <TextField id="u-first" label="First name" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} required />
-              <TextField id="u-last" label="Last name" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} required />
-            </Box>
-
-            <TextField
-              id="u-email"
-              label="Email"
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              required
-              error={Boolean(fieldErrors.email)}
-              helperText={fieldErrors.email}
-            />
-
-            <TextField
-              id="u-pass"
-              label="Temporary password"
-              type="text"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              required
-              error={Boolean(fieldErrors.password)}
-              helperText={fieldErrors.password || 'At least 12 characters with upper case, lower case and a number.'}
-            />
-
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Roles</Typography>
-              <Stack direction="row" useFlexGap flexWrap="wrap" spacing={2}>
-                {ROLES.map((role) => (
-                  <FormControlLabel
-                    key={role}
-                    label={role}
-                    control={
-                      <Checkbox
-                        checked={form.roles.includes(role)}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            roles: e.target.checked
-                              ? [...form.roles, role]
-                              : form.roles.filter((r) => r !== role),
-                          })
-                        }
-                      />
-                    }
-                    sx={{ mr: 0, '& .MuiFormControlLabel-label': { fontSize: '0.875rem', fontWeight: 500 } }}
-                  />
-                ))}
-              </Stack>
-              {fieldErrors.roles && <FormHelperText error>{fieldErrors.roles}</FormHelperText>}
-            </Box>
-
-            {form.roles.includes('STUDENT') && (
-              <TextField
-                id="u-tier"
-                select
-                label="Student tier"
-                value={form.tierKey}
-                onChange={(e) => setForm({ ...form, tierKey: e.target.value })}
-                SelectProps={{ native: true }}
-              >
-                {tierOptions.map((tier) => (
-                  <option key={tier.key} value={tier.key}>{tier.name}</option>
-                ))}
-              </TextField>
-            )}
-
-            <TextField id="u-dept" label="Department (optional)" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} />
-
-            {formError && !Object.keys(fieldErrors).length && (
-              <Alert severity="error">{formError.message}</Alert>
-            )}
-
-            <Stack direction="row" justifyContent="flex-end" spacing={1}>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-              <Button type="submit" variant="primary" size="sm" loading={saving} icon={SaveOutlinedIcon}>Create user</Button>
-            </Stack>
-          </Stack>
-        </Box>
-      </Modal>
+      <OnboardPersonDialog open={isCreateOpen} onClose={() => setIsCreateOpen(false)} onDone={refetch} tiers={tierOptions} />
+      {systemsFor && <PersonSystemsDialog userId={systemsFor} onClose={() => setSystemsFor(null)} />}
+      {accessFor && <AccountAccessDrawer userId={accessFor} tiers={tierOptions} onClose={() => setAccessFor(null)} onChanged={refetch} />}
     </Box>
   );
 };

@@ -44,7 +44,7 @@
       { "kind": "SKILL", "title": "Kubernetes", "level": 3, "tags": ["Cloud"] },
       { "kind": "PROJECT", "title": "Raft-based Key-Value Store", "subtitle": "CS 530 term project", "description": "Fault-tolerant key-value store in Go implementing Raft leader election and log replication, benchmarked on a 5-node cluster.", "tags": ["Go", "Distributed Systems", "Raft"], "url": "https://github.com/example/raft-kv", "startDate": "2025-09-01", "endDate": "2025-12-10" },
       { "kind": "PROJECT", "title": "GPU-aware Training Scheduler", "subtitle": "CS 525 research project", "description": "Prototype scheduler that packs training jobs onto shared GPUs, cutting queue time by 31% in simulation.", "tags": ["Python", "Machine Learning", "Scheduling"], "startDate": "2025-10-01", "endDate": "2025-12-15" },
-      { "kind": "EXPERIENCE", "title": "Graduate Teaching Assistant", "subtitle": "CS 500 · Demo University", "description": "Led weekly lab sections for 40 students and held office hours.", "tags": ["Teaching"], "startDate": "2025-01-10", "endDate": "2025-05-10" },
+      { "kind": "EXPERIENCE", "title": "Graduate Teaching Assistant", "subtitle": "CS 500 · Feddrick University", "description": "Led weekly lab sections for 40 students and held office hours.", "tags": ["Teaching"], "startDate": "2025-01-10", "endDate": "2025-05-10" },
       { "kind": "ACHIEVEMENT", "title": "Dean's Honor List", "subtitle": "Fall 2024 & Fall 2025", "tags": ["Academic"] }
     ],
     "student.advanced@edunexus.ai": [

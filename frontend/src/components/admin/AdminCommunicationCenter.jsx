@@ -67,7 +67,7 @@ const TEMPLATES = [
     category: 'operations',
     priority: 'low',
     title: 'Scheduled Portal Maintenance: Sunday 2:00 AM - 4:00 AM EST',
-    message: 'EdunexusAI portal and Canvas LMS SSO integrations will undergo scheduled infrastructure maintenance this Sunday. Access will be temporarily limited.',
+    message: 'The Feddrick University portal and Canvas LMS SSO integrations will undergo scheduled infrastructure maintenance this Sunday. Access will be temporarily limited.',
   },
 ];
 
@@ -824,7 +824,7 @@ export const AdminCommunicationCenter = ({ initialAudience = null }) => {
               <NotificationsActiveOutlinedIcon sx={{ color: 'primary.light' }} />
               <Box sx={{ minWidth: 0, flex: 1 }}>
                 <Typography variant="caption" sx={{ color: 'grey.400', display: 'block' }}>
-                  EdunexusAI University Portal · Now
+                  Feddrick University Portal · Now
                 </Typography>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#fff' }} noWrap>
                   {form.title || 'Headline'}

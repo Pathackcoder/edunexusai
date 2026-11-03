@@ -1,6 +1,8 @@
 import { prisma } from '../../db/prisma.js';
-import { formatCurrency, formatShortDate, toNumber } from '../../utils/format.js';
-import { getDegreeProgress, getRecommendations } from '../planning/planningService.js';
+import { formatCurrency, formatShortDate } from '../../utils/format.js';
+import { getRecommendations } from '../planning/planningService.js';
+import * as sis from '../sis/sisService.js';
+import * as moodle from '../lms/moodleService.js';
 
 /**
  * Assistant provider.
@@ -14,6 +16,23 @@ import { getDegreeProgress, getRecommendations } from '../planning/planningServi
 export const PROVIDER = { key: 'portal-rules-v1', label: 'EdunexusAI Assistant (prototype)' };
 
 const has = (text, ...words) => words.some((word) => text.includes(word));
+const pretty = (value) => String(value ?? '').replace(/_/g, ' ');
+
+/**
+ * Academic answers (GPA, standing, credits, class times) come from CampusCore SIS only. When the
+ * account is not linked or CampusCore is unavailable the assistant says so; it never answers
+ * from the deprecated local academic tables.
+ */
+function sisUnavailableReply(state, what, actions) {
+  const text = state === 'UNMAPPED'
+    ? `I can't show your ${what} yet: your portal account isn't linked to a CampusCore student record. The registrar can link it.`
+    : state === 'NOT_A_STUDENT'
+      ? `Your account is linked to a CampusCore faculty record, so there is no student ${what} to show.`
+      : state === 'NOT_CONFIGURED'
+        ? `CampusCore SIS isn't connected to this portal yet, so I can't look up your ${what}.`
+        : `CampusCore SIS isn't reachable right now, so I can't look up your ${what}. Please try again shortly.`;
+  return { text, actions };
+}
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 const INTENTS = [
@@ -30,12 +49,12 @@ const INTENTS = [
     test: (t) => has(t, 'gpa', 'grade', 'grades', 'dean'),
     student: true,
     run: async ({ auth }) => {
-      const profile = await prisma.studentProfile.findUnique({ where: { id: auth.studentProfileId } });
-      const enrollments = await prisma.enrollment.findMany({ where: { studentProfileId: auth.studentProfileId }, include: { course: true } });
-      const current = enrollments.map((row) => `${row.course.code} ${row.letterGrade ?? '—'}${row.percentage ? ` (${toNumber(row.percentage)}%)` : ''}`).join(', ');
+      const actions = [{ label: 'Grades & GPA', to: '/academics/grades' }];
+      const a = await sis.academicSnapshot(auth);
+      if (a.state !== 'OK') return sisUnavailableReply(a.state, 'GPA and standing', actions);
       return {
-        text: `Your cumulative GPA is ${toNumber(profile.cumulativeGpa)?.toFixed(2) ?? '—'} (major ${toNumber(profile.majorGpa)?.toFixed(2) ?? '—'}). Standing: ${profile.academicStanding ?? 'not recorded'}.${current ? ` Current courses: ${current}.` : ''}`,
-        actions: [{ label: 'Grades & GPA', to: '/academics/grades' }, { label: 'Performance insights', to: '/academics/insights' }],
+        text: `Your cumulative GPA in CampusCore is ${a.cumulativeGpa != null ? Number(a.cumulativeGpa).toFixed(2) : 'not yet calculated'}. Standing: ${pretty(a.standing) || 'not recorded'}.${a.creditsEarned != null ? ` Credits earned: ${a.creditsEarned}${a.creditsInProgress ? `, ${a.creditsInProgress} in progress` : ''}.` : ''}`,
+        actions,
       };
     },
   },
@@ -44,15 +63,22 @@ const INTENTS = [
     test: (t) => has(t, 'class', 'schedule', 'lecture', 'today', 'tomorrow', 'next class', 'where is my'),
     student: true,
     run: async ({ auth, text }) => {
+      const actions = [{ label: 'Course schedule', to: '/academics/schedule' }, { label: 'Campus map', to: '/campus/map' }];
       const offset = text.includes('tomorrow') ? 1 : 0;
-      const day = DAYS[(new Date().getDay() + offset) % 7];
-      const courses = await prisma.course.findMany({ where: { enrollments: { some: { studentProfileId: auth.studentProfileId } } } });
-      const todays = courses.filter((course) => (course.meetingDays ?? []).includes(day)).sort((a, b) => String(a.startTime).localeCompare(String(b.startTime)));
+      const dayIndex = (new Date().getDay() + offset) % 7;
+      const day = DAYS[dayIndex];
+      const code = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][dayIndex];
+      const overview = await sis.studentOverview(auth).catch(() => ({ state: 'UNAVAILABLE' }));
+      if (overview.state !== 'OK') return sisUnavailableReply(overview.state, 'class schedule', actions);
+      if (overview.schedule.state !== 'OK') return sisUnavailableReply('UNAVAILABLE', 'class schedule', actions);
+      const meetings = overview.schedule.data.items
+        .flatMap((section) => (section.meetings ?? []).filter((m) => m.day === code).map((m) => ({ section, m })))
+        .sort((x, y) => String(x.m.start).localeCompare(String(y.m.start)));
       return {
-        text: todays.length
-          ? `${offset ? 'Tomorrow' : 'Today'} (${day}) you have ${todays.map((course) => `${course.code} ${course.name} at ${course.timeLabel} in ${course.room}`).join('; ')}.`
-          : `You have no classes ${offset ? 'tomorrow' : 'today'} (${day}).`,
-        actions: [{ label: 'Course schedule', to: '/academics/schedule' }, { label: 'Campus map', to: '/campus/map' }],
+        text: meetings.length
+          ? `${offset ? 'Tomorrow' : 'Today'} (${day}) you have ${meetings.map(({ section, m }) => `${section.courseCode} ${section.courseTitle} at ${m.start}–${m.end}${m.location ? ` in ${m.location}` : ''}`).join('; ')}.`
+          : `You have no classes ${offset ? 'tomorrow' : 'today'} (${day}) in CampusCore.`,
+        actions,
       };
     },
   },
@@ -73,19 +99,22 @@ const INTENTS = [
     key: 'assignments',
     test: (t) => has(t, 'assignment', 'due', 'deadline', 'homework', 'submit'),
     student: true,
+    // Assignments, deadlines and submission state are Moodle's (read live), never local rows.
     run: async ({ auth }) => {
-      const assignments = await prisma.assignment.findMany({
-        where: { dueDate: { gte: new Date() }, course: { enrollments: { some: { studentProfileId: auth.studentProfileId } } } },
-        include: { course: true, submissions: { where: { studentProfileId: auth.studentProfileId } } },
-        orderBy: { dueDate: 'asc' },
-        take: 4,
-      });
-      const open = assignments.filter((row) => !row.submissions.some((sub) => ['Completed', 'Submitted'].includes(sub.status)));
+      const actions = [{ label: 'Assignments', to: '/academics/assignments' }];
+      const work = await moodle.myAssignments(auth).catch(() => ({ status: 'UNAVAILABLE' }));
+      if (work.status !== 'CONNECTED') {
+        const why = work.status === 'NOT_LINKED' ? 'your portal account is not linked to a Moodle account yet' : work.status === 'NOT_CONFIGURED' ? 'Moodle is not connected to this portal yet' : 'Moodle is not reachable right now';
+        return { text: `I can't list your assignments: ${why}.`, actions };
+      }
+      if (work.unavailable) return { text: 'Moodle has not enabled assignment details for this portal yet, so I cannot list deadlines.', actions };
+      const now = Date.now();
+      const open = work.assignments.filter((a) => ['NOT_SUBMITTED', 'DRAFT'].includes(a.state) && a.dueDate && new Date(a.dueDate).getTime() >= now).slice(0, 4);
       return {
         text: open.length
-          ? `Coming up: ${open.map((row) => `${row.course.code} “${row.title}” due ${formatShortDate(row.dueDate)}`).join('; ')}.`
-          : 'Nothing outstanding is due — you are all caught up.',
-        actions: [{ label: 'Assignments', to: '/academics/assignments' }],
+          ? `Coming up in Moodle: ${open.map((a) => `${a.course?.shortName ?? 'course'} \u201c${a.name}\u201d due ${formatShortDate(a.dueDate)}`).join('; ')}.`
+          : work.assignments.length ? 'Nothing outstanding is due in Moodle \u2014 you are all caught up.' : 'Your Moodle courses have no assignments yet.',
+        actions,
       };
     },
   },
@@ -105,11 +134,15 @@ const INTENTS = [
     test: (t) => has(t, 'degree', 'graduate', 'credits', 'requirement', 'remaining', 'how many'),
     student: true,
     run: async ({ auth }) => {
-      const progress = await getDegreeProgress(auth.tenantId, auth.studentProfileId);
-      const remaining = progress.remainingRequirements.map((req) => `${req.title} (${req.credits} cr)`).join(', ');
+      const actions = [{ label: 'Degree progress', to: '/academics/degree-progress' }];
+      const a = await sis.academicSnapshot(auth);
+      if (a.state !== 'OK') return sisUnavailableReply(a.state, 'degree progress', actions);
+      const program = a.program?.name ? ` in ${a.program.name}` : '';
       return {
-        text: `You have completed ${progress.completedCredits} of ${progress.totalRequired} credits (${progress.percentComplete}%), with ${progress.inProgressCredits} in progress.${remaining ? ` Still needed: ${remaining}.` : ' All requirements are covered once current courses finish.'}`,
-        actions: [{ label: 'Degree progress', to: '/academics/degree-progress' }],
+        text: a.requiredCredits
+          ? `CampusCore shows ${a.creditsEarned ?? 0} of ${a.requiredCredits} credits earned${program}, with ${a.creditsInProgress ?? 0} in progress.`
+          : `CampusCore shows ${a.creditsEarned ?? 0} credits earned${program}, with ${a.creditsInProgress ?? 0} in progress.`,
+        actions,
       };
     },
   },

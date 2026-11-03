@@ -1,6 +1,6 @@
 /**
  * Runs once before the suite (`npm run pretest`): applies migrations to the test
- * database and seeds it. Keeping this out of the test files means the eight test
+ * database (only ever TEST_DATABASE_URL), seeds it and removes earlier runs' test data. Keeping this out of the test files means the eight test
  * processes do not each re-seed, and cannot race each other while doing it.
  */
 import { execFileSync } from 'node:child_process';
@@ -19,7 +19,14 @@ const env = { ...process.env, DATABASE_URL: process.env.TEST_DATABASE_URL, NODE_
 const run = (cmd, args) =>
   execFileSync(cmd, args, { cwd: BACKEND_ROOT, env, stdio: 'inherit', encoding: 'utf8' });
 
+if (process.env.TEST_DATABASE_URL === process.env.DATABASE_URL) {
+  console.error('TEST_DATABASE_URL must point at a separate database; refusing to reset it.');
+  process.exit(1);
+}
+
 console.log('Preparing the test database…');
 run('npx', ['prisma', 'migrate', 'deploy']);
 run('node', ['prisma/seed.js']);
+// Seeding upserts and keeps existing rows, so remove what earlier test runs created.
+run('node', ['tests/reset-test-data.mjs']);
 console.log('Test database ready.\n');

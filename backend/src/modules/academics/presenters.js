@@ -75,7 +75,7 @@ export function presentAssignment(assignment, submission = null, now = new Date(
     description: assignment.description,
     submissionType: assignment.submissionType,
     weight: assignment.weightLabel,
-    score: submission?.score ?? null,
+    score: submission?.score == null ? null : toNumber(submission.score),
     submittedAt: submission?.submittedAt ?? null,
     dataSource: {
       system: assignment.sourceSystem,

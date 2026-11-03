@@ -25,6 +25,7 @@ import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import NotificationsNoneRoundedIcon from '@mui/icons-material/NotificationsNoneRounded';
+import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
 import CreditCardRoundedIcon from '@mui/icons-material/CreditCardRounded';
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded';
@@ -32,9 +33,13 @@ import HelpOutlineRoundedIcon from '@mui/icons-material/HelpOutlineRounded';
 import EmergencyOutlinedIcon from '@mui/icons-material/EmergencyOutlined';
 import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
+import DashboardCustomizeOutlinedIcon from '@mui/icons-material/DashboardCustomizeOutlined';
+import KeyRoundedIcon from '@mui/icons-material/KeyRounded';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import { useAuth } from '../context/AuthContext';
+import { sisStateLabel, useSisProfile } from '../hooks/useSisProfile';
 import { useNotifications } from '../context/NotificationContext';
+import { useChat } from '../context/ChatContext';
 import { useFinance } from '../context/FinanceContext';
 import { useToast } from '../components/common/Toast';
 import { NotificationDropdown } from '../components/notifications/NotificationDropdown';
@@ -44,14 +49,27 @@ import { directoryApi, academicApi } from '../services/api';
 import { usePWA } from '../context/PWAContext';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import { LanguageSelector } from '../i18n/LanguageSelector';
+import { InstitutionLogo } from '../components/brand/Brand';
+import { useStudioMode } from '../pages/studio/studioMode';
 import { layout } from '../theme/theme';
 
-const PERSONA_LABEL = { STUDENT: 'Student', FACULTY: 'Faculty', ADMIN: 'Administrator' };
+const PERSONA_LABEL = { STUDENT: 'Student', FACULTY: 'Faculty', STAFF: 'Staff', ALUMNI: 'Alumni', ADMIN: 'Administrator' };
 
 export const Header = ({ onOpenMobile, showMenuButton = false }) => {
-  const { user, logout, isStudent, persona } = useAuth();
+  const { user, logout, isStudent, persona, contexts, workspaces, isMultiRole } = useAuth();
+  // A person with several roles is described by all of them (e.g. "Faculty · Student").
+  const roleLabel = isMultiRole
+    ? [...contexts.map((c) => PERSONA_LABEL[c.role] ?? c.role), ...workspaces.map((w) => (w === 'admin' ? PERSONA_LABEL.ADMIN : w))].join(' · ')
+    : PERSONA_LABEL[persona] ?? persona ?? '';
+  const studio = useStudioMode();
+  // Student and faculty IDs are CampusCore's institutional IDs, read live (never the local copy).
+  const isSisPerson = (user?.roles ?? []).some((role) => role === 'STUDENT' || role === 'FACULTY');
+  const sis = useSisProfile({ enabled: isSisPerson });
+  const sisRecord = sis.student ?? sis.faculty;
   const { isInstalled, promptInstall } = usePWA();
   const { unreadCount } = useNotifications();
+  const chat = useChat();
+  const chatUnread = chat?.unreadTotal ?? 0;
   const { resetFinanceBalance } = useFinance();
   const { showToast } = useToast();
   const [notifAnchor, setNotifAnchor] = useState(null);
@@ -78,10 +96,11 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = (options) => {
+    logout(options);
     navigate('/login');
   };
+  const ssoSession = user?.signInMethod === 'SSO';
 
   const handleResetDemo = async () => {
     try {
@@ -132,7 +151,7 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
     ? [
         { label: 'Academic Calendar', path: '/academics/calendar', match: 'calendar' },
         { label: 'Official Transcripts', path: '/academics/transcripts', match: 'transcript' },
-        { label: 'Canvas LMS Launch', path: '/academics/lms', match: 'canvas' },
+        { label: 'LMS Courses (Moodle)', path: '/academics/lms', match: 'lms moodle canvas' },
         { label: 'Tuition & Payments', path: '/finance/tuition', match: 'tuition pay balance' },
         { label: 'Campus Security & SafeWalk', path: '/campus/security', match: 'security safewalk police' },
         { label: 'Degree Progress', path: '/academics/degree-progress', match: 'degree credits requirements audit graduate' },
@@ -172,7 +191,7 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
         bgcolor: alpha('#FFFFFF', 0.72),
         backdropFilter: 'saturate(180%) blur(16px)',
         borderBottom: 1,
-        borderColor: alpha('#4651DE', 0.08),
+        borderColor: 'color-mix(in srgb, var(--enx-primary) 8%, transparent)',
         boxShadow: '0 8px 24px -20px rgba(30, 27, 92, 0.5)',
         zIndex: theme.zIndex.appBar,
       })}
@@ -195,7 +214,7 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
           {/* Mobile brand */}
           {showMenuButton && (
             <Box sx={{ display: { xs: 'flex', sm: 'none' }, alignItems: 'center', minWidth: 0 }}>
-              <Box component="img" src="/logo.png" alt="EdunexusAI" sx={{ height: 24, width: 'auto' }} />
+              <InstitutionLogo height={30} />
             </Box>
           )}
 
@@ -376,6 +395,21 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
 
           {/* Notifications Popover Trigger */}
           <LanguageSelector />
+          {/* Messages: the inbox panel; the count is the signed-in person's unread chat messages. */}
+          {chat && (
+            <Tooltip title="Messages">
+              <IconButton
+                onClick={chat.openInbox}
+                aria-label={chatUnread ? `Messages, ${chatUnread} unread` : 'Messages'}
+                sx={{ color: chat.panel.open ? 'primary.main' : 'text.secondary', bgcolor: chat.panel.open ? 'primary.lighter' : undefined }}
+              >
+                <Badge color="error" badgeContent={chatUnread} max={99} invisible={!chatUnread} overlap="circular"
+                  sx={{ '& .MuiBadge-badge': { border: '2px solid #fff', fontSize: '0.65rem', fontWeight: 700, height: 18, minWidth: 18, px: 0.5 } }}>
+                  <ChatBubbleOutlineRoundedIcon />
+                </Badge>
+              </IconButton>
+            </Tooltip>
+          )}
           <Tooltip title="Notifications">
             <IconButton
               data-notif-trigger="true"
@@ -424,7 +458,7 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
                 {user?.fullName ?? '—'}
               </Typography>
               <Typography variant="caption" noWrap component="div" sx={{ lineHeight: 1.3 }}>
-                {PERSONA_LABEL[persona] ?? persona ?? ''}
+                {roleLabel}
               </Typography>
             </Box>
             <ExpandMoreRoundedIcon sx={{ fontSize: 18, color: 'grey.500', display: { xs: 'none', md: 'block' } }} />
@@ -444,7 +478,7 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
                 <Box sx={{ minWidth: 0 }}>
                   <Typography variant="subtitle2" noWrap>{user?.fullName ?? '—'}</Typography>
                   <Typography variant="caption" component="div" noWrap>
-                    ID: {user?.studentNumber ?? user?.employeeNumber ?? '—'}
+                    ID: {sisRecord ? sisRecord.institutionalId : isSisPerson ? sisStateLabel(sis.data, sis.loading) : user?.employeeNumber ?? '—'}
                   </Typography>
                 </Box>
               </Stack>
@@ -455,6 +489,12 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
               <ListItemIcon><PersonOutlineRoundedIcon fontSize="small" /></ListItemIcon>
               My Profile
             </MenuItem>
+            {user?.hasPassword !== false && (
+              <MenuItem component={RouterLink} to="/profile/password" onClick={() => setIsUserMenuOpen(false)}>
+                <ListItemIcon><KeyRoundedIcon fontSize="small" /></ListItemIcon>
+                Change password
+              </MenuItem>
+            )}
             <MenuItem component={RouterLink} to="/help" onClick={() => setIsUserMenuOpen(false)}>
               <ListItemIcon><HelpOutlineRoundedIcon fontSize="small" /></ListItemIcon>
               Help & FAQs
@@ -486,9 +526,22 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
             )}
 
             <Divider sx={{ my: 0.75 }} />
-            <MenuItem onClick={handleLogout} sx={{ color: 'error.main', '&:hover': { bgcolor: 'error.lighter' } }}>
+            {(user?.roles ?? []).includes('ADMIN') && (
+              // Studio edits the page being viewed: it switches edit mode on without navigating.
+              <MenuItem onClick={() => { setIsUserMenuOpen(false); if (studio.editing) studio.exit(); else studio.enter(); }}>
+                <ListItemIcon><DashboardCustomizeOutlinedIcon fontSize="small" /></ListItemIcon>
+                {studio.editing ? 'Exit Studio' : 'Studio'}
+              </MenuItem>
+            )}
+            {ssoSession && (
+              <MenuItem onClick={() => handleLogout({ everywhere: false })}>
+                <ListItemIcon><LogoutRoundedIcon fontSize="small" /></ListItemIcon>
+                <ListItemText primary="Sign out of EdunexusAI only" secondary="Other university apps stay signed in" />
+              </MenuItem>
+            )}
+            <MenuItem onClick={() => handleLogout({ everywhere: true })} sx={{ color: 'error.main', '&:hover': { bgcolor: 'error.lighter' } }}>
               <ListItemIcon sx={{ color: 'error.main' }}><LogoutRoundedIcon fontSize="small" /></ListItemIcon>
-              Sign Out
+              {ssoSession ? <ListItemText primary="Sign out of all university apps" secondary="Ends your Feddrick University ID sign-in" /> : 'Sign Out'}
             </MenuItem>
           </Menu>
         </Stack>

@@ -1,5 +1,5 @@
-const CACHE_NAME = 'edunexus-pwa-v2';
-const STATIC_ASSETS = ['/index.html', '/manifest.webmanifest', '/logo.png', '/icons/icon.svg', '/icons/icon-maskable.svg'];
+const CACHE_NAME = 'edunexus-pwa-v3';
+const STATIC_ASSETS = ['/index.html', '/manifest.webmanifest', '/logo.png', '/feddrick-university-logo.svg', '/feddrick-university-logo-inverse.svg', '/feddrick-university-mark.svg', '/icons/icon.svg', '/icons/icon-maskable.svg'];
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)).then(() => self.skipWaiting()));
 });

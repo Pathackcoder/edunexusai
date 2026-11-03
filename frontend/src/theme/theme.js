@@ -9,8 +9,7 @@ import { alpha, createTheme } from '@mui/material/styles';
  * defining their own.
  */
 
-const HEADING_FONT = '"Rubik", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif';
-const BODY_FONT = '"DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+import { findFont, findTheme } from '../../../shared/appearancePresets.js';
 
 const ink = {
   900: '#121833',
@@ -25,24 +24,25 @@ const ink = {
   50: '#F5F6FA',
 };
 
-const palette = {
+/** Full palette for a theme preset; the semantic colours stay constant across themes. */
+const buildPalette = (preset) => ({
   mode: 'light',
-  primary: { main: '#4651DE', dark: '#343EBF', light: '#7079EA', lighter: '#EEF0FD', contrastText: '#FFFFFF' },
-  secondary: { main: '#7A4FD8', dark: '#6139BA', light: '#A283E8', lighter: '#F3EEFC', contrastText: '#FFFFFF' },
+  primary: { ...preset.palette.primary, contrastText: '#FFFFFF' },
+  secondary: { ...preset.palette.secondary, contrastText: '#FFFFFF' },
   success: { main: '#13845A', dark: '#0C6644', light: '#4CB389', lighter: '#E8F6EF', contrastText: '#FFFFFF' },
   warning: { main: '#B26A00', dark: '#8A5200', light: '#E09B33', lighter: '#FDF4E5', contrastText: '#FFFFFF' },
   error: { main: '#D03A3A', dark: '#A82A2A', light: '#E57373', lighter: '#FCEDED', contrastText: '#FFFFFF' },
   info: { main: '#1C7ED6', dark: '#1663AB', light: '#5AA6EA', lighter: '#E8F3FC', contrastText: '#FFFFFF' },
   grey: ink,
-  text: { primary: ink[900], secondary: ink[600], disabled: ink[400] },
-  divider: '#E3E5F2',
-  background: { default: '#F2F3FB', paper: '#FFFFFF', subtle: '#F7F7FD' },
+  text: { ...preset.palette.text, disabled: ink[400] },
+  divider: preset.palette.divider,
+  background: { ...preset.palette.background },
   action: {
     hover: alpha(ink[900], 0.04),
-    selected: alpha('#4651DE', 0.08),
-    focus: alpha('#4651DE', 0.12),
+    selected: alpha(preset.palette.primary.main, 0.08),
+    focus: alpha(preset.palette.primary.main, 0.12),
   },
-};
+});
 
 /**
  * Brand tokens. The login page established the EdunexusAI look — deep navy/indigo
@@ -50,13 +50,13 @@ const palette = {
  * carry that language into the portal so every surface draws from one source.
  */
 export const brand = {
-  gradient: 'linear-gradient(115deg, #3F4BDB 0%, #5B4BE3 50%, #7A4FD8 100%)',
-  gradientHover: 'linear-gradient(115deg, #3540C9 0%, #5141D6 50%, #6C42C9 100%)',
-  navy: 'linear-gradient(160deg, #141850 0%, #1E1A5C 48%, #2D2178 100%)',
-  navyDeep: '#141850',
-  glowIndigo: 'rgba(99, 102, 241, 0.35)',
-  glowCyan: 'rgba(34, 211, 238, 0.30)',
-  glowViolet: 'rgba(168, 85, 247, 0.32)',
+  gradient: 'var(--enx-gradient, linear-gradient(115deg, #3F4BDB 0%, #5B4BE3 50%, #7A4FD8 100%))',
+  gradientHover: 'var(--enx-gradient-hover, linear-gradient(115deg, #3540C9 0%, #5141D6 50%, #6C42C9 100%))',
+  navy: 'var(--enx-nav, linear-gradient(160deg, #141850 0%, #1E1A5C 48%, #2D2178 100%))',
+  navyDeep: 'var(--enx-nav-deep, #141850)',
+  glowIndigo: 'var(--enx-glow-b, rgba(99, 102, 241, 0.35))',
+  glowCyan: 'var(--enx-glow-a, rgba(34, 211, 238, 0.30))',
+  glowViolet: 'var(--enx-glow-b, rgba(168, 85, 247, 0.32))',
   cyan: '#22D3EE',
   mint: '#2DD4BF',
   lavender: '#C4B5FD',
@@ -64,14 +64,36 @@ export const brand = {
   /** Faint grid used on dark surfaces. */
   grid: 'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)',
   /** Faint dot texture used on light surfaces. */
-  dots: 'radial-gradient(rgba(70, 81, 222, 0.11) 1px, transparent 1px)',
+  dots: 'radial-gradient(var(--enx-dot, rgba(70, 81, 222, 0.11)) 1px, transparent 1px)',
 };
+
+/**
+ * CSS custom properties for a theme preset. The appearance provider writes these on the
+ * document root, so `brand` tokens (sidebar, hero banners, gradients) follow the theme.
+ */
+export function appearanceCssVars(themeKey) {
+  const preset = findTheme(themeKey);
+  const { primary, secondary } = preset.palette;
+  const { nav } = preset;
+  return {
+    '--enx-gradient': `linear-gradient(115deg, ${primary.main} 0%, ${primary.light} 55%, ${secondary.main} 100%)`,
+    '--enx-gradient-hover': `linear-gradient(115deg, ${primary.dark} 0%, ${primary.main} 55%, ${secondary.dark} 100%)`,
+    '--enx-nav': `linear-gradient(160deg, ${nav.from} 0%, ${nav.via} 48%, ${nav.to} 100%)`,
+    '--enx-nav-deep': nav.deep,
+    '--enx-glow-a': preset.glows[0],
+    '--enx-glow-b': preset.glows[1],
+    '--enx-accent': preset.accent,
+    '--enx-primary': primary.main,
+    '--enx-secondary': secondary.main,
+    '--enx-dot': alpha(primary.main, 0.11),
+  };
+}
 
 /** Sidebar geometry and motion. Exported so the shell and header agree on them. */
 export const layout = {
   sidebarWidth: 244,
   sidebarCollapsedWidth: 72,
-  headerHeight: 58,
+  headerHeight: 54,
   contentMaxWidth: 1600,
 };
 
@@ -98,6 +120,19 @@ const shadows = [
   ...Array(18).fill('0 24px 48px -12px rgba(18, 24, 51, 0.22)'),
 ];
 
+/**
+ * Build the portal theme for an appearance (theme preset + typography preset). Every
+ * persona uses the same factory; unknown keys fall back to the defaults.
+ */
+export function createPortalTheme(themeKey, fontKey) {
+const preset = findTheme(themeKey);
+const font = findFont(fontKey);
+const HEADING_FONT = font.heading;
+const BODY_FONT = font.body;
+const palette = buildPalette(preset);
+const P = palette.primary;
+const S = palette.secondary;
+
 let theme = createTheme({
   palette,
   shadows,
@@ -112,16 +147,16 @@ let theme = createTheme({
     fontWeightRegular: 400,
     fontWeightMedium: 500,
     fontWeightBold: 700,
-    h1: { fontFamily: HEADING_FONT, fontWeight: 600, fontSize: '2rem', lineHeight: 1.15, letterSpacing: '-0.02em' },
-    h2: { fontFamily: HEADING_FONT, fontWeight: 600, fontSize: '1.625rem', lineHeight: 1.2, letterSpacing: '-0.015em' },
-    h3: { fontFamily: HEADING_FONT, fontWeight: 600, fontSize: '1.5rem', lineHeight: 1.25, letterSpacing: '-0.015em' },
-    h4: { fontFamily: HEADING_FONT, fontWeight: 600, fontSize: '1.25rem', lineHeight: 1.3, letterSpacing: '-0.01em' },
-    h5: { fontFamily: HEADING_FONT, fontWeight: 500, fontSize: '1.0625rem', lineHeight: 1.35, letterSpacing: '-0.005em' },
-    h6: { fontFamily: HEADING_FONT, fontWeight: 500, fontSize: '0.9375rem', lineHeight: 1.4 },
-    subtitle1: { fontFamily: HEADING_FONT, fontWeight: 500, fontSize: '0.90625rem', lineHeight: 1.45 },
+    h1: { fontFamily: HEADING_FONT, fontWeight: font.headingWeight, fontSize: '1.875rem', lineHeight: 1.15, letterSpacing: '-0.02em' },
+    h2: { fontFamily: HEADING_FONT, fontWeight: font.headingWeight, fontSize: '1.5rem', lineHeight: 1.2, letterSpacing: '-0.015em' },
+    h3: { fontFamily: HEADING_FONT, fontWeight: font.headingWeight, fontSize: '1.375rem', lineHeight: 1.25, letterSpacing: '-0.015em' },
+    h4: { fontFamily: HEADING_FONT, fontWeight: font.headingWeight, fontSize: '1.1875rem', lineHeight: 1.3, letterSpacing: '-0.01em' },
+    h5: { fontFamily: HEADING_FONT, fontWeight: 500, fontSize: '1rem', lineHeight: 1.35, letterSpacing: '-0.005em' },
+    h6: { fontFamily: HEADING_FONT, fontWeight: 500, fontSize: '0.90625rem', lineHeight: 1.4 },
+    subtitle1: { fontFamily: HEADING_FONT, fontWeight: 500, fontSize: '0.875rem', lineHeight: 1.45 },
     subtitle2: { fontFamily: BODY_FONT, fontWeight: 600, fontSize: '0.875rem', lineHeight: 1.45 },
-    body1: { fontSize: '0.875rem', lineHeight: 1.6 },
-    body2: { fontSize: '0.8125rem', lineHeight: 1.55 },
+    body1: { fontSize: '0.84375rem', lineHeight: 1.6 },
+    body2: { fontSize: '0.78125rem', lineHeight: 1.55 },
     caption: { fontSize: '0.75rem', lineHeight: 1.5, color: ink[500] },
     overline: {
       fontFamily: HEADING_FONT,
@@ -139,7 +174,7 @@ let theme = createTheme({
 theme.typography.metric = {
   fontFamily: HEADING_FONT,
   fontWeight: 600,
-  fontSize: '1.75rem',
+  fontSize: '1.5625rem',
   lineHeight: 1.1,
   letterSpacing: '-0.02em',
   fontVariantNumeric: 'tabular-nums lining-nums',
@@ -193,11 +228,11 @@ theme = createTheme(theme, {
         sizeSmall: { minHeight: 30, paddingInline: 11, fontSize: '0.8125rem', borderRadius: 9 },
         sizeLarge: { minHeight: 42, paddingInline: 22, fontSize: '0.9375rem', borderRadius: 11 },
         containedPrimary: {
-          backgroundImage: 'linear-gradient(115deg, #3F4BDB 0%, #5B4BE3 50%, #7A4FD8 100%)',
+          backgroundImage: `linear-gradient(115deg, ${P.main} 0%, ${P.light} 55%, ${S.main} 100%)`,
           boxShadow: `0 6px 16px -8px ${alpha(palette.primary.main, 0.7)}, inset 0 1px 0 ${alpha('#fff', 0.16)}`,
           transition: 'transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 220ms ease, filter 220ms ease',
           '&:hover': {
-            backgroundImage: 'linear-gradient(115deg, #3540C9 0%, #5141D6 50%, #6C42C9 100%)',
+            backgroundImage: `linear-gradient(115deg, ${P.dark} 0%, ${P.main} 55%, ${S.dark} 100%)`,
             transform: 'translateY(-1px)',
             boxShadow: `0 10px 22px -10px ${alpha(palette.primary.main, 0.8)}, inset 0 1px 0 ${alpha('#fff', 0.16)}`,
           },
@@ -242,7 +277,7 @@ theme = createTheme(theme, {
       styleOverrides: {
         root: {
           borderRadius: 18,
-          borderColor: alpha('#4651DE', 0.09),
+          borderColor: alpha(P.main, 0.09),
           boxShadow: shadows[1],
           transition: 'box-shadow 280ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 280ms ease, transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1)',
         },
@@ -322,7 +357,7 @@ theme = createTheme(theme, {
           letterSpacing: '0.04em',
           textTransform: 'uppercase',
           color: ink[500],
-          backgroundColor: '#F5F5FD',
+          backgroundColor: palette.background.subtle,
           whiteSpace: 'nowrap',
         },
         sizeSmall: { padding: '8px 12px' },
@@ -342,7 +377,7 @@ theme = createTheme(theme, {
 
     MuiDialog: {
       styleOverrides: {
-        paper: { borderRadius: 20, boxShadow: '0 30px 60px -20px rgba(20, 24, 80, 0.35)', border: `1px solid ${alpha('#4651DE', 0.08)}` },
+        paper: { borderRadius: 20, boxShadow: '0 30px 60px -20px rgba(20, 24, 80, 0.35)', border: `1px solid ${alpha(P.main, 0.08)}` },
       },
     },
     MuiDialogTitle: {
@@ -380,7 +415,7 @@ theme = createTheme(theme, {
     MuiTabs: {
       styleOverrides: {
         root: { minHeight: 40 },
-        indicator: { height: 3, borderRadius: 3, backgroundImage: 'linear-gradient(90deg, #4651DE, #7A4FD8)' },
+        indicator: { height: 3, borderRadius: 3, backgroundImage: `linear-gradient(90deg, ${P.main}, ${S.main})` },
         flexContainer: { gap: 4 },
       },
     },
@@ -431,7 +466,7 @@ theme = createTheme(theme, {
     MuiLinearProgress: {
       styleOverrides: {
         root: { height: 8, borderRadius: 8, backgroundColor: alpha(palette.primary.main, 0.1) },
-        barColorPrimary: { backgroundImage: 'linear-gradient(90deg, #4651DE, #7A4FD8)' },
+        barColorPrimary: { backgroundImage: `linear-gradient(90deg, ${P.main}, ${S.main})` },
         bar: { borderRadius: 8 },
       },
     },
@@ -486,7 +521,7 @@ theme = createTheme(theme, {
     MuiSkeleton: {
       defaultProps: { animation: 'wave' },
       styleOverrides: {
-        root: { backgroundColor: alpha('#4651DE', 0.07) },
+        root: { backgroundColor: alpha(P.main, 0.07) },
         wave: { '&::after': { background: `linear-gradient(90deg, transparent, ${alpha('#FFFFFF', 0.75)}, transparent)` } },
       },
     },
@@ -500,10 +535,11 @@ theme = createTheme(theme, {
  * light-on-dark values here.
  */
 const onDark = (main, light) => ({ main, light, dark: light, lighter: alpha(main, 0.2), contrastText: '#0B0D2E' });
-export const darkSurfaceTheme = createTheme(theme, {
+const accent = preset.accent;
+const darkSurfaceTheme = createTheme(theme, {
   palette: {
     mode: 'dark',
-    primary: { ...onDark('#A5B4FC', '#C7D2FE'), contrastText: '#141850' },
+    primary: { ...onDark(accent, '#FFFFFF'), contrastText: preset.nav.deep },
     secondary: onDark('#C4B5FD', '#DDD6FE'),
     success: onDark('#34D399', '#A7F3D0'),
     warning: onDark('#FBBF24', '#FDE68A'),
@@ -512,17 +548,17 @@ export const darkSurfaceTheme = createTheme(theme, {
     grey: { ...ink, 100: 'rgba(255,255,255,0.10)', 200: 'rgba(255,255,255,0.14)', 300: 'rgba(255,255,255,0.28)', 400: 'rgba(226,232,255,0.55)', 500: 'rgba(226,232,255,0.62)', 600: 'rgba(226,232,255,0.7)', 700: '#E0E7FF' },
     text: { primary: '#FFFFFF', secondary: 'rgba(226, 232, 255, 0.72)', disabled: 'rgba(226, 232, 255, 0.45)' },
     divider: 'rgba(255, 255, 255, 0.1)',
-    background: { default: '#141850', paper: '#1C1D5E', subtle: 'rgba(255, 255, 255, 0.06)' },
-    action: { hover: 'rgba(255, 255, 255, 0.07)', selected: 'rgba(165, 180, 252, 0.16)', focus: 'rgba(165, 180, 252, 0.24)' },
+    background: { default: preset.nav.deep, paper: preset.nav.via, subtle: 'rgba(255, 255, 255, 0.06)' },
+    action: { hover: 'rgba(255, 255, 255, 0.07)', selected: alpha(accent, 0.16), focus: alpha(accent, 0.24) },
   },
   typography: { caption: { color: 'rgba(226, 232, 255, 0.62)' } },
   components: {
     MuiCard: { styleOverrides: { root: { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)', boxShadow: 'none' } } },
-    MuiLinearProgress: { styleOverrides: { root: { backgroundColor: 'rgba(255,255,255,0.12)' }, barColorPrimary: { backgroundImage: 'linear-gradient(90deg, #67E8F9, #A5B4FC)' } } },
+    MuiLinearProgress: { styleOverrides: { root: { backgroundColor: 'rgba(255,255,255,0.12)' }, barColorPrimary: { backgroundImage: `linear-gradient(90deg, ${accent}, #FFFFFF)` } } },
     MuiButton: {
       styleOverrides: {
-        outlinedPrimary: { borderColor: 'rgba(199,210,254,0.4)', color: '#E0E7FF', backgroundColor: 'rgba(255,255,255,0.04)', '&:hover': { borderColor: '#C7D2FE', backgroundColor: 'rgba(255,255,255,0.1)' } },
-        text: { color: '#C7D2FE' },
+        outlinedPrimary: { borderColor: alpha(accent, 0.4), color: '#FFFFFF', backgroundColor: 'rgba(255,255,255,0.04)', '&:hover': { borderColor: accent, backgroundColor: 'rgba(255,255,255,0.1)' } },
+        text: { color: accent },
       },
     },
     MuiIconButton: { styleOverrides: { root: { color: 'rgba(226,232,255,0.72)', '&:hover': { backgroundColor: 'rgba(255,255,255,0.08)', color: '#fff' } } } },
@@ -530,4 +566,10 @@ export const darkSurfaceTheme = createTheme(theme, {
   },
 });
 
-export default theme;
+return { theme, darkSurfaceTheme, preset, font };
+}
+
+/** The default appearance, for code that runs before the institution's choice loads. */
+const defaults = createPortalTheme();
+export const darkSurfaceTheme = defaults.darkSurfaceTheme;
+export default defaults.theme;

@@ -1,6 +1,7 @@
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { sendSuccess } from '../../utils/apiResponse.js';
 import * as service from './academicsService.js';
+import { myCourses as myMoodleCourses } from '../lms/moodleService.js';
 
 const ctx = (req) => ({
   tenantId: req.auth.tenantId,
@@ -80,8 +81,8 @@ export const createTranscriptRequest = asyncHandler(async (req, res) => {
   return sendSuccess(res, request, { status: 201 });
 });
 
-export const listLms = asyncHandler(async (req, res) => {
-  const { tenantId, studentProfileId } = ctx(req);
-  const payload = await service.listLmsCourses(tenantId, studentProfileId);
-  return sendSuccess(res, payload);
-});
+/**
+ * LMS courses come from Moodle only (the student's own verified Moodle account). There is
+ * no fallback to local academic records: those are SIS data, served by /courses.
+ */
+export const listLms = asyncHandler(async (req, res) => sendSuccess(res, { provider: 'MOODLE', ...(await myMoodleCourses(req.auth)) }));

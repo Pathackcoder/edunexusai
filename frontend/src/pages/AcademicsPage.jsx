@@ -21,9 +21,11 @@ import { WidgetCard } from '../components/common/WidgetCard';
 import { PageHeader } from '../components/common/PageHeader';
 import { StatCard } from '../components/common/StatCard';
 import { useApiQuery } from '../hooks/useApiQuery';
-import { academicApi } from '../services/api';
+import { academicApi, lmsApi, sisApi } from '../services/api';
+import { SisNotice } from '../components/sis/SisNotice';
+import { todaysClasses as sisTodaysClasses, toCalendarEvents, pretty } from '../components/sis/sisData';
+import { MoodleNotice } from '../components/lms/MoodleNotice';
 import { DataState } from '../components/common/DataState';
-import { useAuth } from '../context/AuthContext';
 
 const EMPTY_GRADES = { currentCourses: [], pastTerms: [] };
 
@@ -44,32 +46,62 @@ const ItemRow = ({ children, sx }) => (
  * Academic overview. Five domains in one screen, so it issues the five reads in
  * parallel and shows one loading state over the lot.
  */
+const MOODLE_STATUS_TEXT = {
+  NOT_CONFIGURED: 'Moodle is not connected for your institution yet.',
+  NOT_LINKED: 'Your Moodle account is not linked to the portal yet.',
+  SUSPENDED: 'Your Moodle account is suspended.',
+  UNAVAILABLE: 'Moodle is not responding right now.',
+};
+
+/** Moodle quick access: the count and state come from Moodle via the API, or say so plainly. */
+function MoodleQuickAccess() {
+  const { data, loading, error } = useApiQuery(() => lmsApi.myMoodleCourses());
+  const count = data?.courses?.length ?? 0;
+  const text = loading
+    ? 'Checking Moodle…'
+    : error
+      ? 'Moodle status could not be loaded.'
+      : MOODLE_STATUS_TEXT[data?.status] ?? (count ? `${count} Moodle course${count === 1 ? '' : 's'}` : 'No Moodle courses yet');
+  return (
+    <WidgetCard title="Moodle LMS" subtitle="Course sites, activities and LMS grades" icon={LayersOutlinedIcon} tone="warning" actionLabel="Open" actionTo="/academics/lms">
+      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1.5} sx={{ p: 1.75, borderRadius: 2.5, bgcolor: 'warning.lighter', border: 1, borderColor: 'divider' }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="body2" fontWeight={700}>{text}</Typography>
+          <Typography variant="caption">Live from Moodle · you may need to sign in to Moodle</Typography>
+        </Box>
+        <Button component={RouterLink} to="/academics/lms" variant="contained" size="small" endIcon={<OpenInNewRoundedIcon />} sx={{ flexShrink: 0 }}>
+          LMS courses
+        </Button>
+      </Stack>
+    </WidgetCard>
+  );
+}
+
 export const AcademicsPage = () => {
-  const { user } = useAuth();
   const { data, loading, error, refetch } = useApiQuery(() =>
     Promise.all([
-      academicApi.getSchedule(),
-      academicApi.getAssignments(),
-      academicApi.getGrades(),
       academicApi.getAnnouncements(),
-      academicApi.getCalendar(),
-    ]).then(([schedule, assignments, grades, announcements, calendar]) => ({
-      schedule,
-      assignments,
-      grades,
-      announcements,
-      calendar,
-    })),
+      sisApi.calendar().catch(() => []),
+    ]).then(([announcements, calendar]) => ({ announcements, calendar: toCalendarEvents(calendar) })),
   );
-
-  const coursesData = data?.schedule?.allCourses ?? [];
-  const assignmentsData = data?.assignments ?? [];
-  const gradesSummaryData = data?.grades ?? EMPTY_GRADES;
+  // Official academic data: CampusCore SIS, resolved from the signed-in user's verified link.
+  const sis = useApiQuery(() => sisApi.myOverview());
+  const academic = sis.data?.state === 'OK' && sis.data.academic.state === 'OK' ? sis.data.academic.data : null;
+  const sisSchedule = sis.data?.state === 'OK' && sis.data.schedule.state === 'OK' ? sis.data.schedule.data : null;
+  const sisProfile = sis.data?.state === 'OK' && sis.data.profile.state === 'OK' ? sis.data.profile.data : null;
+  const todayClasses = sisTodaysClasses(sisSchedule?.items ?? []);
+  // Courses and coursework are Moodle's: read live, never from local records.
+  const moodleCourses = useApiQuery(() => lmsApi.myMoodleCourses());
+  const moodleWork = useApiQuery(() => lmsApi.myMoodleAssignments());
+  const moodleCourseCount = moodleCourses.data?.status === 'CONNECTED' ? moodleCourses.data.courses.length : null;
   const initialAnnouncementsData = data?.announcements ?? [];
   const academicCalendarEvents = data?.calendar ?? [];
 
-  const todayClasses = data?.schedule?.courses ?? [];
-  const pendingAssignments = assignmentsData.filter((a) => a.status !== 'Completed').slice(0, 2);
+  const weekAhead = Date.now() + 7 * 24 * 60 * 60 * 1000;
+  const pendingAssignments = (moodleWork.data?.assignments ?? [])
+    .filter((a) => ['NOT_SUBMITTED', 'DRAFT'].includes(a.state) && a.dueDate && new Date(a.dueDate).getTime() < weekAhead)
+    .slice(0, 3);
+
   const latestAnnouncement = initialAnnouncementsData[0];
   const today = new Date().toISOString().slice(0, 10);
   const upcomingEvents = academicCalendarEvents.filter((e) => e.date >= today).slice(0, 2);
@@ -94,30 +126,30 @@ export const AcademicsPage = () => {
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', lg: 'repeat(4, minmax(0, 1fr))' }, gap: { xs: 1.5, sm: 2 } }}>
               <StatCard
                 title="Current Semester"
-                value={user?.currentTerm ?? '—'}
+                value={sisSchedule?.term?.name ?? '—'}
                 valueSx={{ fontSize: { xs: '1.25rem', md: '1.5rem' } }}
-                subtitle={user?.degree ?? user?.department ?? ''}
+                subtitle={sisProfile?.program?.name ?? (sis.data?.state === 'UNMAPPED' ? 'Not linked to CampusCore' : sis.loading ? '' : 'CampusCore')}
                 icon={SchoolOutlinedIcon}
               />
               <StatCard
                 title="Cumulative GPA"
-                value={<Box component="span" sx={{ color: 'success.main' }}>{gradesSummaryData.cumulativeGpa}</Box>}
-                subtitle="Academic Standing: Good"
+                value={<Box component="span" sx={{ color: 'success.main' }}>{academic?.gpa != null ? academic.gpa.toFixed(2) : '—'}</Box>}
+                subtitle={academic ? `CampusCore · ${pretty(academic.standing)}` : sis.data?.state === 'UNMAPPED' ? 'Not linked to CampusCore' : 'CampusCore unavailable'}
                 icon={InsightsOutlinedIcon}
                 tone="success"
               />
               <StatCard
-                title="Enrolled Credits"
-                value="16 Credits"
+                title="Moodle Courses"
+                value={moodleCourseCount ?? '—'}
                 valueSx={{ fontSize: { xs: '1.25rem', md: '1.5rem' } }}
-                subtitle="4 Active Lecture Courses"
+                subtitle={moodleCourseCount === null ? 'Moodle not available' : 'Live Moodle enrolment'}
                 icon={LibraryBooksOutlinedIcon}
                 tone="purple"
               />
               <StatCard
-                title="Degree Progress"
-                value={<Box component="span" sx={{ color: 'primary.main' }}>102 / 120</Box>}
-                subtitle="85% Degree Requirement Met"
+                title="Credits Earned"
+                value={<Box component="span" sx={{ color: 'primary.main' }}>{academic ? academic.creditsEarned : '—'}</Box>}
+                subtitle={academic ? `${academic.creditsInProgress} in progress · CampusCore` : 'From CampusCore SIS'}
                 icon={FlagOutlinedIcon}
                 tone="info"
               />
@@ -125,54 +157,65 @@ export const AcademicsPage = () => {
 
             {/* Six academic cards */}
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr', xl: 'repeat(3, minmax(0, 1fr))' }, gap: { xs: 2, md: 2.5 } }}>
-              {/* 1. Today's Classes */}
+              {/* 1. Classes: no verified timetable source yet */}
               <WidgetCard
                 title="Today's Classes"
-                subtitle="Monday schedule"
+                subtitle={sisSchedule ? `${sisSchedule.term.name} · CampusCore` : 'CampusCore SIS'}
                 icon={CalendarMonthOutlinedIcon}
-                actionLabel="Timetable"
+                actionLabel="Schedule"
                 actionTo="/academics/schedule"
               >
-                <Stack spacing={1}>
-                  {todayClasses.map(cls => (
-                    <ItemRow key={cls.id}>
-                      <Box sx={{ minWidth: 0 }}>
-                        <Typography variant="caption" sx={{ fontWeight: 700, color: 'primary.main' }}>{cls.code}</Typography>
-                        <Typography variant="body2" fontWeight={600} noWrap>{cls.name}</Typography>
-                        <Typography variant="caption" component="p" noWrap>{cls.room} • {cls.instructor}</Typography>
-                      </Box>
-                      <Stack direction="row" alignItems="center" spacing={0.5} sx={{ flexShrink: 0, color: 'text.secondary' }}>
-                        <ScheduleRoundedIcon sx={{ fontSize: 15, color: 'grey.400' }} />
+                {sis.loading ? (
+                  <Typography variant="caption">Loading from CampusCore…</Typography>
+                ) : !sisSchedule ? (
+                  <SisNotice overview={sis.data} section={sis.data?.schedule} what="Your schedule" onRetry={sis.refetch} />
+                ) : todayClasses.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">No classes today.</Typography>
+                ) : (
+                  <Stack spacing={1}>
+                    {todayClasses.map((cls) => (
+                      <ItemRow key={cls.id}>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 700, color: 'primary.main' }}>{cls.code}</Typography>
+                          <Typography variant="body2" fontWeight={600} noWrap>{cls.name}</Typography>
+                          <Typography variant="caption" component="p" noWrap>{[cls.room, cls.instructor].filter(Boolean).join(' • ')}</Typography>
+                        </Box>
                         <Typography variant="caption" sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>{cls.time}</Typography>
-                      </Stack>
-                    </ItemRow>
-                  ))}
-                </Stack>
+                      </ItemRow>
+                    ))}
+                  </Stack>
+                )}
               </WidgetCard>
 
-              {/* 2. Upcoming Assignments */}
+              {/* 2. Upcoming Moodle assignments */}
               <WidgetCard
                 title="Upcoming Assignments"
-                subtitle="Due within 7 days"
+                subtitle="Moodle · due within 7 days"
                 icon={AssignmentOutlinedIcon}
                 tone="info"
                 actionLabel="View all"
                 actionTo="/academics/assignments"
               >
-                <Stack spacing={1}>
-                  {pendingAssignments.map(asg => (
-                    <ItemRow key={asg.id}>
-                      <Box sx={{ minWidth: 0 }}>
-                        <Typography variant="caption" sx={{ fontWeight: 700, color: 'primary.main' }}>{asg.courseCode}</Typography>
-                        <Typography variant="body2" fontWeight={600} noWrap>{asg.title}</Typography>
-                        <Typography variant="caption" component="p">Due: {asg.dueDate} ({asg.points} pts)</Typography>
-                      </Box>
-                      <Badge variant={asg.urgency === 'due-soon' ? 'warning' : 'neutral'}>
-                        {asg.urgency === 'due-soon' ? 'Due Soon' : asg.status}
-                      </Badge>
-                    </ItemRow>
-                  ))}
-                </Stack>
+                {moodleWork.loading ? (
+                  <Typography variant="caption">Loading from Moodle…</Typography>
+                ) : moodleWork.data?.status !== 'CONNECTED' ? (
+                  <MoodleNotice data={moodleWork.data} onRetry={moodleWork.refetch} />
+                ) : pendingAssignments.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">Nothing due in the next 7 days.</Typography>
+                ) : (
+                  <Stack spacing={1}>
+                    {pendingAssignments.map((asg) => (
+                      <ItemRow key={asg.assignmentId}>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 700, color: 'primary.main' }}>{asg.course?.shortName}</Typography>
+                          <Typography variant="body2" fontWeight={600} noWrap>{asg.name}</Typography>
+                          <Typography variant="caption" component="p">Due {new Date(asg.dueDate).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</Typography>
+                        </Box>
+                        <Badge variant={asg.overdue ? 'danger' : 'warning'}>{asg.overdue ? 'Overdue' : 'Due soon'}</Badge>
+                      </ItemRow>
+                    ))}
+                  </Stack>
+                )}
               </WidgetCard>
 
               {/* 3. Latest Academic Announcement */}
@@ -244,41 +287,8 @@ export const AcademicsPage = () => {
                 </Stack>
               </WidgetCard>
 
-              {/* 6. Canvas LMS Quick Access */}
-              <WidgetCard
-                title="Canvas Learning Management"
-                subtitle="Course modules & discussions"
-                icon={LayersOutlinedIcon}
-                tone="danger"
-                actionLabel="Open"
-                actionTo="/academics/lms"
-              >
-                <Stack
-                  direction="row"
-                  alignItems="center"
-                  justifyContent="space-between"
-                  spacing={1.5}
-                  sx={{ p: 1.75, borderRadius: 2.5, bgcolor: 'error.lighter', border: 1, borderColor: 'rgba(208, 58, 58, 0.18)' }}
-                >
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography variant="body2" fontWeight={700} sx={{ color: 'error.dark' }}>Canvas LMS Active Session</Typography>
-                    <Typography variant="caption" sx={{ color: 'error.dark', opacity: 0.85 }}>
-                      Single Sign-On Connected • 4 Enrolled Courses
-                    </Typography>
-                  </Box>
-                  <Button
-                    component={RouterLink}
-                    to="/academics/lms"
-                    variant="contained"
-                    color="error"
-                    size="small"
-                    endIcon={<OpenInNewRoundedIcon />}
-                    sx={{ flexShrink: 0 }}
-                  >
-                    Launch LMS
-                  </Button>
-                </Stack>
-              </WidgetCard>
+              {/* 6. Moodle LMS quick access (live Moodle status, never local course counts) */}
+              <MoodleQuickAccess />
             </Box>
           </Stack>
         </Box>

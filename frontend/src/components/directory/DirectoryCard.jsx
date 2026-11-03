@@ -62,7 +62,10 @@ export const DirectoryCard = ({ person, onSelect }) => {
             </Stack>
           </Box>
         </Stack>
-        <Badge variant={getBadgeVariant(person.type)}>{person.type.toUpperCase()}</Badge>
+        {/* One card per person: every role they hold (e.g. Faculty and Student). */}
+        <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" justifyContent="flex-end">
+          {(person.roles?.length ? person.roles : [person.type]).map((r) => <Badge key={r} variant={getBadgeVariant(r)}>{r.toUpperCase()}</Badge>)}
+        </Stack>
       </Stack>
 
       <Box>

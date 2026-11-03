@@ -18,7 +18,7 @@ export const PageHeader = ({ title, description, eyebrow, actions, icon, childre
     <Box sx={{ minWidth: 0, flex: 1 }}>
       {eyebrow && (
         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.75 }}>
-          <Box aria-hidden sx={{ width: 20, height: 3, borderRadius: 2, backgroundImage: 'linear-gradient(90deg, #4651DE, #7A4FD8)' }} />
+          <Box aria-hidden sx={{ width: 20, height: 3, borderRadius: 2, backgroundImage: 'linear-gradient(90deg, var(--enx-primary), var(--enx-secondary))' }} />
           <Typography variant="overline" color="primary.main" component="div" sx={{ lineHeight: 1 }}>
             {eyebrow}
           </Typography>

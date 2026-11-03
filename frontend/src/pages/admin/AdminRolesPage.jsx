@@ -6,6 +6,8 @@ import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
 import ButtonBase from '@mui/material/ButtonBase';
 import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
+import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
+import EmojiEventsOutlinedIcon from '@mui/icons-material/EmojiEventsOutlined';
 import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined';
 import CoPresentOutlinedIcon from '@mui/icons-material/CoPresentOutlined';
 import VerifiedUserOutlinedIcon from '@mui/icons-material/VerifiedUserOutlined';
@@ -29,6 +31,8 @@ import { PERMISSIONS } from './roleAccess';
 const ROLE_PRESENTATION = {
   STUDENT: { icon: SchoolOutlinedIcon, tone: 'info' },
   FACULTY: { icon: CoPresentOutlinedIcon, tone: 'primary' },
+  STAFF: { icon: BadgeOutlinedIcon, tone: 'info' },
+  ALUMNI: { icon: EmojiEventsOutlinedIcon, tone: 'neutral' },
   ADMIN: { icon: AdminPanelSettingsOutlinedIcon, tone: 'purple' },
 };
 
@@ -78,6 +82,7 @@ export const AdminRolesPage = () => {
                   </Stack>
 
                   <Typography variant="body2" color="text.secondary">{role.description}</Typography>
+                  <Typography variant="caption" color="text.secondary">{role.category === 'ADMINISTRATIVE' ? 'Administrative role: what the person may manage. Never granted by a university sign-in.' : 'Community role: a relationship with the institution, backed by its record.'}</Typography>
 
                   <Box sx={{ pt: 1.75, borderTop: 1, borderColor: 'divider' }}>
                     <MetricLabel sx={{ mb: 1 }}>Permissions</MetricLabel>

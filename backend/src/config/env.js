@@ -22,9 +22,18 @@ const toList = (value) =>
 
 const isTest = process.env.NODE_ENV === 'test';
 
+function passwordStorage() {
+  // Passwords are always stored as bcrypt hashes. The former development-only "plaintext"
+  // setting is ignored (with a warning) rather than refused, so an old .env still boots.
+  const mode = (process.env.PASSWORD_STORAGE ?? 'bcrypt').trim().toLowerCase();
+  if (mode !== 'bcrypt') console.warn(`PASSWORD_STORAGE=${mode} is no longer supported; passwords are stored as bcrypt hashes.`);
+  return 'bcrypt';
+}
+
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   isProduction: process.env.NODE_ENV === 'production',
+  trustProxyHops: Math.max(0, Number.parseInt(process.env.TRUST_PROXY_HOPS ?? '1', 10) || 0),
   isTest,
   port: toInt(process.env.PORT, 5001),
   logLevel: process.env.LOG_LEVEL ?? 'dev',
@@ -41,6 +50,8 @@ export const env = {
     issuer: 'edunexusai',
   },
   bcryptRounds: toInt(process.env.BCRYPT_ROUNDS, isTest ? 4 : 10),
+  /** Always 'bcrypt' (see modules/auth/passwords.js). */
+  passwordStorage: passwordStorage(),
 
   cors: {
     origins: toList(process.env.CORS_ORIGINS).length
@@ -78,6 +89,106 @@ export const env = {
   },
 };
 
+const toBool = (value) => ['1', 'true', 'yes', 'on'].includes(String(value ?? '').trim().toLowerCase());
+const toPositiveInt = (value) => {
+  const parsed = Number.parseInt(value ?? '', 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+};
+
+/**
+ * Moodle LMS settings, read from process.env on every call (not frozen at import) so the
+ * test suite can point the connector at a local stub. The token itself is not returned
+ * here: connectors resolve it through the integration's credentialRef (MOODLE_TOKEN).
+ *
+ * Validation is explicit rather than fail-at-boot: Moodle is optional, and a missing or
+ * malformed value disables the integration with a clear reason instead of stopping the
+ * whole portal.
+ */
+export function moodleConfig() {
+  const rawBase = (process.env.MOODLE_BASE_URL ?? '').trim();
+  const problems = [];
+  let baseUrl = '';
+  if (rawBase) {
+    try {
+      const url = new URL(rawBase);
+      const local = ['localhost', '127.0.0.1'].includes(url.hostname);
+      if (url.protocol !== 'https:' && !(local && process.env.NODE_ENV !== 'production')) {
+        problems.push('MOODLE_BASE_URL must use https.');
+      } else {
+        baseUrl = `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
+      }
+    } catch {
+      problems.push('MOODLE_BASE_URL is not a valid URL.');
+    }
+  } else {
+    problems.push('MOODLE_BASE_URL is not set.');
+  }
+  if (!process.env.MOODLE_TOKEN) problems.push('MOODLE_TOKEN is not set.');
+  return {
+    baseUrl,
+    tokenConfigured: Boolean(process.env.MOODLE_TOKEN),
+    timeoutMs: Math.min(Math.max(toInt(process.env.MOODLE_TIMEOUT_MS, 10000), 1000), 60000),
+    maxRetries: Math.min(Math.max(toInt(process.env.MOODLE_MAX_RETRIES, 2), 0), 5),
+    // Master switch for every operation that changes data in Moodle. Off by default.
+    writesEnabled: toBool(process.env.MOODLE_WRITES_ENABLED),
+    // Irreversible course deletion: off unless explicitly enabled.
+    allowCourseDelete: toBool(process.env.MOODLE_ALLOW_COURSE_DELETE),
+    // Moodle ids that must come from the site, never guessed.
+    studentRoleId: toPositiveInt(process.env.MOODLE_STUDENT_ROLE_ID),
+    teacherRoleId: toPositiveInt(process.env.MOODLE_TEACHER_ROLE_ID),
+    // The hosting plan's user-account limit (MoodleCloud plans cap accounts). Not
+    // readable through the Moodle API, so it must be stated explicitly; the seed
+    // refuses to create accounts without it.
+    siteUserQuota: toPositiveInt(process.env.MOODLE_SITE_USER_QUOTA),
+    defaultCategoryId: toPositiveInt(process.env.MOODLE_DEFAULT_CATEGORY_ID),
+    // How NEW Moodle accounts sign in: 'manual' (a Moodle password, the default) or 'oauth2' (the same university
+    // sign-in as the portal, configured in Moodle as an OAuth 2 service; the account gets no Moodle password).
+    accountAuth: process.env.MOODLE_ACCOUNT_AUTH === 'oauth2' ? 'oauth2' : 'manual',
+    // After an account is created at its first institutional sign-in (JIT), also create the person's Moodle account
+    // and the enrolments that follow from CampusCore, in the background. Needs writes enabled. Off by default.
+    jitProvisioning: toBool(process.env.MOODLE_JIT_PROVISIONING),
+    problems,
+    valid: problems.length === 0,
+  };
+}
+
+/**
+ * CampusCore SIS settings (server-side only), read from process.env on every call so tests
+ * can point at a stub. The client secret is never returned here or anywhere else: only
+ * whether it is configured. Missing values disable the SIS integration with a reason
+ * instead of stopping the portal.
+ */
+export function sisConfig() {
+  const provider = (process.env.SIS_PROVIDER ?? '').trim().toLowerCase() || null;
+  const baseUrl = (process.env.CAMPUSCORE_BASE_URL ?? '').trim().replace(/\/+$/, '');
+  const problems = [];
+  if (provider && provider !== 'campuscore') problems.push(`SIS_PROVIDER "${provider}" is not supported (only campuscore).`);
+  if (!provider) problems.push('SIS_PROVIDER is not set.');
+  if (!baseUrl) problems.push('CAMPUSCORE_BASE_URL is not set.');
+  else {
+    try {
+      const url = new URL(baseUrl);
+      if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:') problems.push('CAMPUSCORE_BASE_URL must use https in production.');
+    } catch {
+      problems.push('CAMPUSCORE_BASE_URL is not a valid URL.');
+    }
+  }
+  if (!process.env.CAMPUSCORE_CLIENT_ID) problems.push('CAMPUSCORE_CLIENT_ID is not set.');
+  if (!process.env.CAMPUSCORE_CLIENT_SECRET) problems.push('CAMPUSCORE_CLIENT_SECRET is not set.');
+  if (!process.env.SIS_TENANT_KEY) problems.push('SIS_TENANT_KEY is not set.');
+  return {
+    provider,
+    baseUrl,
+    clientId: process.env.CAMPUSCORE_CLIENT_ID ?? '',
+    clientSecretConfigured: Boolean(process.env.CAMPUSCORE_CLIENT_SECRET),
+    expectedInstitution: (process.env.CAMPUSCORE_EXPECTED_INSTITUTION ?? '').trim() || null,
+    tenantKey: (process.env.SIS_TENANT_KEY ?? '').trim() || null,
+    timeoutMs: Math.min(Math.max(toInt(process.env.CAMPUSCORE_TIMEOUT_MS, 10000), 1000), 60000),
+    problems,
+    valid: problems.length === 0,
+  };
+}
+
 /**
  * Resolve the secret behind an Integration.credentialRef. Integrations store only the
  * NAME of an environment variable; the value is read here, on the server, and is never
@@ -90,4 +201,102 @@ export function resolveCredential(credentialRef) {
 
 export function hasCredential(credentialRef) {
   return Boolean(resolveCredential(credentialRef));
+}
+
+/**
+ * Feddrick CMS (Strapi, in ../feddrick-cms). Server-side only: the token never leaves the
+ * backend. `layoutsEnabled` gates applying published dashboard layouts to live dashboards.
+ */
+export function cmsConfig() {
+  const url = (process.env.CMS_URL ?? '').trim().replace(/\/+$/, '');
+  const problems = [];
+  if (!url) problems.push('CMS_URL is not set.');
+  else {
+    try {
+      const parsed = new URL(url);
+      if (process.env.NODE_ENV === 'production' && parsed.protocol !== 'https:' && !['127.0.0.1', 'localhost'].includes(parsed.hostname)) problems.push('CMS_URL must use https in production.');
+    } catch {
+      problems.push('CMS_URL is not a valid URL.');
+    }
+  }
+  if (!process.env.CMS_API_TOKEN) problems.push('CMS_API_TOKEN is not set.');
+  return {
+    url,
+    adminUrl: (process.env.CMS_ADMIN_URL ?? '').trim() || null,
+    timeoutMs: Math.min(Math.max(toInt(process.env.CMS_TIMEOUT_MS, 8000), 1000), 60000),
+    layoutsEnabled: ['1', 'true', 'yes'].includes(String(process.env.CMS_LAYOUTS_ENABLED ?? '').toLowerCase()),
+    tokenConfigured: Boolean(process.env.CMS_API_TOKEN),
+    manageTokenConfigured: Boolean(process.env.CMS_MANAGE_API_TOKEN),
+    problems,
+    valid: problems.length === 0,
+  };
+}
+
+/**
+ * Outgoing mail for Studio form notifications (SMTP via nodemailer). Nothing is sent unless
+ * SMTP_HOST (or SMTP_URL) and MAIL_FROM are set. FORM_RECIPIENT_DOMAINS optionally limits the
+ * notification recipients administrators may configure (e.g. "feddrick.edu").
+ */
+export function mailConfig() {
+  const url = (process.env.SMTP_URL ?? '').trim();
+  const host = (process.env.SMTP_HOST ?? '').trim();
+  const from = (process.env.MAIL_FROM ?? '').trim();
+  const problems = [];
+  if (!url && !host) problems.push('SMTP_HOST is not set.');
+  if (!from) problems.push('MAIL_FROM is not set.');
+  const port = toInt(process.env.SMTP_PORT, 587);
+  return {
+    url: url || null,
+    host: host || null,
+    port,
+    secure: ['1', 'true', 'yes'].includes(String(process.env.SMTP_SECURE ?? (port === 465 ? 'true' : 'false')).toLowerCase()),
+    user: (process.env.SMTP_USER ?? '').trim() || null,
+    hasPassword: Boolean(process.env.SMTP_PASS),
+    from,
+    recipientDomains: String(process.env.FORM_RECIPIENT_DOMAINS ?? '').split(',').map((d) => d.trim().toLowerCase()).filter(Boolean),
+    timeoutMs: Math.min(Math.max(toInt(process.env.SMTP_TIMEOUT_MS, 10000), 2000), 60000),
+    problems,
+    configured: problems.length === 0,
+  };
+}
+
+/**
+ * Campus Directory: the Keycloak Admin REST API, read through a dedicated service-account client
+ * (OAuth 2.0 client credentials, realm-management view-users + query-users). Server-side only:
+ * the secret is never returned here, only whether it is configured. Read on every call so tests
+ * can point it at a stub. Missing values switch the directory off with a reason.
+ */
+export function keycloakDirectoryConfig() {
+  const baseUrl = (process.env.KEYCLOAK_DIRECTORY_BASE_URL ?? '').trim().replace(/\/+$/, '');
+  const realm = (process.env.KEYCLOAK_DIRECTORY_REALM ?? '').trim();
+  const clientId = (process.env.KEYCLOAK_DIRECTORY_CLIENT_ID ?? '').trim();
+  const tenantSlug = (process.env.KEYCLOAK_DIRECTORY_TENANT ?? '').trim();
+  const problems = [];
+  if (!baseUrl) problems.push('KEYCLOAK_DIRECTORY_BASE_URL is not set.');
+  else {
+    try {
+      const url = new URL(baseUrl);
+      const local = ['localhost', '127.0.0.1'].includes(url.hostname);
+      if (!['http:', 'https:'].includes(url.protocol)) problems.push('KEYCLOAK_DIRECTORY_BASE_URL must be an http(s) URL.');
+      else if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:' && !local) problems.push('KEYCLOAK_DIRECTORY_BASE_URL must use https in production.');
+    } catch {
+      problems.push('KEYCLOAK_DIRECTORY_BASE_URL is not a valid URL.');
+    }
+  }
+  if (!/^[\w.-]{1,100}$/.test(realm)) problems.push('KEYCLOAK_DIRECTORY_REALM is not set.');
+  if (!clientId) problems.push('KEYCLOAK_DIRECTORY_CLIENT_ID is not set.');
+  if (clientId === 'admin-cli') problems.push('KEYCLOAK_DIRECTORY_CLIENT_ID must be a dedicated service-account client, not admin-cli.');
+  if (!process.env.KEYCLOAK_DIRECTORY_CLIENT_SECRET) problems.push('KEYCLOAK_DIRECTORY_CLIENT_SECRET is not set.');
+  if (!tenantSlug) problems.push('KEYCLOAK_DIRECTORY_TENANT is not set.');
+  return {
+    baseUrl,
+    realm,
+    clientId,
+    clientSecretConfigured: Boolean(process.env.KEYCLOAK_DIRECTORY_CLIENT_SECRET),
+    tenantSlug,
+    providerKey: (process.env.KEYCLOAK_DIRECTORY_PROVIDER_KEY ?? '').trim() || null,
+    timeoutMs: Math.min(Math.max(toInt(process.env.KEYCLOAK_DIRECTORY_TIMEOUT_MS, 8000), 1000), 30000),
+    problems,
+    valid: problems.length === 0,
+  };
 }

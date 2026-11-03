@@ -5,8 +5,8 @@ import { toNumber } from '../../utils/format.js';
 
 /**
  * Faculty experience — an experience layer over the LMS/SIS, not a replacement for one.
- * Faculty see what they teach and can reach their class; they do not grade or author
- * coursework here.
+ * Faculty see what they teach and can reach their class. Grading lives in the gradebook
+ * module (../gradebook), with draft and publish states; coursework is authored in the LMS.
  */
 
 /** A faculty member may only act on a course they are the instructor of record for. */

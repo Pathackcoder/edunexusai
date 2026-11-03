@@ -75,14 +75,14 @@ export function AssistantLauncher() {
         <Grow in={open} style={{ transformOrigin: 'bottom right' }} unmountOnExit>
           <Paper
             role="dialog"
-            aria-label={t('Ask EdunexusAI')}
+            aria-label={t('Ask EduNexusAI')}
             elevation={8}
             sx={{ position: 'absolute', right: 0, bottom: 0, width: { xs: 'calc(100vw - 32px)', sm: 400 }, height: { xs: '70vh', sm: 560 }, maxHeight: 'calc(100vh - 140px - var(--dock-lift))', display: 'flex', flexDirection: 'column', borderRadius: 4, overflow: 'hidden' }}
           >
             <Stack direction="row" alignItems="center" spacing={1.25} sx={(theme) => ({ px: 2, py: 1.5, color: '#fff', background: `linear-gradient(120deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})` })}>
               <AutoAwesomeRoundedIcon />
               <Box sx={{ flex: 1 }}>
-                <Typography variant="subtitle1" fontWeight={700} color="inherit">{t('Ask EdunexusAI')}</Typography>
+                <Typography variant="subtitle1" fontWeight={700} color="inherit">{t('Ask EduNexusAI')}</Typography>
                 <Typography variant="caption" sx={{ opacity: 0.85 }}>{provider?.label ?? 'Portal assistant'}</Typography>
               </Box>
               <Tooltip title="Clear conversation"><IconButton size="small" onClick={clear} sx={{ color: 'inherit' }}><DeleteSweepOutlinedIcon fontSize="small" /></IconButton></Tooltip>
@@ -131,11 +131,11 @@ export function AssistantLauncher() {
       </Box>
       {/* The dock lift lives on this wrapper so it never fights the button's own hover transform. */}
       <Box sx={{ position: 'absolute', right: 0, bottom: 0, ...liftSx(0) }}>
-        <Tooltip title={t('Ask EdunexusAI')} placement="left">
+        <Tooltip title={t('Ask EduNexusAI')} placement="left">
           <Fab
             color="primary"
             onClick={() => setOpen((value) => !value)}
-            aria-label={t('Ask EdunexusAI')}
+            aria-label={t('Ask EduNexusAI')}
             sx={(theme) => ({ background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`, boxShadow: `0 10px 24px -8px ${alpha(theme.palette.primary.main, 0.6)}`, transition: 'transform 200ms ease, box-shadow 200ms ease', '&:hover': { transform: 'translateY(-2px) scale(1.04)' } })}
           >
             {open ? <CloseRoundedIcon /> : <AutoAwesomeRoundedIcon />}

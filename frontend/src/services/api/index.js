@@ -1,5 +1,5 @@
 /** Barrel for the API service layer. Components import from here. */
-export { apiClient, ApiError, tokenStore, onSessionExpired, metaOf } from './client.js';
+export { apiClient, ApiError, tokenStore, onSessionExpired, metaOf, refreshAccessToken, apiOrigin } from './client.js';
 export { authApi } from './authApi.js';
 export { dashboardApi } from './dashboardApi.js';
 export { academicApi } from './academicApi.js';
@@ -17,3 +17,9 @@ export { planningApi } from './planningApi.js';
 export { careerApi } from './careerApi.js';
 export { advisingApi, interventionApi } from './successApi.js';
 export { assistantApi, calendarSyncApi } from './assistantApi.js';
+export { appearanceApi } from './appearanceApi.js';
+export { lmsApi, moodleAdminApi, facultyMoodleApi } from './lmsApi.js';
+export { sisApi, sisAdminApi } from './sisApi.js';
+export { contentApi, studioApi } from './cmsApi.js';
+export { ssoApi, SSO_ERROR_MESSAGES } from './ssoApi.js';
+export { chatApi } from './chatApi.js';

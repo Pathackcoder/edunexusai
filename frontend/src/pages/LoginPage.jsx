@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { keyframes } from '@emotion/react';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -8,7 +8,6 @@ import TextField from '@mui/material/TextField';
 import InputAdornment from '@mui/material/InputAdornment';
 import IconButton from '@mui/material/IconButton';
 import Alert from '@mui/material/Alert';
-import Chip from '@mui/material/Chip';
 import Link from '@mui/material/Link';
 import Paper from '@mui/material/Paper';
 import ButtonBase from '@mui/material/ButtonBase';
@@ -30,21 +29,21 @@ import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { PWAInstallButton } from '../components/pwa/PWAInstallButton';
-import { CampusScene } from '../components/login/CampusScene';
+import { CampusVideoBackdrop } from '../components/login/CampusVideoBackdrop';
 import { LoginIntroOverlay, useLoginIntro } from '../components/login/LoginIntro';
+import { InstitutionLogo, PoweredBy } from '../components/brand/Brand';
+import { institution } from '../branding';
+import { InstitutionSignIn } from '../components/login/InstitutionSignIn';
 
 /* Presentation only. Motion is transform/opacity and stops under prefers-reduced-motion. */
 const fadeUp = keyframes`
   from { opacity: 0; transform: translate3d(0, 10px, 0); }
   to   { opacity: 1; transform: none; }
 `;
-const drift = keyframes`
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  50%      { transform: translate3d(3%, -4%, 0); }
-`;
 const enterAt = (ms) => ({ animation: `${fadeUp} 600ms cubic-bezier(0.2, 0.8, 0.2, 1) ${ms}ms both` });
 
-const BRAND_GRADIENT = 'linear-gradient(110deg, #3F4BDB 0%, #5B4BE3 45%, #7A4FD8 75%, #5B4BE3 100%)';
+// Follows the institution's portal appearance (CSS variables written by AppearanceProvider).
+const BRAND_GRADIENT = 'linear-gradient(110deg, var(--enx-primary) 0%, var(--enx-secondary) 50%, var(--enx-primary) 100%)';
 
 /** Visual identity for each demo persona (icon + accent). Behaviour lives in demoAccounts. */
 const PERSONA_STYLE = {
@@ -84,13 +83,12 @@ export const LoginPage = () => {
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
 
   const { login } = useAuth();
+  const ssoError = new URLSearchParams(window.location.search).get('sso_error');
   const navigate = useNavigate();
 
   // Entrance intro (presentation only). When it plays it replaces the per-block fade-ups.
   const logoRef = useRef(null);
-  const sceneRef = useRef(null);
-  const formRef = useRef(null);
-  const intro = useLoginIntro({ logoRef, sceneRef, formRef });
+  const intro = useLoginIntro({ logoRef });
   const enter = (ms) => (intro.playing ? {} : enterAt(ms));
 
   /**
@@ -137,18 +135,14 @@ export const LoginPage = () => {
         display: 'flex',
         position: 'relative',
         overflowX: 'hidden',
-        bgcolor: '#F7F7FD',
+        bgcolor: '#0B1036',
         '@media (prefers-reduced-motion: reduce)': {
           '& *, & *::before, & *::after': { animation: 'none !important', transitionDuration: '0.01ms !important' },
         },
       }}
     >
-      {/* Form side atmosphere: soft light and a faint dot grid */}
-      <Box aria-hidden sx={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', zIndex: 0 }}>
-        <Box sx={{ position: 'absolute', top: '-20%', left: '-15%', width: { xs: '90vw', md: '45vw' }, aspectRatio: '1', borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.16) 0%, transparent 65%)', animation: `${drift} 24s ease-in-out infinite` }} />
-        <Box sx={{ position: 'absolute', bottom: '-25%', left: { xs: '30%', md: '12%' }, width: { xs: '80vw', md: '34vw' }, aspectRatio: '1', borderRadius: '50%', background: 'radial-gradient(circle, rgba(34,211,238,0.12) 0%, transparent 65%)', animation: `${drift} 30s ease-in-out -8s infinite` }} />
-        <Box sx={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(rgba(70,81,222,0.10) 1px, transparent 1px)', backgroundSize: '22px 22px', maskImage: 'linear-gradient(180deg, #000 0%, transparent 70%)', WebkitMaskImage: 'linear-gradient(180deg, #000 0%, transparent 70%)' }} />
-      </Box>
+      {/* Full-screen campus flyover behind everything; the sign-in card is the foreground. */}
+      <CampusVideoBackdrop visible={!intro.active || intro.videoVisible} />
 
       {/* Form column */}
       <Box
@@ -156,83 +150,63 @@ export const LoginPage = () => {
         sx={{
           position: 'relative',
           zIndex: 1,
-          flex: { xs: '1 1 100%', md: '0 0 46%', lg: '0 0 44%' },
-          maxWidth: { md: 600 },
+          flex: '1 1 100%',
           minWidth: 0,
+          minHeight: '100vh',
           display: 'flex',
           flexDirection: 'column',
-          px: { xs: 2.5, sm: 6, lg: 7 },
-          py: { xs: 2.5, sm: 3.5 },
-          ...intro.styles.column,
+          px: { xs: 2, sm: 5, lg: 8, xl: 11 },
+          py: { xs: 2, sm: 3 },
         }}
       >
         {/* Brand row */}
         <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2} sx={enter(0)}>
-          {/* The logo asset has a white ground, so it sits on a deliberate white brand plate. */}
-          <Box
-            ref={logoRef}
-            sx={{
-              ...intro.styles.logo,
-              display: 'inline-flex',
-              alignItems: 'center',
-              px: 1.25,
-              py: 0.75,
-              borderRadius: '12px',
-              bgcolor: '#FFFFFF',
-              border: '1px solid',
-              borderColor: alpha('#4651DE', 0.1),
-              boxShadow: '0 6px 16px -10px rgba(53, 46, 160, 0.35)',
-              transition: 'transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 300ms ease',
-              '&:hover': { transform: 'translateY(-1px)', boxShadow: '0 12px 24px -12px rgba(91, 75, 227, 0.45)' },
-            }}
-          >
-            <Box component="img" src="/logo.png" alt="EdunexusAI" sx={{ height: 28, width: 'auto', maxWidth: 170, display: 'block' }} />
+          {/* Feddrick University is the identity; the intro's flying logo lands exactly here. */}
+          <Box ref={logoRef} sx={{ ...intro.styles.logo, display: 'inline-flex', alignItems: 'center' }}>
+            <InstitutionLogo inverse height={46} sx={{ filter: 'drop-shadow(0 4px 14px rgba(5, 8, 30, 0.55))' }} />
           </Box>
           <Stack direction="row" alignItems="center" spacing={1} sx={intro.styles.chrome}>
             <PWAInstallButton size="sm" label="Install App" />
-            <Chip
-              label="Demo University Portal"
-              variant="outlined"
-              sx={{ display: { xs: 'none', sm: 'inline-flex', md: 'none', lg: 'inline-flex' }, color: 'text.secondary', borderColor: 'divider', bgcolor: alpha('#FFFFFF', 0.7), backdropFilter: 'blur(6px)' }}
-            />
+            <Box sx={{ display: { xs: 'none', sm: 'flex', md: 'none', lg: 'flex' } }}>
+              <PoweredBy tone="dark" showLogo />
+            </Box>
           </Stack>
         </Stack>
 
         <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', py: { xs: 3, md: 2 } }}>
-          <Box ref={formRef} sx={{ width: '100%', maxWidth: 440, mx: { xs: 'auto', md: 0 }, ...intro.styles.form }}>
-            {/* Heading */}
-            <Box sx={enter(80)}>
-              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.25 }}>
-                <Box sx={{ width: 22, height: 3, borderRadius: 2, background: BRAND_GRADIENT }} />
-                <Typography variant="overline" sx={{ color: 'primary.main', lineHeight: 1 }}>
-                  Welcome back
-                </Typography>
-              </Stack>
-              <Typography variant="h2" component="h1" sx={{ fontSize: { xs: '1.75rem', sm: '1.95rem' }, letterSpacing: '-0.025em', mb: 1 }}>
-                Sign in to{' '}
-                <Box component="span" sx={{ background: 'linear-gradient(90deg, #4651DE, #7A4FD8)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
-                  Demo University
-                </Box>
-              </Typography>
-              <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 400 }}>
-                One university portal for students, faculty and administrators. Sign in to reach your courses, teaching tools, campus services and records.
-              </Typography>
-            </Box>
-
+          <Box sx={{ width: '100%', maxWidth: 456, mx: { xs: 'auto', md: 0 }, ...intro.styles.card }}>
             {/* Sign-in card */}
             <Box
               sx={{
-                ...enter(180),
-                mt: 3,
+                ...enter(120),
                 p: { xs: 2.25, sm: 3 },
                 borderRadius: '22px',
                 bgcolor: alpha('#FFFFFF', 0.86),
                 backdropFilter: 'blur(10px)',
                 border: '1px solid',
-                borderColor: alpha('#4651DE', 0.1),
+                borderColor: 'color-mix(in srgb, var(--enx-primary) 10%, transparent)',
                 boxShadow: '0 1px 2px rgba(18,24,51,0.04), 0 24px 48px -24px rgba(53, 46, 160, 0.25)',
               }}
             >
+              {/* Heading */}
+              <Box sx={{ mb: 2.5 }}>
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.25 }}>
+                  <Box sx={{ width: 22, height: 3, borderRadius: 2, background: BRAND_GRADIENT }} />
+                  <Typography variant="overline" sx={{ color: 'primary.main', lineHeight: 1 }}>
+                    Welcome back
+                  </Typography>
+                </Stack>
+                <Typography variant="h2" component="h1" sx={{ fontSize: { xs: '1.75rem', sm: '1.70rem' }, letterSpacing: '-0.025em', mb: 1 }}>
+                  Welcome to{' '}
+                  <Box component="span" sx={{ background: 'linear-gradient(90deg, var(--enx-primary), var(--enx-secondary))', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
+                    {institution.name}
+                  </Box>
+                </Typography>
+                <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 400 }}>
+                  The unified portal for Feddrick students, faculty and administrators: courses, teaching tools, campus services and records in one place.
+                </Typography>
+              </Box>
+
               {/* Demo personas. Clicking one fills the form; the backend still verifies it. */}
               <Typography variant="caption" component="div" sx={{ mb: 0.75, fontWeight: 600, fontSize: '0.6875rem', color: 'text.secondary', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                 Demo accounts
@@ -459,7 +433,7 @@ export const LoginPage = () => {
                       background: BRAND_GRADIENT,
                       backgroundSize: '220% 100%',
                       backgroundPosition: '0% 50%',
-                      boxShadow: `0 12px 24px -12px ${alpha('#4F46E5', 0.75)}, inset 0 1px 0 rgba(255,255,255,0.18)`,
+                      boxShadow: `0 12px 24px -12px ${alpha(theme.palette.primary.main, 0.75)}, inset 0 1px 0 rgba(255,255,255,0.18)`,
                       transition: 'transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 260ms ease, background-position 600ms ease',
                       '& .cta-arrow': { transition: 'transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1)' },
                       // A soft band of light sweeps across on hover.
@@ -479,7 +453,7 @@ export const LoginPage = () => {
                         backgroundSize: '220% 100%',
                         backgroundPosition: '100% 50%',
                         transform: 'translateY(-2px)',
-                        boxShadow: `0 18px 32px -14px ${alpha('#4F46E5', 0.85)}, inset 0 1px 0 rgba(255,255,255,0.2)`,
+                        boxShadow: `0 18px 32px -14px ${alpha(theme.palette.primary.main, 0.85)}, inset 0 1px 0 rgba(255,255,255,0.2)`,
                         '& .cta-arrow': { transform: 'translateX(3px)' },
                         '&::after': { transform: 'translateX(320%) skewX(-18deg)' },
                       },
@@ -499,76 +473,25 @@ export const LoginPage = () => {
                   </MuiButton>
                 </Stack>
               </Box>
+              <InstitutionSignIn error={ssoError} />
+              {/* <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
+                Thinking of applying or visiting? <Link component={RouterLink} to="/visit" sx={{ fontWeight: 600 }}>Explore without an account</Link>
+              </Typography> */}
             </Box>
           </Box>
         </Box>
 
-        {/* Phones: the campus story as a compact band below the form, never above it. */}
-        <Box
-          aria-hidden
-          sx={{
-            display: { xs: 'flex', md: 'none' },
-            alignItems: 'center',
-            gap: 1.5,
-            mb: 2.5,
-            mx: 'auto',
-            width: '100%',
-            maxWidth: 440,
-            p: 2,
-            borderRadius: '18px',
-            color: '#fff',
-            position: 'relative',
-            overflow: 'hidden',
-            background: 'linear-gradient(135deg, #161A52 0%, #2B1F70 55%, #4A33A8 100%)',
-            '&::before': { content: '""', position: 'absolute', inset: 0, background: 'radial-gradient(circle at 85% 20%, rgba(34,211,238,0.35), transparent 50%)' },
-            ...enter(320),
-            ...intro.styles.chrome,
-          }}
-        >
-          <Stack direction="row" sx={{ position: 'relative', flexShrink: 0 }}>
-            {[
-              [SchoolRoundedIcon, '#4651DE', '#7A4FD8'],
-              [AutoAwesomeRoundedIcon, '#6366F1', '#C084FC'],
-              [CoPresentRoundedIcon, '#0D9488', '#22D3EE'],
-            ].map(([Icon, from, to], index) => (
-              <Box key={index} sx={{ width: 32, height: 32, ml: index ? -0.75 : 0, borderRadius: '10px', display: 'grid', placeItems: 'center', background: `linear-gradient(135deg, ${from}, ${to})`, border: '2px solid #241C66', '& svg': { fontSize: 17 } }}>
-                <Icon />
-              </Box>
-            ))}
-          </Stack>
-          <Box sx={{ position: 'relative', minWidth: 0 }}>
-            <Typography sx={{ fontFamily: '"Rubik", sans-serif', fontWeight: 600, fontSize: '0.9375rem', lineHeight: 1.25 }}>One unified portal for campus life</Typography>
-            <Typography sx={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.72)' }}>Students, faculty and administrators in one place.</Typography>
-          </Box>
-        </Box>
-
         {/* Footer info */}
-        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="center" spacing={{ xs: 0.75, sm: 2 }} sx={{ color: 'text.secondary', pt: 2, borderTop: 1, borderColor: alpha('#4651DE', 0.08), ...enter(260), ...intro.styles.chrome }}>
-          <Typography variant="caption">© 2026 EdunexusAI Higher Education</Typography>
+        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="center" spacing={{ xs: 0.75, sm: 2 }} sx={{ color: 'rgba(235, 238, 255, 0.82)', pt: 2, borderTop: 1, borderColor: 'rgba(255, 255, 255, 0.16)', '& .MuiTypography-caption': { color: 'inherit' }, ...enter(260), ...intro.styles.chrome }}>
+          <Stack direction="row" alignItems="center" spacing={1.5} useFlexGap flexWrap="wrap" justifyContent="center">
+            <Typography variant="caption">© 2026 {institution.name}</Typography>
+            <PoweredBy tone="dark" sx={{ display: { xs: 'flex', sm: 'none', lg: 'none' } }} />
+          </Stack>
           <Stack direction="row" alignItems="center" spacing={0.5}>
-            <VerifiedUserOutlinedIcon sx={{ fontSize: 15, color: 'success.main' }} />
+            <VerifiedUserOutlinedIcon sx={{ fontSize: 15, color: '#6EE7B7' }} />
             <Typography variant="caption">256-Bit SSL Secured</Typography>
           </Stack>
         </Stack>
-      </Box>
-
-      {/* Campus experience */}
-      <Box
-        ref={sceneRef}
-        sx={{
-          position: { md: 'sticky' },
-          top: 0,
-          height: '100vh',
-          zIndex: 1,
-          flex: '1 1 auto',
-          minWidth: 0,
-          display: { xs: 'none', md: 'block' },
-          p: { md: 1.5, lg: 2 },
-          pl: { md: 0, lg: 0 },
-          ...intro.styles.scene,
-        }}
-      >
-        <CampusScene entranceDelay={intro.entranceDelay} />
       </Box>
 
       <LoginIntroOverlay intro={intro} />

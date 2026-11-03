@@ -16,6 +16,7 @@ import { Button } from '../common/Button';
 import { Badge } from '../common/Badge';
 import { ChoiceCard } from '../common/ChoiceCard';
 import { useAuth } from '../../context/AuthContext';
+import { sisStateLabel, useSisProfile } from '../../hooks/useSisProfile';
 
 const STEP_LABELS = ['Delivery', 'Recipient', 'Options', 'Review'];
 
@@ -35,6 +36,7 @@ const SummaryRow = ({ label, children, divider }) => (
 export const OfficialTranscriptRequestModal = ({ isOpen, onClose, onSubmitSuccess, onSubmitOrder }) => {
   // The consent text names the signed-in student rather than a hardcoded name.
   const { user } = useAuth();
+  const sis = useSisProfile();
   const [step, setStep] = useState(1);
   const [deliveryType, setDeliveryType] = useState('electronic'); // 'electronic' or 'paper'
   const [recipientName, setRecipientName] = useState('');
@@ -263,7 +265,7 @@ export const OfficialTranscriptRequestModal = ({ isOpen, onClose, onSubmitSucces
           {step === 4 && (
             <Stack spacing={2}>
               <Stack spacing={1} sx={{ bgcolor: 'background.subtle', border: 1, borderColor: 'divider', borderRadius: 3, p: 2 }}>
-                <SummaryRow label="Student:">{user?.fullName} ({user?.studentNumber})</SummaryRow>
+                <SummaryRow label="Student:">{user?.fullName} ({sis.student ? sis.student.institutionalId : sisStateLabel(sis.data, sis.loading)})</SummaryRow>
                 <SummaryRow label="Delivery Method:">
                   {deliveryType === 'electronic' ? 'Electronic PDF (Secure)' : 'Mailed Paper Hardcopy'}
                 </SummaryRow>

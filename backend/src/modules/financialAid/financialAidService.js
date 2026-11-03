@@ -159,6 +159,15 @@ export async function getFinancialAid(tenantId, studentProfileId, { userId } = {
     };
   }
 
+  // A package recorded by the portal itself (onboarding, before the aid system is
+  // connected) is the record of truth, not a stale copy of a provider's data.
+  if (cached.sourceSystem === 'EDUNEXUS') {
+    return {
+      ...presentCachedAid(cached),
+      meta: { source: 'PORTAL', sourceSystem: cached.sourceSystem, live: false, degraded: false, retrievedAt: cached.updatedAt },
+    };
+  }
+
   return {
     ...presentCachedAid(cached),
     meta: {

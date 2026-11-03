@@ -4,7 +4,8 @@ import { CalendarGrid } from '../../components/calendar/CalendarGrid';
 import { CalendarEventModal } from '../../components/calendar/CalendarEventModal';
 import { PageHeader } from '../../components/common/PageHeader';
 import { useApiQuery } from '../../hooks/useApiQuery';
-import { academicApi } from '../../services/api';
+import { sisApi } from '../../services/api';
+import { toCalendarEvents } from '../../components/sis/sisData';
 import { DataState } from '../../components/common/DataState';
 import { CalendarSyncPanel } from '../../components/calendar/CalendarSyncPanel';
 import { useAuth } from '../../context/AuthContext';
@@ -13,8 +14,9 @@ export const CalendarPage = () => {
   const [selectedCalendarEvent, setSelectedCalendarEvent] = useState(null);
   const { isAdmin, isStudent, can } = useAuth();
   const showSync = !isAdmin && (!isStudent || can('feature.calendar_sync'));
-  const { data, loading, error, refetch } = useApiQuery(() => academicApi.getCalendar());
-  const academicCalendarEvents = data ?? [];
+  // Official academic calendar: CampusCore SIS.
+  const { data, loading, error, refetch } = useApiQuery(() => sisApi.calendar());
+  const academicCalendarEvents = toCalendarEvents(data ?? []);
 
   return (
     <DataState
@@ -30,7 +32,7 @@ export const CalendarPage = () => {
         <Box>
           <PageHeader
             title="University Academic Calendar"
-            description="Official institutional term dates, registration deadlines, final examination periods, and holidays."
+            description="Official term dates, registration deadlines, examination periods and holidays from CampusCore SIS."
           />
 
           {showSync && (

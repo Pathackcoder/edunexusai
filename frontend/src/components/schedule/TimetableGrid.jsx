@@ -24,21 +24,29 @@ const Meta = ({ icon: Icon, children, color }) => (
   </Stack>
 );
 
-export const TimetableGrid = ({ courses }) => {
-  const [selectedDay, setSelectedDay] = useState('Monday');
-  const [viewMode, setViewMode] = useState('day'); // default to 'day' for immediate usability, with 'week' available
+const WEEK = [
+  { name: 'Monday', short: 'Mon' },
+  { name: 'Tuesday', short: 'Tue' },
+  { name: 'Wednesday', short: 'Wed' },
+  { name: 'Thursday', short: 'Thu' },
+  { name: 'Friday', short: 'Fri' },
+  { name: 'Saturday', short: 'Sat' },
+  { name: 'Sunday', short: 'Sun' },
+];
 
-  const daysOfWeek = [
-    { name: 'Monday', short: 'Mon' },
-    { name: 'Tuesday', short: 'Tue' },
-    { name: 'Wednesday', short: 'Wed' },
-    { name: 'Thursday', short: 'Thu' },
-    { name: 'Friday', short: 'Fri' }
-  ];
-
+/**
+ * Weekly timetable. Saturday and Sunday appear only when a class meets then. "Today" is the
+ * real weekday, and only when `showToday` (the timetable is for the current term).
+ */
+export const TimetableGrid = ({ courses, showToday = true }) => {
   const getCoursesForDay = (dayName) => {
     return courses.filter(c => c.days.includes(dayName));
   };
+  const daysOfWeek = WEEK.filter((d, i) => i < 5 || getCoursesForDay(d.name).length > 0);
+  const todayName = showToday ? new Date().toLocaleDateString('en-US', { weekday: 'long' }) : null;
+  const firstDayWithClasses = daysOfWeek.find((d) => getCoursesForDay(d.name).length)?.name ?? 'Monday';
+  const [selectedDay, setSelectedDay] = useState(todayName && daysOfWeek.some((d) => d.name === todayName) ? todayName : firstDayWithClasses);
+  const [viewMode, setViewMode] = useState('day'); // default to 'day' for immediate usability, with 'week' available
 
   const selectedDayCourses = getCoursesForDay(selectedDay);
 
@@ -50,7 +58,7 @@ export const TimetableGrid = ({ courses }) => {
           {daysOfWeek.map(day => {
             const count = getCoursesForDay(day.name).length;
             const isSelected = selectedDay === day.name;
-            const isToday = day.name === 'Monday'; // Fall 2026 simulation today
+            const isToday = day.name === todayName;
 
             return (
               <ButtonBase
@@ -127,7 +135,7 @@ export const TimetableGrid = ({ courses }) => {
         <Stack spacing={1.5}>
           <Stack direction="row" alignItems="center" justifyContent="space-between">
             <Typography variant="subtitle2">
-              Schedule for {selectedDay} {selectedDay === 'Monday' && '• Today'}
+              Schedule for {selectedDay} {selectedDay === todayName && '• Today'}
             </Typography>
             <Typography variant="caption">
               {selectedDayCourses.length} {selectedDayCourses.length === 1 ? 'class' : 'classes'}
@@ -192,10 +200,10 @@ export const TimetableGrid = ({ courses }) => {
       {/* VIEW MODE 2: 5-COLUMN WEEKLY GRID (hidden on phones) */}
       {viewMode === 'week' && (
         <Box sx={{ display: { xs: 'none', sm: 'block' }, width: '100%', overflowX: 'auto' }}>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(150px, 1fr))', gap: 1.5, width: '100%' }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${daysOfWeek.length}, minmax(150px, 1fr))`, gap: 1.5, width: '100%' }}>
             {daysOfWeek.map(day => {
               const dayCourses = getCoursesForDay(day.name);
-              const isToday = day.name === 'Monday';
+              const isToday = day.name === todayName;
 
               return (
                 <Box

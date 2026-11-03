@@ -1,5 +1,5 @@
 import { prisma } from '../../db/prisma.js';
-import { resolveEntitlements } from '../entitlements/entitlementService.js';
+import { resolveContextEntitlements } from '../entitlements/entitlementService.js';
 import * as academics from '../academics/academicsService.js';
 import * as finance from '../finance/financeService.js';
 import * as financialAid from '../financialAid/financialAidService.js';
@@ -7,6 +7,7 @@ import * as notifications from '../notifications/notificationService.js';
 import * as campus from '../campus/campusService.js';
 import { toNumber } from '../../utils/format.js';
 import * as planning from '../planning/planningService.js';
+import * as sis from '../sis/sisService.js';
 import { listMyRequests } from '../workflows/requestService.js';
 import { listMyTickets } from '../workflows/ticketService.js';
 import { listMyAppointments } from '../success/advisingService.js';
@@ -40,8 +41,10 @@ async function settle(key, loader) {
   }
 }
 
-export async function getStudentDashboard({ tenantId, userId, studentProfileId, tierId, roles }) {
-  const entitlements = await resolveEntitlements({ tenantId, roles, tierId });
+export async function getStudentDashboard(sessionAuth) {
+  const { tenantId, userId, studentProfileId, tierId, roles } = sessionAuth;
+  // Student context only: a person who also teaches gets no faculty widgets here.
+  const entitlements = await resolveContextEntitlements({ tenantId, context: 'student', tierId });
   const permitted = new Set(entitlements.widgets);
 
   const profile = await prisma.studentProfile.findFirst({
@@ -54,29 +57,48 @@ export async function getStudentDashboard({ tenantId, userId, studentProfileId, 
     if (permitted.has(key)) wanted.push(settle(key, loader));
   };
 
-  add('dashboard.schedule', () => academics.getScheduleForDay(tenantId, studentProfileId));
-  add('dashboard.progress', () => academics.getGrades(tenantId, studentProfileId));
+  // SIS-owned panels (schedule, GPA/credits/standing, calendar, degree progress) read CampusCore
+  // through sisService, never the deprecated local academic tables. One snapshot per request.
+  let snapshot = null;
+  const sisAcademic = () => (snapshot ??= sis.academicSnapshot(sessionAuth));
+
+  // Today's classes come from /sis/me/overview in the browser; this panel only names the day.
+  add('dashboard.schedule', async () => ({ source: 'campuscore', dayName: new Date().toLocaleDateString('en-US', { weekday: 'long' }), date: new Date().toISOString().slice(0, 10) }));
+  add('dashboard.progress', sisAcademic);
   add('dashboard.tuition', () => finance.getFinance(tenantId, studentProfileId));
   add('dashboard.assignments', () => academics.listAssignments(tenantId, studentProfileId));
   add('dashboard.financial_aid', () => financialAid.getFinancialAid(tenantId, studentProfileId, { userId }));
   add('dashboard.announcements', () => academics.listAnnouncements(tenantId, { userId, studentProfileId }));
   add('dashboard.notifications', () => notifications.listNotifications(tenantId, userId));
   add('dashboard.library', () => campus.getLibrary(tenantId, studentProfileId));
-  add('dashboard.calendar', () => academics.listAcademicEvents(tenantId));
+  add('dashboard.calendar', async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const events = await sis.calendar(sessionAuth, { from: today });
+    return events.slice(0, 12).map((event) => ({ id: event.id, title: event.title, date: event.startDate, endDate: event.endDate ?? null, category: event.category, location: null, isImportant: event.category === 'DEADLINE', source: 'campuscore' }));
+  });
 
   // Advanced-feature panels. Each one is a summary of a full page.
   const auth = { tenantId, userId, studentProfileId, roles, firstName: profile?.user?.firstName };
+  // CampusCore's API has no degree-audit endpoint, so this is credits against the program's
+  // required credits, with no requirement categories. Not linked or unavailable says so.
   add('dashboard.degree_progress', async () => {
-    const progress = await planning.getDegreeProgress(tenantId, studentProfileId);
+    const a = await sisAcademic();
+    if (a.state !== 'OK') return { source: 'campuscore', state: a.state, message: a.message ?? null };
+    const required = a.requiredCredits ?? null;
+    const completed = a.creditsEarned ?? 0;
+    const inProgress = a.creditsInProgress ?? 0;
+    const pct = (value) => (required ? Math.min(100, Math.round((value / required) * 100)) : null);
     return {
-      program: progress.program,
-      totalRequired: progress.totalRequired,
-      completedCredits: progress.completedCredits,
-      inProgressCredits: progress.inProgressCredits,
-      remainingCredits: progress.remainingCredits,
-      percentComplete: progress.percentComplete,
-      projectedPercent: progress.projectedPercent,
-      categories: progress.categories.map((cat) => ({ title: cat.title, required: cat.creditsRequired, completed: cat.creditsCompleted, inProgress: cat.creditsInProgress })),
+      source: 'campuscore',
+      state: 'OK',
+      program: a.program?.name ?? null,
+      totalRequired: required,
+      completedCredits: completed,
+      inProgressCredits: inProgress,
+      remainingCredits: required ? Math.max(0, required - completed) : null,
+      percentComplete: pct(completed),
+      projectedPercent: pct(completed + inProgress),
+      categories: [],
     };
   });
   add('dashboard.requests', async () => {
@@ -109,7 +131,8 @@ export async function getStudentDashboard({ tenantId, userId, studentProfileId, 
   return {
     persona: 'STUDENT',
     greetingName: profile?.user?.firstName ?? null,
-    term: profile?.currentTerm ?? null,
+    // The current term is CampusCore's (shown from the SIS schedule), not student_profiles.currentTerm.
+    term: null,
     tier: entitlements.tier,
     widgets: entitlements.widgetDetails
       .filter((widget) => widget.category === 'dashboard')
@@ -150,7 +173,7 @@ export async function getFacultyDashboard({ tenantId, userId }) {
 
   return {
     persona: 'FACULTY',
-    entitlements: (await resolveEntitlements({ tenantId, roles: ['FACULTY'] })).widgets,
+    entitlements: (await resolveContextEntitlements({ tenantId, context: 'faculty' })).widgets,
     layout: (await getLayout({ userId }, 'faculty')).order,
     courses: courses.map((course) => ({
       id: course.id,

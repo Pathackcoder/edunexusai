@@ -17,7 +17,9 @@ import { sendSuccess } from './utils/apiResponse.js';
 export function createApp() {
   const app = express();
 
-  app.set('trust proxy', 1);
+  // Reverse proxies in front of the API, so req.ip is the client's address (rate limits are per client). One for a
+  // single nginx; two when the browser reaches the API through a rewriting host (Vercel) and then nginx.
+  app.set('trust proxy', env.trustProxyHops);
   app.disable('x-powered-by');
 
   // Security headers. The API serves JSON plus the Swagger UI, so CSP is relaxed only

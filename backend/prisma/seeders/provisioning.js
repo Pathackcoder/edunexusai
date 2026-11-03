@@ -1,5 +1,4 @@
-import bcrypt from 'bcryptjs';
-import { env } from '../../src/config/env.js';
+import { hashPassword } from '../../src/modules/auth/passwords.js';
 import { DEMO_PASSWORDS } from './shared.js';
 import {
   getIntegrationByKey,
@@ -48,7 +47,7 @@ export async function provisionStudentsFromSis(prisma, tenant, { roles, tiers, a
     sisStudents = raw.map((record) => mockUniversityMapper.mapStudent(record));
   }
 
-  const passwordHash = await bcrypt.hash(DEMO_PASSWORDS.student, env.bcryptRounds);
+  const passwordHash = await hashPassword(DEMO_PASSWORDS.student);
   const tierList = [tiers.standard, tiers.advanced];
 
   let created = 0;

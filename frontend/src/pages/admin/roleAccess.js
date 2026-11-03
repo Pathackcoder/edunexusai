@@ -15,8 +15,19 @@ export const PERMISSIONS = {
   FACULTY: [
     'Read courses where they are instructor of record',
     'Read the enrolled roster for those courses',
+    'Grade enrolled students in those courses: save drafts, then publish to students',
     'Send notifications and post announcements to those courses',
     'No access to another instructor’s roster, and no student financial data',
+  ],
+  STAFF: [
+    'Staff view: campus news for staff, the academic calendar, staff resources, own requests',
+    'Needs a staff record (employee number): assigned by an administrator, or established by the university sign-in under the staff policy',
+    'No student records, no teaching data and no administration',
+  ],
+  ALUMNI: [
+    'Alumni view: campus events and calendar, alumni resources',
+    'Granted by an administrator or by the university sign-in under the institution’s alumni policy',
+    'No academic records and no administration',
   ],
   ADMIN: [
     'Manage users, roles and account status',
@@ -77,6 +88,9 @@ export const ROLE_DETAILS = {
       'Tenant-wide administration. Every /admin route requires the ADMIN role; admins are also allowed through faculty routes for support and demonstration.',
     more: [
       'Process service requests, forms and help desk tickets',
+      'Choose the institution’s portal theme and typography',
+      'Manage the Moodle LMS integration: account links, course shells, enrolments and retries',
+      'Manage the CampusCore SIS integration: student records, write capabilities and identity links (CampusCore enforces its own scopes and policies)',
       'Send broadcasts from the communication center and read the audit log',
       'Create and track student follow-ups (interventions)',
       'Manage shared help resources',

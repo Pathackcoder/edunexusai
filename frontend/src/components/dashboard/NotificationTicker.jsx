@@ -5,7 +5,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import ButtonBase from '@mui/material/ButtonBase';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import { alpha } from '@mui/material/styles';
+import { alpha, useTheme } from '@mui/material/styles';
 import NotificationsActiveRoundedIcon from '@mui/icons-material/NotificationsActiveRounded';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import { useNotifications } from '../../context/NotificationContext';
@@ -27,6 +27,7 @@ export function NotificationTicker() {
   const navigate = useNavigate();
   const { t } = useI18n();
   const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+  const theme = useTheme();
 
   // Unread first (newest first, as the API orders them); otherwise the latest notice.
   const items = useMemo(() => {
@@ -50,7 +51,8 @@ export function NotificationTicker() {
 
   if (!items.length) return null;
   const active = items[Math.min(index, items.length - 1)];
-  const accent = isUrgent(active) ? '#D97706' : '#4F46E5';
+  const brandColor = theme.palette.primary.main;
+  const accent = isUrgent(active) ? '#D97706' : brandColor;
 
   return (
     <Box
@@ -89,7 +91,7 @@ export function NotificationTicker() {
           display: 'grid',
           placeItems: 'center',
           color: '#fff',
-          background: isUrgent(active) ? 'linear-gradient(135deg, #D97706, #F59E0B)' : 'linear-gradient(135deg, #4651DE, #7A4FD8)',
+          background: isUrgent(active) ? 'linear-gradient(135deg, #D97706, #F59E0B)' : `linear-gradient(135deg, ${brandColor}, ${theme.palette.secondary.main})`,
           boxShadow: `0 6px 12px -6px ${alpha(accent, 0.8)}`,
           transition: 'background 300ms ease',
           '& svg': { fontSize: 16 },
@@ -190,8 +192,8 @@ export function NotificationTicker() {
           whiteSpace: 'nowrap',
           transition: 'background-color 200ms ease',
           '& svg': { fontSize: 16, transition: 'transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)' },
-          '&:hover': { bgcolor: alpha('#4F46E5', 0.08), '& svg': { transform: 'translateX(2px)' } },
-          '&:focus-visible': { outline: `2px solid ${alpha('#4F46E5', 0.5)}` },
+          '&:hover': { bgcolor: alpha(brandColor, 0.08), '& svg': { transform: 'translateX(2px)' } },
+          '&:focus-visible': { outline: `2px solid ${alpha(brandColor, 0.5)}` },
         }}
       >
         {t('View all')}

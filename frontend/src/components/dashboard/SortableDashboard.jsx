@@ -2,10 +2,10 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
-import { alpha, useTheme } from '@mui/material/styles';
-import useMediaQuery from '@mui/material/useMediaQuery';
+import { alpha } from '@mui/material/styles';
 import DragHandleRoundedIcon from '@mui/icons-material/DragHandleRounded';
 import { FadeIn } from '../common/Skeletons';
+import { WidgetSlotContext } from '../common/widgetSlot';
 import { dashboardApi } from '../../services/api';
 import { useI18n } from '../../i18n';
 
@@ -20,7 +20,11 @@ import { useI18n } from '../../i18n';
  * - On drop the card settles into place and the order is saved for this user
  *   (PUT /dashboard/layout/:key). Arrow keys on the grip reorder without a mouse.
  *
- * items: [{ key, span: { md, lg, xl? }, node }]
+ * items: [{ key, span: { md, lg, xl? }, size?: 'compact' | 'standard' | 'large', node }]
+ *
+ * Sized widgets get a fixed outer height from tablet up (WIDGET_HEIGHTS) so comparable
+ * cards line up; the card's own layout distributes that space. Phones keep natural
+ * heights. Items without a size keep their measured natural height.
  */
 
 const INTERACTIVE = 'button, a, input, textarea, select, label, [role="button"], [role="link"], [role="tab"], [role="checkbox"], [contenteditable="true"], .MuiChip-clickable, [data-no-drag]';
@@ -30,15 +34,29 @@ const THRESHOLD = 6;
 // so a short card is never stretched to match a tall neighbour.
 const ROW_UNIT = 4;
 const GAP = 16;
-// Usable width at which the dashboard switches from three to four columns. Measured on the
-// grid itself (not the viewport) so it follows the sidebar collapsing and expanding.
-const WIDE_MIN_WIDTH = 1280;
+// Standard widget footprints (heights in px, tablet and up). Compact is half a standard
+// card (two compacts plus the gap equal one standard), and large is the wide two-column
+// footprint at standard height, so every row of the dashboard shares one rhythm.
+export const WIDGET_HEIGHTS = { compact: 140, standard: 296, large: 296 };
 
-/** Four-column tier: a third becomes a quarter and two thirds becomes a half, unless set. */
-const wideSpan = (span) => {
-  if (span.xl) return span.xl;
-  const lg = span.lg ?? span.md ?? 12;
-  return lg === 4 || lg === 8 ? (lg * 3) / 4 : lg;
+// Columns come from the grid's own width (not the viewport), so opening or closing the
+// sidebar reflows the cards. A column is never narrower than MIN_COLUMN, which keeps card
+// titles and content readable; extra width makes cards wider until another column fits.
+const MIN_COLUMN = 340;
+export const columnsFor = (width) => {
+  for (const count of [4, 3, 2]) if (width >= count * MIN_COLUMN + (count - 1) * GAP) return count;
+  return 1;
+};
+
+/**
+ * Width in 12-track units for a card in a grid of `columns`. Sized cards: standard and
+ * compact take one column, large takes two. Unsized cards keep their lg span's share.
+ */
+const trackSpan = (item, columns) => {
+  const per = 12 / columns;
+  if (item?.size) return per * (item.size === 'large' ? Math.min(2, columns) : 1);
+  const share = (item?.span?.lg ?? item?.span?.md ?? 12) / 12;
+  return per * Math.max(1, Math.min(columns, Math.round(share * columns - 0.2)));
 };
 
 /** Merge the saved order with the widgets the user is entitled to right now. */
@@ -162,16 +180,13 @@ export function packLayout(keys, { widthOf, heightOf, columns = 12, lookAhead = 
 }
 
 export function SortableDashboard({ items, order, onOrderChange, ariaLabel = 'Dashboard widgets', disabled = false }) {
-  const theme = useTheme();
-  const isLg = useMediaQuery(theme.breakpoints.up('lg'));
-  const isMd = useMediaQuery(theme.breakpoints.up('md'));
   const { t } = useI18n();
   const byKey = useMemo(() => new Map(items.map((item) => [item.key, item])), [items]);
   const [localOrder, setLocalOrder] = useState(order);
   const [draggingKey, setDraggingKey] = useState(null);
   const [settlingKey, setSettlingKey] = useState(null);
   const [spans, setSpans] = useState({});
-  const [isWide, setIsWide] = useState(false);
+  const [columns, setColumns] = useState(3);
 
   const containerRef = useRef(null);
   const slots = useRef(new Map());
@@ -189,11 +204,25 @@ export function SortableDashboard({ items, order, onOrderChange, ariaLabel = 'Da
 
   const visible = localOrder.filter((key) => byKey.has(key));
 
-  // Track the grid's own width to pick the column tier.
+  // Track the grid's own width to pick the column count. When it changes (the sidebar
+  // opening or closing, a window resize), remember where every card was so they glide to
+  // their new places instead of jumping.
+  const snapshotRef = useRef(null);
+  const columnsRef = useRef(columns);
   useLayoutEffect(() => {
     const el = containerRef.current;
     if (!el) return undefined;
-    const check = () => setIsWide(el.clientWidth >= WIDE_MIN_WIDTH);
+    let first = true;
+    const check = () => {
+      const next = columnsFor(el.clientWidth);
+      if (next !== columnsRef.current) {
+        // The initial measurement just sets the layout; later changes animate.
+        if (!first && !drag.current?.started) snapshotRef.current?.();
+        columnsRef.current = next;
+        setColumns(next);
+      }
+      first = false;
+    };
     check();
     if (typeof ResizeObserver === 'undefined') return undefined;
     const observer = new ResizeObserver(check);
@@ -231,6 +260,7 @@ export function SortableDashboard({ items, order, onOrderChange, ariaLabel = 'Da
     visible.forEach((key) => map.set(key, layoutOf(key)));
     previous.current = map;
   };
+  snapshotRef.current = snapshot;
 
   const applyDragTransform = useCallback(() => {
     const state = drag.current;
@@ -267,7 +297,7 @@ export function SortableDashboard({ items, order, onOrderChange, ariaLabel = 'Da
       });
     });
     applyDragTransform();
-  }, [localOrder]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [localOrder, columns]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const moveKey = (key, toIndex) => {
     const current = orderRef.current.filter((item) => byKey.has(item));
@@ -425,15 +455,33 @@ export function SortableDashboard({ items, order, onOrderChange, ariaLabel = 'Da
     }
   };
 
-  // Width of each card at the current breakpoint, in 12-column units.
-  const widthOf = (key) => {
-    const span = byKey.get(key)?.span ?? { md: 12 };
-    if (!isMd) return 12;
-    if (isLg && isWide) return wideSpan(span);
-    if (isLg) return span.lg ?? span.md ?? 12;
-    return span.md ?? 12;
+  // Width of each card for the current column count, in 12-track units.
+  const widthOf = (key) => trackSpan(byKey.get(key), columns);
+  // Fixed outer height for sized widgets in multi-column layouts; a single stacked column
+  // (phones) keeps natural heights.
+  const fixedHeight = (key) => {
+    const size = byKey.get(key)?.size;
+    return columns > 1 && size ? WIDGET_HEIGHTS[size] ?? null : null;
   };
-  const placement = packLayout(visible, { widthOf, heightOf: (key) => spans[key] ?? 1 });
+  const heightOf = (key) => {
+    const fixed = fixedHeight(key);
+    return fixed ? Math.round((fixed + GAP) / ROW_UNIT) : spans[key] ?? 1;
+  };
+  const placement = packLayout(visible, { widthOf, heightOf });
+  // Stable context values per slot so cards only re-render when their size state changes.
+  const slotValues = useRef(new Map());
+  const slotValue = (key) => {
+    const size = byKey.get(key)?.size ?? null;
+    const fixed = Boolean(fixedHeight(key));
+    // Optional title/subtitle override from a published CMS dashboard layout (null otherwise).
+    const presentation = byKey.get(key)?.presentation ?? null;
+    const id = `${size}|${fixed}|${presentation?.title ?? ''}|${presentation?.subtitle ?? ''}`;
+    const cached = slotValues.current.get(key);
+    if (cached?.id === id) return cached.value;
+    const value = { size, fixed, presentation };
+    slotValues.current.set(key, { id, value });
+    return value;
+  };
 
   return (
     <Box
@@ -489,6 +537,7 @@ export function SortableDashboard({ items, order, onOrderChange, ariaLabel = 'Da
                 position: 'relative',
                 minWidth: 0,
                 display: 'flex',
+                height: fixedHeight(key) ?? 'auto',
                 zIndex: isDragging ? 20 : settlingKey === key ? 10 : 'auto',
                 cursor: disabled ? 'default' : isDragging ? 'grabbing' : 'grab',
                 willChange: isDragging ? 'transform' : 'auto',
@@ -503,7 +552,9 @@ export function SortableDashboard({ items, order, onOrderChange, ariaLabel = 'Da
                 '&:hover .drag-grip, &:focus-within .drag-grip, &.is-dragging .drag-grip': { opacity: 1 },
               })}
             >
-              <FadeIn delay={Math.min(visible.indexOf(key), 8) * 45} sx={{ width: '100%', display: 'flex' }}>{item.node}</FadeIn>
+              <WidgetSlotContext.Provider value={slotValue(key)}>
+                <FadeIn delay={Math.min(visible.indexOf(key), 8) * 45} sx={{ width: '100%', display: 'flex' }}>{item.node}</FadeIn>
+              </WidgetSlotContext.Provider>
               {!disabled && (
               <Tooltip title={`${t('Drag to reorder')} · ${item.label ?? key}`} placement="top" disableInteractive>
                 <IconButton

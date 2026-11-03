@@ -7,6 +7,7 @@ import Skeleton from '@mui/material/Skeleton';
 import { DarkSurface } from '../common/DarkSurface';
 import { SortableDashboard } from './SortableDashboard';
 import { WidgetSkeleton } from '../common/Skeletons';
+import { StatCard } from '../common/StatCard';
 
 /**
  * Persona hero banner (student, faculty, admin) in the EdunexusAI dark-surface language:
@@ -17,31 +18,31 @@ export const heroChipSx = {
   border: '1px solid rgba(255,255,255,0.14)',
   color: 'rgba(255,255,255,0.92)',
   backdropFilter: 'blur(8px)',
-  '& .MuiChip-icon': { color: '#A5F3FC' },
+  '& .MuiChip-icon': { color: 'var(--enx-accent)' },
   '&.MuiChip-clickable:hover': { bgcolor: 'rgba(255,255,255,0.14)' },
 };
 
-export function HeroBanner({ eyebrow, title, highlight, description, chips, aside, children, sx }) {
+export function HeroBanner({ eyebrow, title, highlight, description, chips, aside, children, dense = false, sx }) {
   return (
-    <DarkSurface glow="both" sx={{ borderRadius: '22px', px: { xs: 2.5, sm: 3.5 }, py: { xs: 2.25, sm: 2.5 }, boxShadow: '0 22px 50px -28px rgba(20, 24, 80, 0.8)', ...sx }}>
+    <DarkSurface glow="both" sx={{ borderRadius: '22px', px: { xs: 2, sm: dense ? 3 : 3.5 }, py: dense ? { xs: 1.5, sm: 1.75 } : { xs: 2, sm: 2.25 }, boxShadow: '0 22px 50px -28px rgba(20, 24, 80, 0.8)', ...sx }}>
       <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ md: 'center' }} spacing={3}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           {eyebrow && (
             <Chip
               label={eyebrow}
-              sx={{ mb: 1, color: '#fff', fontWeight: 700, backgroundImage: 'linear-gradient(115deg, #4F46E5, #7C3AED)', boxShadow: '0 6px 16px -8px rgba(124, 58, 237, 0.9)' }}
+              sx={{ mb: dense ? 0.75 : 1, color: '#fff', fontWeight: 700, backgroundImage: 'linear-gradient(115deg, var(--enx-primary), var(--enx-secondary))', boxShadow: '0 6px 16px -8px color-mix(in srgb, var(--enx-secondary) 90%, transparent)' }}
             />
           )}
-          <Typography variant="h2" component="h1" sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem', lg: '1.9375rem' }, letterSpacing: '-0.025em', color: '#fff' }}>
+          <Typography variant="h2" component="h1" sx={{ fontSize: { xs: '1.4rem', sm: '1.625rem', lg: '1.75rem' }, letterSpacing: '-0.025em', color: '#fff' }}>
             {title}
             {highlight && (
-              <Box component="span" sx={{ backgroundImage: 'linear-gradient(90deg, #67E8F9, #C4B5FD)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
+              <Box component="span" sx={{ backgroundImage: 'linear-gradient(90deg, var(--enx-accent), color-mix(in srgb, var(--enx-accent) 55%, #FFFFFF))', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
                 {highlight}
               </Box>
             )}
           </Typography>
           {description && (
-            <Typography variant="body1" sx={{ mt: 0.5, maxWidth: 720, color: 'text.secondary' }}>
+            <Typography variant="body1" sx={{ mt: dense ? 0.25 : 0.5, maxWidth: 720, color: 'text.secondary' }}>
               {description}
             </Typography>
           )}
@@ -58,6 +59,27 @@ export function HeroBanner({ eyebrow, title, highlight, description, chips, asid
   );
 }
 
+/**
+ * The stat row inside a dense persona banner (faculty teaching summary, admin population).
+ * One row from tablet up, two columns on phones; compact tiles keep the label, value,
+ * icon and supporting line at their usual type sizes.
+ */
+export const HeroStats = ({ stats, label }) => (
+  <Box
+    aria-label={label}
+    sx={{
+      mt: { xs: 1.5, sm: 1.75 },
+      display: 'grid',
+      gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: `repeat(${stats.length}, minmax(0, 1fr))` },
+      gap: { xs: 1, sm: 1.25 },
+    }}
+  >
+    {stats.map((stat) => (
+      <StatCard key={stat.label} density="compact" title={stat.label} value={stat.value ?? 0} subtitle={stat.hint} icon={stat.icon} tone={stat.tone} to={stat.to ?? undefined} />
+    ))}
+  </Box>
+);
+
 /** Banner placeholder with the same footprint as HeroBanner. */
 export const HeroSkeleton = () => (
   <DarkSurface glow="both" sx={{ borderRadius: '22px', px: { xs: 2.5, sm: 3.5 }, py: { xs: 2.25, sm: 2.5 } }}>
@@ -73,7 +95,7 @@ export const HeroSkeleton = () => (
 /**
  * Whole-dashboard placeholder: banner + widget skeletons packed by the same layout engine
  * as the real dashboard, so nothing jumps when data arrives.
- * widgets: [{ kind, span, rows }]
+ * widgets: [{ kind, span, rows, size }]
  */
 export const DashboardSkeleton = ({ widgets, hero = true, banner }) => (
   <Stack spacing={{ xs: 2, md: 2.25 }} aria-hidden>
@@ -84,6 +106,7 @@ export const DashboardSkeleton = ({ widgets, hero = true, banner }) => (
       items={widgets.map((widget, index) => ({
         key: `skeleton-${index}`,
         span: widget.span ?? { md: 6, lg: 4 },
+        size: widget.size ?? 'standard',
         node: <WidgetSkeleton kind={widget.kind} rows={widget.rows} />,
       }))}
     />

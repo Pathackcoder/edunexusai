@@ -2,6 +2,7 @@ import { app } from './app.js';
 import { env } from './config/env.js';
 import { checkDatabase, disconnect } from './db/prisma.js';
 import { logger } from './utils/logger.js';
+import { attachChatSocket, closeChatSocket } from './modules/chat/chatSocket.js';
 
 const server = app.listen(env.port, async () => {
   const database = await checkDatabase();
@@ -9,6 +10,7 @@ const server = app.listen(env.port, async () => {
   logger.info(`  API base    http://localhost:${env.port}/api/v1`);
   logger.info(`  Swagger UI  http://localhost:${env.port}/api-docs`);
   logger.info(`  Health      http://localhost:${env.port}/api/v1/health`);
+  logger.info(`  Realtime    ws://localhost:${env.port}/socket.io (portal chat)`);
   logger.info(`  Database    ${database.connected ? 'connected' : 'NOT CONNECTED'}`);
   logger.info(`  Read mode   academics=${env.integrations.academicReadMode}`);
   if (!database.connected) {
@@ -18,9 +20,13 @@ const server = app.listen(env.port, async () => {
   }
 });
 
+// Portal chat (Socket.IO) shares this HTTP server and port.
+attachChatSocket(server);
+
 /** Close connections cleanly so `node --watch` restarts do not leak them. */
 const shutdown = async (signal) => {
   logger.info(`${signal} received, shutting down.`);
+  closeChatSocket();
   server.close(async () => {
     await disconnect();
     process.exit(0);

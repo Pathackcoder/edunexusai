@@ -14,6 +14,9 @@ import { useToast } from '../common/Toast';
 import { useApiQuery } from '../../hooks/useApiQuery';
 import { advisingApi, interventionApi, workflowApi } from '../../services/api';
 import { statusTone } from '../workflows/status';
+import { CardFootnote } from '../common/Section';
+import { FitList, Spotlight, WidgetEmpty } from '../common/FitList';
+import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
 
 /**
  * Faculty dashboard widgets. Each is self-contained so the dashboard can render them as
@@ -21,36 +24,122 @@ import { statusTone } from '../workflows/status';
  */
 
 export function RosterWidget({ courses }) {
+  const students = courses.reduce((sum, course) => sum + (course.enrolledCount ?? 0), 0);
   return (
     <WidgetCard title="My students & groups" subtitle="Your assigned sections · roster and class communication" icon={GroupsOutlinedIcon} tone="communication" accentBorder="top">
-      <Stack spacing={1.5}>
-        {courses.length === 0 && <Typography color="text.secondary">No assigned sections yet.</Typography>}
-        {courses.map((course) => (
-          <Box key={course.id} sx={{ p: 1.5, bgcolor: 'secondary.lighter', borderRadius: 3 }}>
-            <Stack direction="row" justifyContent="space-between"><Typography fontWeight={600}>{course.code}</Typography><Chip label={`${course.enrolledCount} enrolled`} /></Stack>
-            <Typography variant="body2" color="text.secondary">{course.name}</Typography>
-            <Button component={RouterLink} to={`/faculty/courses/${course.id}`} size="small" sx={{ mt: 1 }}>Open roster & message class</Button>
-          </Box>
-        ))}
-      </Stack>
+      {courses.length === 0 ? (
+        <WidgetEmpty icon={GroupsOutlinedIcon} tone="communication" title="No assigned sections yet">
+          Sections you teach this term will appear here with their rosters.
+        </WidgetEmpty>
+      ) : (
+        <FitList
+          items={courses}
+          max={4}
+          gap={1.25}
+          moreTo="/faculty/courses"
+          moreLabel="more sections"
+          renderSpotlight={(course) => (
+            <Spotlight
+              tone="secondary"
+              eyebrow={course.code}
+              title={`${course.enrolledCount} student${course.enrolledCount === 1 ? '' : 's'} enrolled`}
+              subtitle={course.name}
+              action={<Button component={RouterLink} to={`/faculty/courses/${course.id}`} size="small" variant="outlined">Open roster & message class</Button>}
+            />
+          )}
+          renderItem={(course) => (
+            <Box sx={{ p: 1.5, bgcolor: 'secondary.lighter', borderRadius: 3 }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+                <Typography fontWeight={600}>{course.code}</Typography>
+                <Chip size="small" label={`${course.enrolledCount} enrolled`} />
+              </Stack>
+              <Typography variant="body2" color="text.secondary">{course.name}</Typography>
+              <Button component={RouterLink} to={`/faculty/courses/${course.id}`} size="small" sx={{ mt: 0.5, ml: -1 }}>Open roster & message class</Button>
+            </Box>
+          )}
+        />
+      )}
+      {courses.length > 0 && (
+        <CardFootnote icon={GroupsOutlinedIcon}>
+          <strong>{students} student{students === 1 ? '' : 's'}</strong> across {courses.length} section{courses.length === 1 ? '' : 's'}
+        </CardFootnote>
+      )}
     </WidgetCard>
+  );
+}
+
+const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+/** Mon–Fri strip with the section's meeting days highlighted (from course.days). */
+function WeekStrip({ days }) {
+  const meets = new Set(days.map((day) => String(day).toLowerCase()));
+  return (
+    <Stack direction="row" spacing={0.75} sx={{ mt: 1.25 }} aria-label={`Meets ${days.join(' and ') || 'on days to be confirmed'}`}>
+      {WEEKDAYS.map((day) => {
+        const on = meets.has(day.toLowerCase()) || meets.has(day.slice(0, 3).toLowerCase());
+        return (
+          <Box
+            key={day}
+            aria-hidden
+            sx={{
+              flex: 1,
+              py: 0.5,
+              borderRadius: '8px',
+              textAlign: 'center',
+              typography: 'caption',
+              fontWeight: 700,
+              color: on ? '#fff' : 'text.secondary',
+              background: on ? 'linear-gradient(135deg, #1C7ED6, #22D3EE)' : 'transparent',
+              border: 1,
+              borderColor: on ? 'transparent' : 'divider',
+            }}
+          >
+            {day.slice(0, 3)}
+          </Box>
+        );
+      })}
+    </Stack>
   );
 }
 
 export function TeachingScheduleWidget({ courses }) {
   return (
     <WidgetCard title="Teaching schedule & office hours" icon={EventNoteOutlinedIcon} tone="campus" accentBorder="left" actionLabel="Weekly schedule" actionTo="/faculty/schedule">
-      <Stack spacing={2}>
-        {courses.length === 0 && <Typography color="text.secondary">No office hours published.</Typography>}
-        {courses.map((course) => (
-          <Box key={course.id} sx={{ borderLeft: 3, borderColor: 'info.main', pl: 2 }}>
-            <Typography variant="overline">{course.code} · {(course.days ?? []).join(' / ')}</Typography>
-            <Typography fontWeight={600}>{course.time || 'Time to be confirmed'}</Typography>
-            <Typography variant="body2" color="text.secondary">{course.room}</Typography>
-            <Typography variant="body2" sx={{ mt: 1 }}>Office hours: {course.officeHours || 'Not published'}</Typography>
-          </Box>
-        ))}
-      </Stack>
+      {courses.length === 0 ? (
+        <WidgetEmpty icon={EventNoteOutlinedIcon} tone="campus" title="No teaching times yet">
+          Class meetings and office hours appear here once your sections are scheduled.
+        </WidgetEmpty>
+      ) : (
+        <FitList
+          items={courses}
+          max={4}
+          gap={2}
+          moreTo="/faculty/schedule"
+          moreLabel="more sections"
+          renderSpotlight={(course) => (
+            <Spotlight
+              tone="info"
+              eyebrow={course.code}
+              title={course.time || 'Time to be confirmed'}
+              meta={[course.room && { icon: PlaceOutlinedIcon, label: course.room }]}
+            >
+              <WeekStrip days={course.days ?? []} />
+            </Spotlight>
+          )}
+          renderItem={(course) => (
+            <Box sx={{ borderLeft: 3, borderColor: 'info.main', pl: 2 }}>
+              <Typography variant="overline" component="p">{course.code} · {(course.days ?? []).join(' / ')}</Typography>
+              <Typography fontWeight={600}>{course.time || 'Time to be confirmed'}</Typography>
+              <Typography variant="body2" color="text.secondary">{course.room}</Typography>
+            </Box>
+          )}
+        />
+      )}
+      {courses.length > 0 && (
+        <CardFootnote icon={EventNoteOutlinedIcon}>
+          Office hours: <strong>{courses.find((course) => course.officeHours)?.officeHours || 'Not published'}</strong>
+        </CardFootnote>
+      )}
     </WidgetCard>
   );
 }
@@ -137,25 +226,40 @@ export function FollowUpsWidget({ courses }) {
         tone="warning"
         headerAction={<Stack direction="row" spacing={0.5}><Button size="small" component={RouterLink} to="/faculty/interventions">View all</Button><Button size="small" variant="contained" onClick={() => setOpen(true)}>Add</Button></Stack>}
       >
-        <DataState loading={loading} error={error} onRetry={refetch} minHeight={100}>
-          {() => (
-            <Stack spacing={1}>
-              {items.length === 0 && <Typography color="text.secondary">Your follow-up list is clear. Add a task, advising note, concern or referral.</Typography>}
-              {items.slice(0, 5).map((task) => (
-                <Stack key={task.id} direction="row" alignItems="flex-start" spacing={1} sx={{ p: 1, bgcolor: 'background.subtle', borderRadius: 2, border: 1, borderColor: 'divider' }}>
-                  <Checkbox checked={task.status === 'RESOLVED'} inputProps={{ 'aria-label': `Complete ${task.title}` }} onChange={() => toggle(task)} />
-                  <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <Typography fontWeight={600} sx={{ textDecoration: task.status === 'RESOLVED' ? 'line-through' : 'none' }}>{task.title}</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {task.typeLabel} · {task.subject}{task.course ? ` · ${task.course.code}` : ''} · {task.dueDate || 'No due date'}
-                    </Typography>
-                    {task.note && <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>{task.note}</Typography>}
-                  </Box>
-                  <Badge variant={task.status === 'IN_PROGRESS' ? 'info' : 'warning'}>{task.status === 'IN_PROGRESS' ? 'In progress' : 'Follow-up'}</Badge>
-                </Stack>
-              ))}
-            </Stack>
-          )}
+        <DataState loading={loading} error={error} onRetry={refetch} minHeight={100} fill>
+          {() =>
+            items.length === 0 ? (
+              <WidgetEmpty
+                icon={TaskAltOutlinedIcon}
+                tone="warning"
+                title="Your follow-up list is clear"
+                action={<Button size="small" variant="outlined" onClick={() => setOpen(true)}>Add a follow-up</Button>}
+              >
+                Add a task, advising note, concern or referral.
+              </WidgetEmpty>
+            ) : (
+              <FitList
+                items={items}
+                max={6}
+                columns={{ xs: 1, sm: 2 }}
+                moreTo="/faculty/interventions"
+                moreLabel="more follow-ups"
+                renderItem={(task) => (
+                  <Stack direction="row" alignItems="flex-start" spacing={1} sx={{ p: 1, height: '100%', bgcolor: 'background.subtle', borderRadius: 2, border: 1, borderColor: 'divider' }}>
+                    <Checkbox checked={task.status === 'RESOLVED'} inputProps={{ 'aria-label': `Complete ${task.title}` }} onChange={() => toggle(task)} sx={{ p: 0.5 }} />
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Typography fontWeight={600} sx={{ textDecoration: task.status === 'RESOLVED' ? 'line-through' : 'none' }}>{task.title}</Typography>
+                      <Typography variant="caption" color="text.secondary" component="p">
+                        {task.typeLabel} · {task.subject}{task.course ? ` · ${task.course.code}` : ''} · {task.dueDate || 'No due date'}
+                      </Typography>
+                      {task.note && <Typography variant="body2" color="text.secondary">{task.note}</Typography>}
+                    </Box>
+                    <Badge variant={task.status === 'IN_PROGRESS' ? 'info' : 'warning'}>{task.status === 'IN_PROGRESS' ? 'In progress' : 'Follow-up'}</Badge>
+                  </Stack>
+                )}
+              />
+            )
+          }
         </DataState>
       </WidgetCard>
       <FollowUpDialog open={open} courses={courses} onClose={() => setOpen(false)} onSaved={() => { setOpen(false); refetch(); }} />
@@ -167,26 +271,45 @@ export function FacultyAdvisingWidget() {
   const { data, loading, error, refetch } = useApiQuery(() => advisingApi.appointments());
   const upcoming = data?.upcoming ?? [];
   return (
-    <WidgetCard title="Advising appointments" subtitle={`${upcoming.length} upcoming`} icon={VideoCallOutlinedIcon} tone="purple" actionLabel="Manage availability" actionTo="/faculty/advising">
-      <DataState loading={loading} error={error} onRetry={refetch} minHeight={100}>
-        {() => (
-          <Stack spacing={1}>
-            {upcoming.length === 0 && <Typography color="text.secondary">No upcoming appointments. Publish availability so students can book you.</Typography>}
-            {upcoming.slice(0, 4).map((appt) => (
-              <Stack key={appt.id} direction="row" spacing={1.5} alignItems="center" sx={{ p: 1.25, borderRadius: 2.5, border: 1, borderColor: 'divider', bgcolor: 'background.subtle' }}>
+    <WidgetCard title="Advising appointments" subtitle={`${upcoming.length} upcoming`} icon={VideoCallOutlinedIcon} tone="purple" actionLabel="Availability" actionTo="/faculty/advising">
+      <DataState loading={loading} error={error} onRetry={refetch} minHeight={100} fill>
+        {() =>
+          upcoming.length === 0 ? (
+            <WidgetEmpty icon={VideoCallOutlinedIcon} tone="purple" title="No upcoming appointments">
+              Publish availability so students can book time with you.
+            </WidgetEmpty>
+          ) : (
+            <FitList
+              items={upcoming}
+              max={4}
+              moreTo="/faculty/advising"
+              moreLabel="more appointments"
+              renderSpotlight={(appt) => (
+                <Spotlight
+                  tone="secondary"
+                  eyebrow={new Date(appt.startsAt).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                  title={appt.student.name}
+                  subtitle={appt.topic}
+                  aside={<Badge variant={appt.mode === 'VIRTUAL' ? 'info' : 'neutral'}>{appt.mode === 'VIRTUAL' ? 'Virtual' : 'In person'}</Badge>}
+                  action={appt.meetingUrl ? <Button size="small" href={appt.meetingUrl} target="_blank" rel="noopener noreferrer" sx={{ ml: -1 }}>Join virtual meeting</Button> : null}
+                />
+              )}
+              renderItem={(appt) => (
+              <Stack direction="row" spacing={1.5} alignItems="center" sx={{ p: 1.25, borderRadius: 2.5, border: 1, borderColor: 'divider', bgcolor: 'background.subtle' }}>
                 <Box sx={{ px: 1, py: 0.5, borderRadius: 2, bgcolor: 'secondary.lighter', color: 'secondary.dark', textAlign: 'center', minWidth: 54 }}>
                   <Typography variant="caption" fontWeight={700} display="block">{new Date(appt.startsAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</Typography>
                   <Typography variant="caption">{new Date(appt.startsAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</Typography>
                 </Box>
                 <Box sx={{ minWidth: 0, flex: 1 }}>
-                  <Typography variant="subtitle2" noWrap>{appt.student.name}</Typography>
-                  <Typography variant="caption" color="text.secondary" noWrap display="block">{appt.topic}</Typography>
+                  <Typography variant="subtitle2">{appt.student.name}</Typography>
+                  <Typography variant="caption" color="text.secondary" display="block">{appt.topic}</Typography>
                 </Box>
                 <Badge variant={appt.mode === 'VIRTUAL' ? 'info' : 'neutral'}>{appt.mode === 'VIRTUAL' ? 'Virtual' : 'In person'}</Badge>
               </Stack>
-            ))}
-          </Stack>
-        )}
+              )}
+            />
+          )
+        }
       </DataState>
     </WidgetCard>
   );
@@ -195,27 +318,39 @@ export function FacultyAdvisingWidget() {
 export function FacultyRequestsWidget() {
   const { data, loading, error, refetch } = useApiQuery(() => Promise.all([workflowApi.listRequests(), workflowApi.listTickets()]));
   const [requests, tickets] = data ?? [null, null];
-  const recent = requests?.requests?.slice(0, 3) ?? [];
+  const recent = requests?.requests ?? [];
   return (
     <WidgetCard title="My requests & help desk" subtitle={`${requests?.summary?.open ?? 0} open request(s) · ${(tickets?.tickets ?? []).filter((ticket) => ticket.isOpen).length} open ticket(s)`} icon={AssignmentIndOutlinedIcon} tone="info" actionLabel="All requests" actionTo="/help/requests">
-      <DataState loading={loading} error={error} onRetry={refetch} minHeight={100}>
+      <DataState loading={loading} error={error} onRetry={refetch} minHeight={100} fill>
         {() => (
-          <Stack spacing={1.25}>
-            {recent.length === 0 && <Typography color="text.secondary">No requests yet. Room bookings, equipment, syllabus changes and leave go through here.</Typography>}
-            {recent.map((item) => (
-              <Stack key={item.id} direction="row" spacing={1} alignItems="center" sx={{ p: 1, borderRadius: 2, border: 1, borderColor: 'divider' }}>
-                <Box sx={{ minWidth: 0, flex: 1 }}>
-                  <Typography variant="subtitle2" noWrap>{item.title}</Typography>
-                  <Typography variant="caption" color="text.secondary">{item.reference} · {item.typeLabel}</Typography>
-                </Box>
-                <Badge variant={statusTone(item.status)} dot>{item.statusLabel}</Badge>
-              </Stack>
-            ))}
-            <Stack direction="row" spacing={1}>
+          <>
+            {recent.length === 0 ? (
+              <WidgetEmpty icon={AssignmentIndOutlinedIcon} tone="info" title="No requests yet">
+                Room bookings, equipment, syllabus changes and leave go through here.
+              </WidgetEmpty>
+            ) : (
+              <FitList
+                items={recent}
+                max={3}
+                moreTo="/help/requests"
+                moreLabel="more requests"
+                sx={{ mb: 1.5 }}
+                renderItem={(item) => (
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ p: 1, borderRadius: 2, border: 1, borderColor: 'divider' }}>
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Typography variant="subtitle2">{item.title}</Typography>
+                      <Typography variant="caption" color="text.secondary" component="p">{item.reference} · {item.typeLabel}</Typography>
+                    </Box>
+                    <Badge variant={statusTone(item.status)} dot>{item.statusLabel}</Badge>
+                  </Stack>
+                )}
+              />
+            )}
+            <Stack direction="row" spacing={1} sx={{ mt: 'auto', flexShrink: 0 }}>
               <Button size="small" variant="contained" component={RouterLink} to="/help/requests?new=1">New request</Button>
               <Button size="small" component={RouterLink} to="/help/tickets?new=1">Open a ticket</Button>
             </Stack>
-          </Stack>
+          </>
         )}
       </DataState>
     </WidgetCard>

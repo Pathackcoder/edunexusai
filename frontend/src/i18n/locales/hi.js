@@ -18,6 +18,6 @@ export default {
   'Student Follow-ups': 'छात्र फ़ॉलो-अप', Users: 'उपयोगकर्ता', 'Roles & Permissions': 'भूमिकाएँ और अनुमतियाँ', 'Widget Entitlements': 'विजेट अधिकार',
   'Sign Out': 'साइन आउट', 'Install Portal App': 'ऐप इंस्टॉल करें', Language: 'भाषा',
   'Customize layout': 'लेआउट अनुकूलित करें', 'Reset layout': 'लेआउट रीसेट करें', 'Drag to reorder': 'क्रम बदलने के लिए खींचें',
-  'Ask EdunexusAI': 'EdunexusAI से पूछें', 'Ask a question…': 'प्रश्न लिखें…', Send: 'भेजें',
+  'Ask EduNexusAI': 'EduNexusAI से पूछें', 'Ask a question…': 'प्रश्न लिखें…', Send: 'भेजें',
   'Latest notifications': 'नवीनतम सूचनाएँ', unread: 'अपठित', 'Up to date': 'सब पढ़ लिया', 'View all': 'सभी देखें',
 };
