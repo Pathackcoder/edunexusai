@@ -169,8 +169,13 @@ export async function refreshAccessToken() {
   return refreshed;
 }
 
-/** Origin of the API, where the realtime socket (/socket.io) also lives. */
-export const apiOrigin = () => new URL(BASE_URL, window.location.origin).origin;
+/**
+ * Origin of the realtime socket (/socket.io): the API's origin. When REST calls reach the API through the app's own
+ * origin by a rewrite that cannot carry WebSockets (Vercel), VITE_REALTIME_ORIGIN names the API host directly
+ * (e.g. https://api.example.edu); the socket authenticates with the access token, not cookies.
+ */
+const REALTIME_ORIGIN = (import.meta.env?.VITE_REALTIME_ORIGIN ?? '').replace(/\/$/, '');
+export const apiOrigin = () => REALTIME_ORIGIN || new URL(BASE_URL, window.location.origin).origin;
 
 async function parseBody(response) {
   const text = await response.text();

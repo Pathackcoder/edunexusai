@@ -61,6 +61,11 @@ describe('People Search derived from accounts and CampusCore', () => {
     // Refreshing again never creates a second entry.
     await refreshDirectoryEntry(both.tenantId, both.user.id);
     assert.equal(await prisma.directoryProfile.count({ where: { userId: both.user.id } }), 1);
+    // An entry left behind by a deleted account (no userId) with the same key is replaced, not a blocker.
+    await prisma.directoryProfile.update({ where: { userId: both.user.id }, data: { userId: null } });
+    const again = await refreshDirectoryEntry(both.tenantId, both.user.id);
+    assert.ok(again, 'refreshed despite the orphaned entry');
+    assert.equal(await prisma.directoryProfile.count({ where: { tenantId: both.tenantId, externalKey: entry.externalKey } }), 1);
   });
 
   it('a person CampusCore excludes from identity provisioning is not listed', async () => {

@@ -13,7 +13,7 @@ import { randomUUID } from 'node:crypto';
 const AUDIENCE_FIELD = { students: 'audienceStudents', faculty: 'audienceFaculty', staff: 'audienceStaff', alumni: 'audienceAlumni', public: 'audiencePublic' };
 const PNG = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8ffff3f0005fe02fea7d6a0ff0000000049454e44ae426082', 'hex');
 
-export async function startCmsStub({ token }) {
+export async function startCmsStub({ token, manageToken = token }) {
   const docs = new Map(); // documentId -> { type, tenant, draft, published }
   const audit = [];
   const media = [];
@@ -66,7 +66,9 @@ export async function startCmsStub({ token }) {
       const file = media.find((m) => m.url === url.pathname);
       return file ? send(res, 200, file.bytes, { 'Content-Type': file.mime }) : send(res, 404, { error: 'not found' });
     }
-    if (req.headers.authorization !== `Bearer ${token}`) return fail(res, 401, 'UnauthorizedError', 'Missing or invalid credentials');
+    // Like the production tokens: reads with the read-only token, changes with the management token.
+    const expected = req.method === 'GET' ? token : manageToken;
+    if (req.headers.authorization !== `Bearer ${expected}`) return fail(res, req.headers.authorization === `Bearer ${token}` || req.headers.authorization === `Bearer ${manageToken}` ? 403 : 401, req.headers.authorization ? 'ForbiddenError' : 'UnauthorizedError', 'Missing or invalid credentials');
 
     const parts = url.pathname.replace(/^\/api\/edunexus\/?/, '').split('/').filter(Boolean);
     try {

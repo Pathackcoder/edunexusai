@@ -11,7 +11,8 @@ import { validateLayout } from '../../shared/cmsBlocks.js';
  */
 
 const TOKEN = 'stub-cms-token-0123456789abcdef';
-const ENV_KEYS = ['CMS_URL', 'CMS_API_TOKEN', 'CMS_ADMIN_URL', 'CMS_LAYOUTS_ENABLED', 'CMS_TIMEOUT_MS'];
+const MANAGE_TOKEN = 'stub-cms-manage-0123456789abcdef';
+const ENV_KEYS = ['CMS_URL', 'CMS_API_TOKEN', 'CMS_MANAGE_API_TOKEN', 'CMS_ADMIN_URL', 'CMS_LAYOUTS_ENABLED', 'CMS_TIMEOUT_MS'];
 const savedEnv = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
 const ALL = { students: true, faculty: true, staff: true };
 let stub;
@@ -20,7 +21,7 @@ let tenant;
 let prisma;
 let rowCounts;
 
-const leaksToken = (body) => JSON.stringify(body ?? null).includes(TOKEN);
+const leaksToken = (body) => [TOKEN, MANAGE_TOKEN].some((t) => JSON.stringify(body ?? null).includes(t));
 const pageBody = (over = {}) => ({
   title: 'Library hours',
   slug: 'library-hours',
@@ -54,7 +55,7 @@ after(async () => {
   await closeTestServer();
 });
 
-const useStub = () => Object.assign(process.env, { CMS_URL: stub.url, CMS_API_TOKEN: TOKEN, CMS_ADMIN_URL: 'http://localhost:1338/admin', CMS_TIMEOUT_MS: '1000', CMS_LAYOUTS_ENABLED: 'false' });
+const useStub = () => Object.assign(process.env, { CMS_URL: stub.url, CMS_API_TOKEN: TOKEN, CMS_MANAGE_API_TOKEN: MANAGE_TOKEN, CMS_ADMIN_URL: 'http://localhost:1338/admin', CMS_TIMEOUT_MS: '1000', CMS_LAYOUTS_ENABLED: 'false' });
 
 describe('CMS not configured', () => {
   it('the portal keeps working: Studio reports the CMS as unavailable and dashboards use their built-in layout', async () => {
@@ -75,7 +76,7 @@ describe('CMS not configured', () => {
 
 describe('Studio access control', () => {
   before(async () => {
-    stub = await startCmsStub({ token: TOKEN });
+    stub = await startCmsStub({ token: TOKEN, manageToken: MANAGE_TOKEN });
     useStub();
   });
 
@@ -100,6 +101,27 @@ describe('Studio access control', () => {
     assert.equal(meta.body.data.layoutsEnabled, false);
     assert.ok(!leaksToken(meta.body));
     assert.equal(lastCall(() => true).authorization, `Bearer ${TOKEN}`, 'the backend authenticates to the CMS with the server-side token');
+  });
+
+  it('reads use the read-only token and changes the management token; without one, changes are refused and reads still work', async () => {
+    await api('/studio/page', { token: tokens.admin });
+    assert.equal(lastCall((r) => r.method === 'GET').authorization, `Bearer ${TOKEN}`);
+    const created = await api('/studio/page', { method: 'POST', token: tokens.admin, body: pageBody({ slug: 'token-split-check', title: 'Token split check' }) });
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    assert.equal(lastCall((r) => r.method === 'POST').authorization, `Bearer ${MANAGE_TOKEN}`);
+
+    process.env.CMS_MANAGE_API_TOKEN = '';
+    try {
+      const before = stub.requests.length;
+      const refused = await api('/studio/page', { method: 'POST', token: tokens.admin, body: pageBody({ slug: 'token-split-refused', title: 'Refused' }) });
+      assert.equal(refused.status, 503);
+      assert.equal(refused.body.error.code, 'CMS_MANAGEMENT_NOT_CONFIGURED');
+      assert.equal(stub.requests.length, before, 'nothing reaches the CMS without the management token');
+      assert.equal((await api('/studio/page', { token: tokens.admin })).status, 200, 'reading still works');
+    } finally {
+      process.env.CMS_MANAGE_API_TOKEN = MANAGE_TOKEN;
+    }
+    await api(`/studio/page/${created.body.data.documentId ?? created.body.data.id}`, { method: 'DELETE', token: tokens.admin });
   });
 
   it('delivery endpoints require sign-in', async () => {

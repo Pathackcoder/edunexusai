@@ -11,15 +11,16 @@ import { createMultiRoleUser, loginFixture, removeMultiRoleUsers } from './helpe
  */
 
 const TOKEN = 'stub-cms-token-audiences-0123456789';
-const ENV_KEYS = ['CMS_URL', 'CMS_API_TOKEN', 'CMS_ADMIN_URL', 'CMS_LAYOUTS_ENABLED', 'CMS_TIMEOUT_MS'];
+const MANAGE_TOKEN = 'stub-cms-manage-audiences-0123456789';
+const ENV_KEYS = ['CMS_URL', 'CMS_API_TOKEN', 'CMS_MANAGE_API_TOKEN', 'CMS_ADMIN_URL', 'CMS_LAYOUTS_ENABLED', 'CMS_TIMEOUT_MS'];
 const savedEnv = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
 const NONE = { students: false, faculty: false, staff: false, alumni: false, public: false };
 let stub;
 let tokens;
 
 before(async () => {
-  stub = await startCmsStub({ token: TOKEN });
-  Object.assign(process.env, { CMS_URL: stub.url, CMS_API_TOKEN: TOKEN, CMS_ADMIN_URL: 'http://localhost:1338/admin', CMS_TIMEOUT_MS: '1000', CMS_LAYOUTS_ENABLED: 'false' });
+  stub = await startCmsStub({ token: TOKEN, manageToken: MANAGE_TOKEN });
+  Object.assign(process.env, { CMS_URL: stub.url, CMS_API_TOKEN: TOKEN, CMS_MANAGE_API_TOKEN: MANAGE_TOKEN, CMS_ADMIN_URL: 'http://localhost:1338/admin', CMS_TIMEOUT_MS: '1000', CMS_LAYOUTS_ENABLED: 'false' });
   await getTestServer();
   const alumna = await createMultiRoleUser({ key: 'cms.alumna', firstName: 'Alma', roles: ['ALUMNI'] });
   tokens = { admin: await login('admin'), student: await login('student'), faculty: await login('faculty'), alumni: await loginFixture(alumna.email) };

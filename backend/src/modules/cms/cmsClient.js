@@ -19,9 +19,18 @@ export function cmsReady() {
   return cmsConfig().valid;
 }
 
+/**
+ * Reads use CMS_API_TOKEN (read actions only). Changes (Studio: create, update, publish, schedule, upload, delete) use
+ * CMS_MANAGE_API_TOKEN, a separate token granted the write actions, so the token every page view uses cannot change
+ * content. Without a management token, Studio is read-only and changes are refused here.
+ */
+const tokenFor = (method) => (method === 'GET' ? process.env.CMS_API_TOKEN : process.env.CMS_MANAGE_API_TOKEN);
+
 export async function cmsRequest(method, path, { query, body, form } = {}) {
   const config = cmsConfig();
   if (!config.valid) throw new CmsError(503, 'CMS_NOT_CONFIGURED', `The CMS is not configured: ${config.problems.join(' ')}`);
+  const token = tokenFor(method);
+  if (!token) throw new CmsError(503, 'CMS_MANAGEMENT_NOT_CONFIGURED', 'Content changes are not enabled: the CMS management token (CMS_MANAGE_API_TOKEN) is not configured.');
   const url = new URL(`${config.url}/api/edunexus${path}`);
   for (const [key, value] of Object.entries(query ?? {})) if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
   const controller = new AbortController();
@@ -30,7 +39,7 @@ export async function cmsRequest(method, path, { query, body, form } = {}) {
   try {
     res = await fetch(url, {
       method,
-      headers: { Authorization: `Bearer ${process.env.CMS_API_TOKEN}`, Accept: 'application/json', ...(body ? { 'Content-Type': 'application/json' } : {}) },
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', ...(body ? { 'Content-Type': 'application/json' } : {}) },
       body: form ?? (body ? JSON.stringify(body) : undefined),
       signal: controller.signal,
     });
@@ -45,7 +54,7 @@ export async function cmsRequest(method, path, { query, body, form } = {}) {
   const message = payload?.error?.message ?? `CMS request failed (${res.status}).`;
   if (res.status === 401 || res.status === 403) {
     logger.warn('CMS refused the integration token', { method, path, status: res.status });
-    throw new CmsError(502, 'CMS_AUTH_FAILED', 'The CMS refused the integration token. An administrator must check CMS_API_TOKEN.');
+    throw new CmsError(502, 'CMS_AUTH_FAILED', `The CMS refused the integration token. An administrator must check ${method === 'GET' ? 'CMS_API_TOKEN' : 'CMS_MANAGE_API_TOKEN'}.`);
   }
   if (res.status === 400) throw new CmsError(400, ErrorCode.VALIDATION_ERROR, message, { cms: payload?.error?.details ?? null });
   if (res.status === 404) throw new CmsError(404, ErrorCode.RESOURCE_NOT_FOUND, message);

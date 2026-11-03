@@ -63,7 +63,8 @@ export async function refreshDirectoryEntry(tenantId, userId) {
       return null;
     }
     // One entry per person: an entry this account already owns is updated; any other entry with the same key is replaced.
-    await prisma.directoryProfile.deleteMany({ where: { tenantId, externalKey: entry.externalKey, NOT: { userId } } });
+    // `NOT: { userId }` alone never matches entries whose account was deleted (userId NULL), which then block the upsert.
+    await prisma.directoryProfile.deleteMany({ where: { tenantId, externalKey: entry.externalKey, OR: [{ userId: null }, { NOT: { userId } }] } });
     return await prisma.directoryProfile.upsert({ where: { userId }, update: entry, create: { tenantId, userId, ...entry } });
   } catch (error) {
     logger.warn('People Search entry not refreshed', { code: error.code ?? null });

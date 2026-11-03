@@ -15,6 +15,7 @@ import { validateFormDefinition, validateSubmission } from '../../shared/forms.j
  * against the real CMS (see STRAPI_CMS_IMPLEMENTATION.md §13).
  */
 const TOKEN = 'stub-cms-token-features-0123456789';
+const MANAGE_TOKEN = 'stub-cms-manage-features-0123456789';
 let stub;
 let sink;
 let tokens;
@@ -31,13 +32,13 @@ const valid = { full_name: 'Test Person', email: 'test.person@example.test', cat
 
 before(async () => {
   await getTestServer();
-  stub = await startCmsStub({ token: TOKEN });
+  stub = await startCmsStub({ token: TOKEN, manageToken: MANAGE_TOKEN });
   sink = await startSmtpSink();
-  Object.assign(process.env, { CMS_URL: stub.url, CMS_API_TOKEN: TOKEN, CMS_TIMEOUT_MS: '2000' });
+  Object.assign(process.env, { CMS_URL: stub.url, CMS_API_TOKEN: TOKEN, CMS_MANAGE_API_TOKEN: MANAGE_TOKEN, CMS_TIMEOUT_MS: '2000' });
   tokens = { admin: await login('admin'), student: await login('student'), faculty: await login('faculty') };
 });
 after(async () => {
-  for (const key of ['CMS_URL', 'CMS_API_TOKEN', 'SMTP_HOST', 'SMTP_PORT', 'MAIL_FROM', 'SMTP_SECURE']) process.env[key] = '';
+  for (const key of ['CMS_URL', 'CMS_API_TOKEN', 'CMS_MANAGE_API_TOKEN', 'SMTP_HOST', 'SMTP_PORT', 'MAIL_FROM', 'SMTP_SECURE']) process.env[key] = '';
   resetMailer();
   await sink?.close();
   await stub?.close();

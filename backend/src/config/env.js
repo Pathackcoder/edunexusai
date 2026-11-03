@@ -33,6 +33,7 @@ function passwordStorage() {
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   isProduction: process.env.NODE_ENV === 'production',
+  trustProxyHops: Math.max(0, Number.parseInt(process.env.TRUST_PROXY_HOPS ?? '1', 10) || 0),
   isTest,
   port: toInt(process.env.PORT, 5001),
   logLevel: process.env.LOG_LEVEL ?? 'dev',
@@ -225,6 +226,7 @@ export function cmsConfig() {
     timeoutMs: Math.min(Math.max(toInt(process.env.CMS_TIMEOUT_MS, 8000), 1000), 60000),
     layoutsEnabled: ['1', 'true', 'yes'].includes(String(process.env.CMS_LAYOUTS_ENABLED ?? '').toLowerCase()),
     tokenConfigured: Boolean(process.env.CMS_API_TOKEN),
+    manageTokenConfigured: Boolean(process.env.CMS_MANAGE_API_TOKEN),
     problems,
     valid: problems.length === 0,
   };
