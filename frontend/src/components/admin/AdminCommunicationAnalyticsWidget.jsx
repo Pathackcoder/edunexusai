@@ -42,25 +42,26 @@ export const AdminCommunicationAnalyticsWidget = () => {
       tone="analytics"
       accentBorder="left"
     >
-      <Stack spacing={2.5}>
+      <Stack spacing={1.75}>
         <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap"><Badge variant="purple">{broadcasts.length} sent</Badge><Badge variant="warning">{scheduled.length} planned</Badge><Badge variant="neutral">{drafts.length} drafts</Badge></Stack>
         {/* KPI Row */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 1.5 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 1.25 }}>
           {metrics.map((m) => {
             const Icon = m.icon;
             return (
               <Box
                 key={m.label}
                 sx={{
-                  p: 1.75,
+                  px: 1.5,
+                  py: 1.25,
                   borderRadius: 2.5,
                   bgcolor: 'background.subtle',
                   border: 1,
                   borderColor: 'divider',
                 }}
               >
-                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                  <Icon sx={{ fontSize: 18, color: m.color }} />
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
+                  <Icon sx={{ fontSize: 17, color: m.color }} />
                   <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
                     {m.label}
                   </Typography>
@@ -72,8 +73,8 @@ export const AdminCommunicationAnalyticsWidget = () => {
                   variant="determinate"
                   value={m.progress}
                   sx={{
-                    mt: 1.25,
-                    height: 6,
+                    mt: 1,
+                    height: 5,
                     borderRadius: 3,
                     bgcolor: alpha(theme.palette.grey[300], 0.6),
                     '& .MuiLinearProgress-bar': { bgcolor: m.color, borderRadius: 3 },
@@ -86,16 +87,16 @@ export const AdminCommunicationAnalyticsWidget = () => {
 
         {/* Recent Campaigns Performance Table */}
         <Box>
-          <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', display: 'block', mb: 1 }}>
+          <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', display: 'block', mb: 0.75 }}>
             Recent High-Volume Dispatches
           </Typography>
-          <Stack spacing={1}>
+          <Stack spacing={0.75}>
             {recentCampaigns.map((camp, idx) => (
               <Box
                 key={idx}
                 sx={{
-                  p: 1.25,
-                  px: 1.75,
+                  py: 0.875,
+                  px: 1.5,
                   borderRadius: 2,
                   border: 1,
                   borderColor: 'divider',

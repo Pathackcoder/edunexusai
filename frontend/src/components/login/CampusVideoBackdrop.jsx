@@ -19,7 +19,8 @@ const prefersStill = () => {
  *   video (object-fit: cover)  →  subtle tint + readability gradients  →  login UI
  *
  * The overlay is light: the campus stays clearly visible and moving, with extra depth only
- * on the left (behind the sign-in card) and along the bottom (behind the footer). The
+ * on the left (behind the sign-in card), at the bottom right (behind the portal statement) and
+ * along the bottom (behind the footer). The
  * poster frame paints instantly, so there is never a blank or white first frame.
  * `visible` lets the intro fade the footage in from the night tone underneath.
  */
@@ -79,6 +80,8 @@ export function CampusVideoBackdrop({ visible = true }) {
           },
         }}
       />
+      {/* Depth under the portal statement that sits on the campus, bottom right (tablet and desktop). */}
+      <Box sx={{ display: { xs: 'none', md: 'block' }, position: 'absolute', inset: 0, background: 'radial-gradient(70% 62% at 100% 100%, rgba(8, 11, 40, 0.72), rgba(8, 11, 40, 0.3) 45%, transparent 75%)' }} />
       <Box sx={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '22%', background: 'linear-gradient(0deg, rgba(8, 11, 40, 0.6), transparent)' }} />
       <Box sx={{ position: 'absolute', left: 0, right: 0, top: 0, height: '18%', background: 'linear-gradient(180deg, rgba(8, 11, 40, 0.45), transparent)' }} />
     </Box>

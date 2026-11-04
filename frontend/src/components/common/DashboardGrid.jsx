@@ -13,7 +13,7 @@ export const DashboardGrid = ({ children, sx }) => (
     sx={{
       display: 'grid',
       gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(12, minmax(0, 1fr))' },
-      gap: { xs: 2, md: 2 },
+      gap: 1.75,
       alignItems: 'stretch',
       ...sx,
     }}

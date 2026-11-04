@@ -24,16 +24,16 @@ export const heroChipSx = {
 
 export function HeroBanner({ eyebrow, title, highlight, description, chips, aside, children, dense = false, sx }) {
   return (
-    <DarkSurface glow="both" sx={{ borderRadius: '22px', px: { xs: 2, sm: dense ? 3 : 3.5 }, py: dense ? { xs: 1.5, sm: 1.75 } : { xs: 2, sm: 2.25 }, boxShadow: '0 22px 50px -28px rgba(20, 24, 80, 0.8)', ...sx }}>
-      <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ md: 'center' }} spacing={3}>
+    <DarkSurface glow="both" sx={{ borderRadius: '20px', px: { xs: 2, sm: dense ? 2.5 : 3 }, py: dense ? { xs: 1.5, sm: 1.5 } : { xs: 2, sm: 2 }, boxShadow: '0 22px 50px -28px rgba(20, 24, 80, 0.8)', ...sx }}>
+      <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ md: 'center' }} spacing={2.5}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           {eyebrow && (
             <Chip
               label={eyebrow}
-              sx={{ mb: dense ? 0.75 : 1, color: '#fff', fontWeight: 700, backgroundImage: 'linear-gradient(115deg, var(--enx-primary), var(--enx-secondary))', boxShadow: '0 6px 16px -8px color-mix(in srgb, var(--enx-secondary) 90%, transparent)' }}
+              sx={{ mb: dense ? 0.5 : 0.75, height: 22, fontSize: '0.71875rem', color: '#fff', fontWeight: 700, backgroundImage: 'linear-gradient(115deg, var(--enx-primary), var(--enx-secondary))', boxShadow: '0 6px 16px -8px color-mix(in srgb, var(--enx-secondary) 90%, transparent)' }}
             />
           )}
-          <Typography variant="h2" component="h1" sx={{ fontSize: { xs: '1.4rem', sm: '1.625rem', lg: '1.75rem' }, letterSpacing: '-0.025em', color: '#fff' }}>
+          <Typography variant="h2" component="h1" sx={{ fontSize: { xs: '1.375rem', sm: '1.5rem', lg: '1.5625rem' }, letterSpacing: '-0.025em', color: '#fff' }}>
             {title}
             {highlight && (
               <Box component="span" sx={{ backgroundImage: 'linear-gradient(90deg, var(--enx-accent), color-mix(in srgb, var(--enx-accent) 55%, #FFFFFF))', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
@@ -42,12 +42,12 @@ export function HeroBanner({ eyebrow, title, highlight, description, chips, asid
             )}
           </Typography>
           {description && (
-            <Typography variant="body1" sx={{ mt: dense ? 0.25 : 0.5, maxWidth: 720, color: 'text.secondary' }}>
+            <Typography variant="body1" sx={{ mt: dense ? 0.25 : 0.5, maxWidth: 720, color: 'text.secondary', fontSize: '0.8125rem' }}>
               {description}
             </Typography>
           )}
           {chips && (
-            <Stack direction="row" useFlexGap flexWrap="wrap" spacing={1} sx={{ mt: 1.5 }}>
+            <Stack direction="row" useFlexGap flexWrap="wrap" spacing={1} sx={{ mt: 1.25 }}>
               {chips}
             </Stack>
           )}
@@ -68,10 +68,10 @@ export const HeroStats = ({ stats, label }) => (
   <Box
     aria-label={label}
     sx={{
-      mt: { xs: 1.5, sm: 1.75 },
+      mt: { xs: 1.25, sm: 1.5 },
       display: 'grid',
       gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: `repeat(${stats.length}, minmax(0, 1fr))` },
-      gap: { xs: 1, sm: 1.25 },
+      gap: 1,
     }}
   >
     {stats.map((stat) => (
@@ -82,7 +82,7 @@ export const HeroStats = ({ stats, label }) => (
 
 /** Banner placeholder with the same footprint as HeroBanner. */
 export const HeroSkeleton = () => (
-  <DarkSurface glow="both" sx={{ borderRadius: '22px', px: { xs: 2.5, sm: 3.5 }, py: { xs: 2.25, sm: 2.5 } }}>
+  <DarkSurface glow="both" sx={{ borderRadius: '20px', px: { xs: 2, sm: 3 }, py: 2 }}>
     <Skeleton variant="rounded" width={90} height={24} sx={{ borderRadius: '999px' }} />
     <Skeleton variant="rounded" width="42%" height={30} sx={{ mt: 1.5, borderRadius: '8px' }} />
     <Skeleton variant="rounded" width="60%" height={14} sx={{ mt: 1.25, borderRadius: '6px' }} />
@@ -98,7 +98,7 @@ export const HeroSkeleton = () => (
  * widgets: [{ kind, span, rows, size }]
  */
 export const DashboardSkeleton = ({ widgets, hero = true, banner }) => (
-  <Stack spacing={{ xs: 2, md: 2.25 }} aria-hidden>
+  <Stack spacing={{ xs: 1.75, md: 2 }} aria-hidden>
     {hero && (banner ?? <HeroSkeleton />)}
     <SortableDashboard
       disabled

@@ -33,7 +33,7 @@ export const StatCard = ({
   className = '',
   sx,
   valueSx,
-  // 'compact' tightens spacing (not type) for stat rows inside hero banners.
+  // 'compact' tightens spacing, the icon and the value size for stat rows inside hero banners.
   density = 'default',
 }) => {
   const compact = density === 'compact';
@@ -42,8 +42,8 @@ export const StatCard = ({
   const gradient = toneGradient(tone, theme);
 
   const body = (
-    <Box sx={{ ...(compact ? { px: 1.75, py: 1.375 } : { p: 2 }), position: 'relative', zIndex: 1 }}>
-      <Stack direction="row" alignItems={compact ? 'center' : 'flex-start'} justifyContent="space-between" spacing={1.5} sx={{ mb: compact ? 0.375 : 0.75 }}>
+    <Box sx={{ ...(compact ? { px: 1.5, py: 1.125 } : { p: 2 }), position: 'relative', zIndex: 1 }}>
+      <Stack direction="row" alignItems={compact ? 'center' : 'flex-start'} justifyContent="space-between" spacing={1.5} sx={{ mb: compact ? 0.25 : 0.75 }}>
         <Typography variant="overline" color="text.secondary" sx={{ lineHeight: 1.4, fontWeight: 600 }}>
           {title}
         </Typography>
@@ -52,14 +52,14 @@ export const StatCard = ({
             <IconTile
               icon={icon}
               tone={tone}
-              size={compact ? 30 : 34}
+              size={compact ? 26 : 34}
               sx={{ color: '#fff', background: `linear-gradient(140deg, ${gradient[0]}, ${gradient[1]})`, boxShadow: `0 8px 16px -10px ${alpha(gradient[1], 0.85)}` }}
             />
           </Box>
         )}
       </Stack>
       <Stack direction="row" alignItems="baseline" spacing={1.25} useFlexGap flexWrap="wrap">
-        <Typography variant="metric" component="div" sx={{ fontSize: { xs: '1.5rem', md: '1.625rem' }, ...valueSx }}>
+        <Typography variant="metric" component="div" sx={{ fontSize: compact ? { xs: '1.375rem', md: '1.5rem' } : { xs: '1.5rem', md: '1.625rem' }, ...valueSx }}>
           {value}
         </Typography>
         {badgeText && <Badge variant={badgeVariant}>{badgeText}</Badge>}

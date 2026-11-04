@@ -91,16 +91,16 @@ export function appearanceCssVars(themeKey) {
 
 /** Sidebar geometry and motion. Exported so the shell and header agree on them. */
 export const layout = {
-  sidebarWidth: 244,
-  sidebarCollapsedWidth: 72,
-  headerHeight: 54,
+  sidebarWidth: 220,
+  sidebarCollapsedWidth: 64,
+  headerHeight: 50,
   contentMaxWidth: 1600,
 };
 
 /**
  * Spring-like easing for the sidebar. Opening overshoots by ~6px at 62% of the
  * duration and settles; closing first pushes ~6px outward, then collapses. Both values
- * were tuned numerically against the 196px width delta.
+ * were tuned numerically against a ~160px width delta.
  */
 export const motion = {
   sidebarOpen: { duration: 460, easing: 'cubic-bezier(0.3, 1.15, 0.35, 1.06)' },

@@ -199,7 +199,7 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
       <Toolbar
         sx={{
           minHeight: `${layout.headerHeight}px !important`,
-          px: { xs: 1.5, sm: 2.5, lg: 3 },
+          px: { xs: 1.5, sm: 2.25, lg: 2.5 },
           gap: { xs: 1, sm: 1.5 },
         }}
       >
@@ -219,13 +219,13 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
           )}
 
           {/* Global Multi-Entity Search Bar */}
-          <Box ref={searchContainerRef} sx={{ position: 'relative', width: '100%', maxWidth: 420, display: { xs: 'none', sm: 'block' } }}>
+          <Box ref={searchContainerRef} sx={{ position: 'relative', width: '100%', maxWidth: 400, display: { xs: 'none', sm: 'block' } }}>
             <Box
               sx={(theme) => ({
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1,
-                height: 36,
+                height: 34,
                 px: 1.5,
                 borderRadius: 2.5,
                 bgcolor: 'background.paper',
@@ -236,7 +236,7 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
                 '&:hover': { borderColor: searchActive ? 'primary.main' : 'grey.300' },
               })}
             >
-              <SearchRoundedIcon sx={{ fontSize: 20, color: 'grey.500' }} />
+              <SearchRoundedIcon sx={{ fontSize: 19, color: 'grey.500' }} />
               <InputBase
                 placeholder="Search students, faculty, staff, courses..."
                 value={searchTerm}
@@ -252,7 +252,7 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
                   }
                 }}
                 inputProps={{ 'aria-label': 'Search students, faculty, staff, courses' }}
-                sx={{ flex: 1, fontSize: '0.875rem', '& input::placeholder': { color: 'grey.500', opacity: 1 } }}
+                sx={{ flex: 1, fontSize: '0.84375rem', '& input::placeholder': { color: 'grey.500', opacity: 1 } }}
               />
               {searchTerm && (
                 <IconButton size="small" onClick={() => setSearchTerm('')} aria-label="Clear search" sx={{ p: 0.5 }}>
@@ -452,7 +452,7 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
               '&:focus-visible': { outline: (theme) => `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
             }}
           >
-            <Avatar sx={{ width: 34, height: 34, fontSize: '0.8125rem', bgcolor: 'primary.main' }}>{initials}</Avatar>
+            <Avatar sx={{ width: 30, height: 30, fontSize: '0.75rem', bgcolor: 'primary.main' }}>{initials}</Avatar>
             <Box sx={{ display: { xs: 'none', md: 'block' }, textAlign: 'left', maxWidth: 160 }}>
               <Typography variant="body2" fontWeight={600} noWrap sx={{ lineHeight: 1.25 }}>
                 {user?.fullName ?? '—'}

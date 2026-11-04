@@ -6,6 +6,7 @@ import Typography from '@mui/material/Typography';
 import MuiButton from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { ssoApi, SSO_ERROR_MESSAGES } from '../../services/api';
 
 /**
@@ -23,7 +24,7 @@ export function InstitutionSignIn({ tenant, error }) {
 
   if (!providers.length && !error) return null;
   return (
-    <Box sx={{ mt: 2.5 }}>
+    <Box sx={{ mt: 2.25 }}>
       {error && (
         <Alert severity="warning" role="alert" sx={{ mb: 2 }}>
           {SSO_ERROR_MESSAGES[error] ?? SSO_ERROR_MESSAGES.SIGN_IN_FAILED}
@@ -31,7 +32,7 @@ export function InstitutionSignIn({ tenant, error }) {
       )}
       {providers.length > 0 && (
         <>
-          <Divider sx={{ mb: 2, typography: 'caption', color: 'text.secondary' }}>or</Divider>
+          <Divider sx={{ mb: 2, typography: 'caption', fontWeight: 600, color: 'text.disabled', letterSpacing: '0.08em', textTransform: 'uppercase', '&::before, &::after': { borderColor: 'grey.200' } }}>or</Divider>
           <Stack spacing={1}>
             {providers.map((p) => (
               <MuiButton
@@ -40,15 +41,28 @@ export function InstitutionSignIn({ tenant, error }) {
                 fullWidth
                 href={ssoApi.startUrl(p.tenant, p.key, '/dashboard')}
                 startIcon={<AccountBalanceOutlinedIcon />}
-                sx={{ height: 46, borderRadius: '14px', fontWeight: 700 }}
+                sx={{
+                  height: 46,
+                  borderRadius: '10px',
+                  fontSize: '0.9063rem',
+                  fontWeight: 600,
+                  color: 'grey.900',
+                  bgcolor: '#FFFFFF',
+                  borderColor: 'grey.300',
+                  '& .MuiButton-startIcon': { color: 'primary.main' },
+                  '&:hover': { bgcolor: 'primary.lighter', borderColor: 'primary.main' },
+                }}
               >
                 Sign in with {p.displayName}
               </MuiButton>
             ))}
           </Stack>
-          <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 1, textAlign: 'center' }}>
-            Uses your university account. Your password is never shared with the portal.
-          </Typography>
+          <Stack direction="row" spacing={0.75} justifyContent="center" alignItems="flex-start" sx={{ mt: 1.25, color: 'text.secondary' }}>
+            <LockOutlinedIcon sx={{ fontSize: 14, mt: '2px', color: 'grey.400' }} />
+            <Typography variant="caption" color="inherit" component="p">
+              Uses your university account. Your password is never shared with the portal.
+            </Typography>
+          </Stack>
         </>
       )}
     </Box>

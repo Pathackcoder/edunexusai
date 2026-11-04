@@ -213,16 +213,16 @@ const WidgetCardInner = ({
           // In a sized dashboard slot the header is one row at every width, so comparable
           // cards share the same header height; elsewhere the action may wrap as before.
           flexWrap={inSlot ? 'nowrap' : 'wrap'}
-          columnGap={1.5}
-          rowGap={1.25}
-          sx={{ px: { xs: 2, sm: 2 }, pt: { xs: 1.5, sm: 1.5 }, pb: 1.25, minWidth: 0, flexShrink: 0 }}
+          columnGap={1.25}
+          rowGap={1}
+          sx={{ px: 1.75, pt: 1.25, pb: 1, minWidth: 0, flexShrink: 0 }}
         >
           {icon && (
             <IconTile
               className="widget-icon"
               icon={icon}
               tone={tone}
-              size={34}
+              size={30}
               sx={{
                 color: '#FFFFFF',
                 background: `linear-gradient(140deg, ${from} 0%, ${to} 100%)`,
@@ -230,7 +230,7 @@ const WidgetCardInner = ({
               }}
             />
           )}
-          <Box sx={{ minWidth: 0, flex: inSlot ? '1 1 auto' : '1 1 160px' }}>
+          <Box sx={{ minWidth: 0, flex: inSlot ? '1 1 auto' : '1 1 120px' }}>
             <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
               <Typography variant="h6" component="h2" sx={{ lineHeight: 1.3, fontWeight: 600, letterSpacing: '-0.005em', minWidth: 0 }}>
                 {title}
@@ -256,7 +256,7 @@ const WidgetCardInner = ({
           minWidth: 0,
           // Lets the body shrink inside a fixed-height dashboard slot (FitList does the fitting).
           minHeight: 0,
-          ...(disablePadding ? {} : { px: { xs: 2, sm: 2 }, pb: { xs: 1.75, sm: 1.75 }, pt: title ? 0.25 : { xs: 2, sm: 2 } }),
+          ...(disablePadding ? {} : { px: 1.75, pb: 1.5, pt: title ? 0.25 : 1.75 }),
           ...bodySx,
         }}
       >

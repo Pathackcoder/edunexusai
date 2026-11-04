@@ -155,7 +155,7 @@ export function AdminDashboardSection({ sectionKey, presentation = null }) {
             {/* The cell stretches to the analytics panel's height; both cards share the extra
                 height (each keeps its content height plus an equal share), so the column ends
                 level with the panel instead of leaving a gap under Campus operations. */}
-            <GridItem span={{ md: 4 }}><Stack spacing={2} sx={{ width: '100%', '& > *': { flex: { md: '1 1 auto' }, display: 'flex', flexDirection: 'column' }, '& > * > *': { flex: { md: '1 1 auto' } } }}>
+            <GridItem span={{ md: 4 }}><Stack spacing={1.75} sx={{ width: '100%', '& > *': { flex: { md: '1 1 auto' }, display: 'flex', flexDirection: 'column' }, '& > * > *': { flex: { md: '1 1 auto' } } }}>
               <Box><AdminEmergencyBroadcastWidget /></Box>
               <Box>
                 <WidgetCard title="Campus operations" tone="campus" accentBorder="top" actionLabel="Campus overview" actionTo="/campus">

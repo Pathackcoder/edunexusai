@@ -34,11 +34,11 @@ import { institution } from '../branding';
 
 /*
  * Geometry is identical in both states so nothing moves while the width animates:
- * the nav has a constant 10px gutter and every row a constant 18px left inset, which
- * centres a 20px icon in the 76px rail. Collapsing only clips and fades the labels.
+ * the nav has a constant 8px gutter and every row a constant 14px left inset, which
+ * centres a 20px icon in the 64px rail. Collapsing only clips and fades the labels.
  */
-const GUTTER = '10px';
-const ROW_INSET = '18px';
+const GUTTER = '8px';
+const ROW_INSET = '14px';
 
 const fade = (collapsed) => ({
   opacity: collapsed ? 0 : 1,
@@ -48,8 +48,8 @@ const fade = (collapsed) => ({
 });
 
 const rowSx = (active) => (theme) => ({
-  minHeight: 38,
-  py: '6px',
+  minHeight: 34,
+  py: '5px',
   '& .MuiListItemText-root': { my: 0 },
   pl: ROW_INSET,
   pr: '10px',
@@ -62,7 +62,7 @@ const rowSx = (active) => (theme) => ({
   overflow: 'hidden',
   transition: 'background-color 160ms ease, color 160ms ease',
   '& .MuiListItemIcon-root': {
-    minWidth: 36,
+    minWidth: 32,
     color: active ? 'var(--enx-accent)' : theme.palette.grey[500],
     transition: 'color 160ms ease',
   },
@@ -75,8 +75,8 @@ const rowSx = (active) => (theme) => ({
     content: '""',
     position: 'absolute',
     left: 0,
-    top: 9,
-    bottom: 9,
+    top: 8,
+    bottom: 8,
     width: 3,
     borderRadius: '0 3px 3px 0',
     backgroundImage: 'linear-gradient(180deg, var(--enx-accent), var(--enx-secondary))',
@@ -87,7 +87,7 @@ const rowSx = (active) => (theme) => ({
 });
 
 // Navigation labels have their own size (not body2), so denser page text never makes them harder to read.
-const labelProps = (active) => ({ variant: 'body2', fontSize: '0.875rem', lineHeight: 1.35, fontWeight: active ? 600 : 500, noWrap: true });
+const labelProps = (active) => ({ variant: 'body2', fontSize: '0.8125rem', lineHeight: 1.35, fontWeight: active ? 600 : 500, noWrap: true });
 
 /**
  * Persona-aware navigation. Renders inside the push sidebar on desktop/tablet (where
@@ -217,7 +217,7 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
               ...rowSx(highlight)(theme),
               ...(isParentActive && !highlight && {
                 color: 'text.primary',
-                '& .MuiListItemIcon-root': { minWidth: 36, color: 'primary.main' },
+                '& .MuiListItemIcon-root': { minWidth: 32, color: 'primary.main' },
               }),
             })}
           >
@@ -241,7 +241,7 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
         <Collapse in={isExpanded && !collapsed} timeout={collapsed ? 120 : 220} unmountOnExit>
           <List
             disablePadding
-            sx={{ ml: '27px', pl: '10px', mt: '2px', mb: 1, borderLeft: 1, borderColor: 'divider' }}
+            sx={{ ml: '23px', pl: '8px', mt: '2px', mb: 0.75, borderLeft: 1, borderColor: 'divider' }}
           >
             {section.children.map((child) => (
               <ListItemButton
@@ -251,9 +251,9 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
                 end={child.end}
                 onClick={onCloseMobile}
                 sx={(theme) => ({
-                  minHeight: 31,
+                  minHeight: 28,
                   px: 1.25,
-                  py: 0.5,
+                  py: 0.375,
                   mb: '2px',
                   borderRadius: 2,
                   color: 'text.secondary',
@@ -265,7 +265,7 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
                   },
                 })}
               >
-                <ListItemText primary={t(child.label)} primaryTypographyProps={{ variant: 'body2', fontSize: '0.84375rem', lineHeight: 1.35, noWrap: true }} />
+                <ListItemText primary={t(child.label)} primaryTypographyProps={{ variant: 'body2', fontSize: '0.78125rem', lineHeight: 1.35, noWrap: true }} />
               </ListItemButton>
             ))}
           </List>
@@ -277,7 +277,7 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
   const renderSection = (section) => (section.isDirect ? renderDirect(section) : renderGroup(section));
 
   const subheader = (label, extra) => (
-    <ListSubheader disableSticky sx={{ pl: ROW_INSET, pr: 1, ...fade(collapsed), ...extra }}>
+    <ListSubheader disableSticky sx={{ pl: ROW_INSET, pr: 1, lineHeight: '28px', fontSize: '0.65625rem', ...fade(collapsed), ...extra }}>
       {label}
     </ListSubheader>
   );
@@ -285,11 +285,11 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
   return (
     <DarkSurface glow="bl" sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
       {/* Brand + toggle */}
-      <Box sx={{ px: GUTTER, pt: 1.25, pb: 0.75, flexShrink: 0 }}>
-        <Box sx={{ position: 'relative', height: 40, display: 'flex', alignItems: 'center' }}>
+      <Box sx={{ px: GUTTER, pt: 1, pb: 0.5, flexShrink: 0 }}>
+        <Box sx={{ position: 'relative', height: 38, display: 'flex', alignItems: 'center' }}>
           {/* Full wordmark (expanded) */}
           <Box sx={{ ...fade(collapsed), ml: '8px', display: 'flex', alignItems: 'center', filter: 'drop-shadow(0 6px 12px rgba(0,0,0,0.35))' }}>
-            <InstitutionLogo inverse height={40} />
+            <InstitutionLogo inverse height={36} />
           </Box>
 
           {/* Mark only (collapsed rail): doubles as the expand control */}
@@ -306,8 +306,8 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
                   position: 'absolute',
                   left: 0,
                   top: 0,
-                  width: 56,
-                  height: 44,
+                  width: 48,
+                  height: 40,
                   border: 0,
                   p: 0,
                   bgcolor: 'transparent',
@@ -330,7 +330,7 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
                 }}
               >
                 <Box className="mark" sx={{ display: 'grid', placeItems: 'center', filter: 'drop-shadow(0 6px 12px rgba(0,0,0,0.35))' }}>
-                  <InstitutionLogo variant="mark" height={36} alt="" />
+                  <InstitutionLogo variant="mark" height={32} alt="" />
                 </Box>
                 <KeyboardDoubleArrowRightRoundedIcon className="arrow" sx={{ fontSize: 20 }} />
               </Box>
@@ -351,7 +351,7 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
                   aria-label="Collapse sidebar"
                   aria-expanded={!collapsed}
                   tabIndex={collapsed ? -1 : 0}
-                  sx={{ color: 'grey.500', width: 32, height: 32 }}
+                  sx={{ color: 'grey.500', width: 30, height: 30 }}
                 >
                   <KeyboardDoubleArrowLeftRoundedIcon sx={{ fontSize: 20 }} />
                 </IconButton>
@@ -367,10 +367,10 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
             alignItems="center"
             spacing={1}
             sx={{
-              mt: 1.25,
-              pl: '19px',
+              mt: 1,
+              pl: '15px',
               pr: 1.25,
-              height: 36,
+              height: 32,
               borderRadius: 2.25,
               bgcolor: 'rgba(255,255,255,0.06)',
               border: 1,
@@ -390,7 +390,7 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
       <Box
         component="nav"
         aria-label="Sidebar Navigation"
-        sx={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', px: GUTTER, pb: 2 }}
+        sx={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', px: GUTTER, pb: 1.5 }}
       >
         {nav.groups.map((group, index) => (
           <List key={group.id} disablePadding subheader={subheader(t(group.label), index ? { mt: 1 } : undefined)}>
@@ -417,10 +417,10 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
       </Box>
 
       {/* Identity only — Install App and Sign Out live in the header and profile menu. */}
-      <Box sx={{ flexShrink: 0, borderTop: 1, borderColor: 'divider', px: GUTTER, py: 1 }}>
+      <Box sx={{ flexShrink: 0, borderTop: 1, borderColor: 'divider', px: GUTTER, py: 0.75 }}>
         <Tooltip title={collapsed ? `${user?.fullName ?? '—'} · ID ${userId}` : ''} placement="right">
-          <Stack direction="row" alignItems="center" spacing={1.25} sx={{ pl: '11px', pr: 1, py: 0.75, overflow: 'hidden' }}>
-            <Avatar sx={{ width: 32, height: 32, fontSize: '0.75rem', color: '#fff', background: 'linear-gradient(135deg, var(--enx-primary), var(--enx-secondary))', boxShadow: '0 0 0 2px rgba(255,255,255,0.14)', flexShrink: 0 }}>{initials}</Avatar>
+          <Stack direction="row" alignItems="center" spacing={1.25} sx={{ pl: '9px', pr: 1, py: 0.5, overflow: 'hidden' }}>
+            <Avatar sx={{ width: 30, height: 30, fontSize: '0.71875rem', color: '#fff', background: 'linear-gradient(135deg, var(--enx-primary), var(--enx-secondary))', boxShadow: '0 0 0 2px rgba(255,255,255,0.14)', flexShrink: 0 }}>{initials}</Avatar>
             <Box sx={{ ...fade(collapsed), flex: 1, minWidth: 0 }}>
               <Typography variant="subtitle2" noWrap>
                 {user?.fullName ?? '—'}
@@ -432,7 +432,7 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
           </Stack>
         </Tooltip>
         {/* Platform attribution, kept quiet beneath the university identity. */}
-        <Box sx={{ ...fade(collapsed), pl: '13px', pt: 0.25, pb: 0.25 }}>
+        <Box sx={{ ...fade(collapsed), pl: '11px', pt: 0.25, pb: 0.25 }}>
           <PoweredBy tone="dark" />
         </Box>
       </Box>

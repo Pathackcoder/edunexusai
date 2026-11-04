@@ -27,10 +27,10 @@ export function AdminDashboardSections({ cmsLayout }) {
   const items = applyCmsLayout(SECTION_ITEMS, cmsLayout);
   const render = (item) => (item.node ?? <AdminDashboardSection sectionKey={item.key} presentation={item.presentation ?? null} />);
   if (!cmsLayout) {
-    return <Stack spacing={{ xs: 2, md: 2.25 }}>{items.map((item) => <React.Fragment key={item.key}>{render(item)}</React.Fragment>)}</Stack>;
+    return <Stack spacing={{ xs: 1.75, md: 2 }}>{items.map((item) => <React.Fragment key={item.key}>{render(item)}</React.Fragment>)}</Stack>;
   }
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(12, minmax(0, 1fr))' }, gap: { xs: 2, md: 2.25 } }}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(12, minmax(0, 1fr))' }, gap: { xs: 1.75, md: 2 } }}>
       {items.map((item) => (
         <Box key={item.key} sx={{ gridColumn: { xs: '1 / -1', md: `span ${adminSpan(item.size)}` }, minWidth: 0 }}>{render(item)}</Box>
       ))}

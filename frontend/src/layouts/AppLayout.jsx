@@ -183,8 +183,8 @@ const AppShellInner = () => {
             width: '100%',
             maxWidth: layout.contentMaxWidth,
             mx: 'auto',
-            px: { xs: 2, sm: 2.25, lg: 2.5 },
-            pt: 1.75,
+            px: { xs: 2, sm: 2.25 },
+            pt: 1.5,
             pb: { xs: 4, md: 5 },
           }}
         >
