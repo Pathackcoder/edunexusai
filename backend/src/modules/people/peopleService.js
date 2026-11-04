@@ -359,6 +359,11 @@ export async function personSystems(auth, userId) {
     user,
     login: { status: user.status, passwordChangeRequired: local.passwordChangeRequired },
     profile: profile ? { entityType: profile.entityType, id: profile.id, localId: profile.localId } : null,
+    // Every profile the person holds (a lecturer who also studies has both); each has its own Moodle link.
+    profiles: [
+      ...(local.studentProfile ? [{ entityType: 'STUDENT', id: local.studentProfile.id, localId: local.studentProfile.studentNumber }] : []),
+      ...(local.facultyProfile ? [{ entityType: 'FACULTY', id: local.facultyProfile.id, localId: local.facultyProfile.employeeNumber }] : []),
+    ],
     campuscore,
     moodle: moodleState,
     warnings,

@@ -3,6 +3,7 @@ import { env } from './config/env.js';
 import { checkDatabase, disconnect } from './db/prisma.js';
 import { logger } from './utils/logger.js';
 import { attachChatSocket, closeChatSocket } from './modules/chat/chatSocket.js';
+import { startAccountSyncWorker } from './modules/sis/accountSync.js';
 
 const server = app.listen(env.port, async () => {
   const database = await checkDatabase();
@@ -23,9 +24,13 @@ const server = app.listen(env.port, async () => {
 // Portal chat (Socket.IO) shares this HTTP server and port.
 attachChatSocket(server);
 
+// New CampusCore people get a portal account automatically (CAMPUSCORE_ACCOUNT_SYNC_ENABLED).
+const accountSync = startAccountSyncWorker();
+
 /** Close connections cleanly so `node --watch` restarts do not leak them. */
 const shutdown = async (signal) => {
   logger.info(`${signal} received, shutting down.`);
+  accountSync?.stop();
   closeChatSocket();
   server.close(async () => {
     await disconnect();

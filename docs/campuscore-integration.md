@@ -104,6 +104,18 @@ The admin **Users** page still creates accounts with the old onboarding baseline
 
 **SSO readiness.** A future OIDC/SAML login replaces the password step only: the EduNexusAI user id stays the `externalUserId` of the CampusCore link, so links survive the switch.
 
+## Registry sync (CampusCore person → portal account, automatic)
+
+With `CAMPUSCORE_ACCOUNT_SYNC_ENABLED=true` the API (`modules/sis/accountSync.js`) reads CampusCore's incremental person feed (`GET /people?updatedSince=`) every `CAMPUSCORE_ACCOUNT_SYNC_INTERVAL_MS` (default 60 s). For each changed person `sis.provisionFromRegistry`:
+
+1. **Skips** anyone merged, without a current student or faculty record (`NO_ELIGIBLE_RECORD`), already linked in CampusCore (`ALREADY_LINKED`), without an email (`NO_EMAIL`), or whose primary email (`EMAIL_IN_USE`) or institutional number (`NUMBER_IN_USE`) is already held locally. Those last two need an administrator: nothing is matched automatically.
+2. **Creates** one account with the same code first sign-in uses (`createPersonAccount`): the login is the person's primary email (the address CampusCore's provisioning gives the Keycloak account), there is **no portal password**, the roles come from the CampusCore records (source `SIS`), and every current record is linked in CampusCore. A person who teaches and studies gets one account with both roles.
+3. **Associates the Keycloak identity at first sign-in.** `decideAccountLink` finds this account by the token's verified institutional number and email, so the person never gets a second account.
+
+People excluded from identity provisioning never appear in the feed. The cursor is the start of the last clean pass (`integration_sync_logs`, operation `ACCOUNT_SYNC`, with a minute of overlap). A person CampusCore refuses (for example, identity-link writes disabled by policy) is reported and retried on the next pass, never half-created. The first pass starts at `CAMPUSCORE_ACCOUNT_SYNC_SINCE`, or at the moment the job first runs, so turning it on never sweeps the historical registry. Each account is audited as `SIS_ACCOUNT_PROVISIONED` (via `CAMPUSCORE_SYNC`).
+
+**Requirement:** CampusCore's `identity.link` capability (scope `identity:write` and the policy `api.allowIdentityLinkWrites`), the same capability that **Add a person** and first sign-in (JIT) already need.
+
 ## Passwords (EduNexusAI logins)
 
 - **Always bcrypt.** The development-only `PASSWORD_STORAGE=plaintext` setting is retired. A leftover value is ignored with a warning, so an old `.env` still boots.
@@ -172,6 +184,12 @@ For the one-time option, the password is never written to the database, operatio
 
 - **Existing Moodle account.** It is linked and keeps its own password.
 - **Resets.** *Users & Roles → Systems → Issue one-time Moodle password* uses `core_user_update_users` with a forced change and is audited (`MOODLE_PASSWORD_RESET`).
+- **Managing the link.** *Users & Roles → Systems* shows, for each student or teaching profile, the Moodle state:
+  - **Linked**: account, ID number, email, courses and the last verification. Actions: refresh, *Unlink (wrong account)*, and issue a one-time password.
+  - **Not linked**: the account that matches the institutional ID or email (*Link existing Moodle account*), or *Create Moodle account* with the three password choices above.
+  - **Provisioning failed**: the last attempt's error.
+
+  An explicit Moodle user id is linked only if its ID number or email matches the person (`verifyCandidate`). One Moodle account is never linked to two people. Endpoints: `GET /admin/moodle/profiles/:type/:profileId`, `POST|DELETE /admin/moodle/profiles/:type/:profileId/link`.
 - **Shared demo password.** `MOODLE_DEMO_PASSWORD` is now used only by the development seed script, never by onboarding.
 - **Long term,** SSO (OIDC or SAML through one identity provider) removes the separate Moodle password; see `moodle-integration.md`.
 

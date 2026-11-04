@@ -155,6 +155,17 @@ admin.post(
   validate({ params: studentParam, body: z.object({ sendWelcomeEmail: z.boolean().optional() }) }),
   asyncHandler(async (req, res) => sendSuccess(res, await moodle.provisionStudent(req.auth, req.params.studentProfileId, req.body))),
 );
+// One profile's Moodle account (Systems): state, live account, courses, or the matching candidate when not linked.
+const profileParam = z.object({ entityType: z.enum(['STUDENT', 'FACULTY']), profileId: uuid });
+admin.get('/profiles/:entityType/:profileId', validate({ params: profileParam }), asyncHandler(async (req, res) => sendSuccess(res, await moodle.profileMoodleState(req.auth.tenantId, req.params.entityType, req.params.profileId))));
+// Link an EXISTING Moodle account (the matching one, or an explicit Moodle user id checked against the institutional
+// ID / email); unlink removes only the EduNexusAI link. Neither creates, edits or deletes anything in Moodle.
+admin.post(
+  '/profiles/:entityType/:profileId/link',
+  validate({ params: profileParam, body: z.object({ moodleUserId: moodleId.optional() }) }),
+  asyncHandler(async (req, res) => sendSuccess(res, await (req.params.entityType === 'FACULTY' ? moodle.linkFaculty : moodle.linkStudent)(req.auth, req.params.profileId, req.body))),
+);
+admin.delete('/profiles/:entityType/:profileId/link', validate({ params: profileParam }), asyncHandler(async (req, res) => sendSuccess(res, await (req.params.entityType === 'FACULTY' ? moodle.unlinkFaculty : moodle.unlinkStudent)(req.auth, req.params.profileId))));
 // New one-time Moodle password for a linked student or faculty account (change forced at
 // next Moodle login). Returned once, never stored; the response is not cacheable.
 // Moodle account for a student or faculty profile. A person's second profile reuses the account of the first.

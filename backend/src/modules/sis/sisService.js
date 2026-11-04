@@ -810,6 +810,95 @@ export async function institutionalPerson({ studentNumbers = [], employeeNumbers
 }
 
 /**
+ * One portal account for one CampusCore person, linked in CampusCore to each of the person's eligible records (one
+ * transaction locally; a CampusCore link already made is withdrawn if the account rolls back). No portal password:
+ * the person signs in with the university ID. Shared by first sign-in (JIT) and the registry sync; the callers make
+ * the identity checks. Returns the new user id.
+ */
+async function createPersonAccount(s, { tenant, person, eligible, email, via, actingUser, keyPrefix, rollbackReason }) {
+  const norm = (v) => String(v ?? '').trim().toLowerCase();
+  // The record carrying the login address is linked first; CampusCore then accepts the other record because both
+  // belong to the same person.
+  const ordered = [...eligible].sort((a, b) => Number(norm(b.email) === email) - Number(norm(a.email) === email));
+  const tier = ordered.some((r) => r.type === 'STUDENT') ? await prisma.studentTier.findFirst({ where: { tenantId: tenant.id }, orderBy: { rank: 'asc' } }) : null;
+  const userId = randomUUID();
+  const firstName = person.preferredName || person.firstName || 'University';
+  const lastName = person.lastName || 'member';
+  const links = [];
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.user.create({ data: { id: userId, tenantId: tenant.id, email, passwordHash: null, passwordChangeRequired: false, firstName, lastName, status: 'ACTIVE' } });
+      for (const r of ordered) {
+        await grantRole(tx, { tenantId: tenant.id, userId, roleKey: r.type, source: 'SIS', evidence: { sisRecordId: r.sisId, institutionalId: r.number, personId: person.id, via } });
+        if (r.type === 'STUDENT') await tx.studentProfile.create({ data: { tenantId: tenant.id, userId, tierId: tier?.id ?? null, studentNumber: r.number, academicStanding: null, currentTerm: null } });
+        else await tx.facultyProfile.create({ data: { tenantId: tenant.id, userId, employeeNumber: r.number, title: null, department: null } });
+      }
+      for (const r of ordered) {
+        links.push(await s.adapter.linkIdentity(
+          { externalSystem: EXTERNAL_SYSTEM, externalUserId: userId, externalEmail: email, externalLabel: `${firstName} ${lastName}`, recordType: r.type, sisRecordId: r.sisId },
+          { actingUser, idempotencyKey: `${keyPrefix}-${userId}-${r.type}` },
+        ));
+      }
+    }, { timeout: 30_000, maxWait: 10_000 });
+  } catch (error) {
+    // The account was rolled back: withdraw any CampusCore link already made for it.
+    const made = links.length ? links : (await s.adapter.listIdentityLinks({ externalSystem: EXTERNAL_SYSTEM, externalUserId: userId, status: 'ACTIVE' }).then((r) => r.data).catch(() => []));
+    for (const l of made) await s.adapter.revokeIdentityLink(l.id, rollbackReason, { actingUser }).catch((e) => logger.warn('Could not withdraw orphan CampusCore link', { linkId: l.id, code: e.code ?? null }));
+    throw error;
+  }
+  s.portal.invalidate(userId);
+  for (const r of ordered) await syncMirror({ tenantId: tenant.id, userId }, { status: 'LINKED', recordType: r.type, sisId: r.sisId }, r.type);
+  return userId;
+}
+
+/** CampusCore people whose person row or any record changed at or after `since` (CampusCore's incremental feed). */
+export async function peopleChangedSince(since) {
+  return withSis(async (s) => {
+    const people = [];
+    for (let page = 1; ; page += 1) {
+      const res = await s.adapter.client.get('/people', { updatedSince: since.toISOString(), page, pageSize: 100 });
+      people.push(...res.data);
+      if (!res.data.length || page * 100 >= (res.pagination?.total ?? 0)) return people;
+    }
+  });
+}
+
+/**
+ * Registry sync (CampusCore → EdunexusAI): a portal account for a CampusCore person who has none, so administrators
+ * see new students and faculty under Users without importing them. Same account as first sign-in creates
+ * (createPersonAccount; no password), and the person's later university sign-in finds it by the verified
+ * institutional number and email (decideAccountLink), so no second account is ever made. Nothing is decided on
+ * email alone: a person whose record is already linked, whose address or number is already held locally, or who has
+ * no current relationship is skipped with a reason for an administrator. Returns { outcome, reason?, userId? }.
+ */
+export async function provisionFromRegistry({ tenant, personId }) {
+  const norm = (v) => String(v ?? '').trim().toLowerCase();
+  return withSis(async (s) => {
+    const person = (await s.adapter.client.get(`/people/${encodeURIComponent(personId)}`)).data;
+    const base = { personNumber: person.personNumber };
+    if (person.mergedInto) return { ...base, outcome: 'SKIPPED', reason: 'MERGED_PERSON' };
+    const eligible = person.relationships.filter((r) => PROVISIONABLE[r.type]?.includes(r.status));
+    if (!eligible.length) return { ...base, outcome: 'SKIPPED', reason: 'NO_ELIGIBLE_RECORD' };
+    for (const r of person.relationships) {
+      if ((await s.adapter.listIdentityLinks({ externalSystem: EXTERNAL_SYSTEM, sisRecordId: r.sisId, status: 'ACTIVE' })).data.length) return { ...base, outcome: 'SKIPPED', reason: 'ALREADY_LINKED' };
+    }
+    const email = norm(person.primaryEmail);
+    if (!email) return { ...base, outcome: 'SKIPPED', reason: 'NO_EMAIL' };
+    if (await prisma.user.findUnique({ where: { tenantId_email: { tenantId: tenant.id, email } }, select: { id: true } })) return { ...base, outcome: 'SKIPPED', reason: 'EMAIL_IN_USE' };
+    for (const r of eligible) {
+      const held = r.type === 'STUDENT'
+        ? await prisma.studentProfile.findFirst({ where: { tenantId: tenant.id, studentNumber: r.number }, select: { id: true } })
+        : await prisma.facultyProfile.findFirst({ where: { tenantId: tenant.id, employeeNumber: r.number }, select: { id: true } });
+      if (held) return { ...base, outcome: 'SKIPPED', reason: 'NUMBER_IN_USE' };
+    }
+    const userId = await createPersonAccount(s, { tenant, person, eligible, email, via: 'CAMPUSCORE_SYNC', actingUser: `${EXTERNAL_SYSTEM}:registry-sync`, keyPrefix: 'sync', rollbackReason: 'Account creation from the CampusCore registry did not complete; link withdrawn automatically.' });
+    await recordAudit({ tenantId: tenant.id, action: 'SIS_ACCOUNT_PROVISIONED', entityType: 'User', entityId: userId, summary: `Created portal account from the CampusCore registry for person ${person.personNumber} (${eligible.map((r) => `${r.type.toLowerCase()} ${r.number}`).join(', ')}); sign-in with the university ID`, metadata: { via: 'CAMPUSCORE_SYNC', personId: person.id, recordTypes: eligible.map((r) => r.type) } });
+    await refreshDirectoryEntry(tenant.id, userId);
+    return { ...base, outcome: 'CREATED', userId };
+  });
+}
+
+/**
  * Institutional sign-in, first time, no portal account (JIT). Called only when the provider's switch is on and
  * no account matched the token's verified institutional numbers. CampusCore's person registry decides:
  *   - every claimed number must belong to ONE CampusCore person (else AMBIGUOUS_RECORDS);
@@ -843,38 +932,7 @@ export async function provisionFromSignIn({ tenant, providerLabel, email, emailV
       for (const r of eligible) {
         if ((await s.adapter.listIdentityLinks({ externalSystem: EXTERNAL_SYSTEM, sisRecordId: r.sisId, status: 'ACTIVE' })).data.length) return { refused: 'RECORD_ALREADY_LINKED' };
       }
-      // The record carrying the address the person signed in with is linked first; CampusCore then accepts the
-      // other record because both belong to the same person.
-      eligible.sort((a, b) => Number(norm(b.email) === tokenEmail) - Number(norm(a.email) === tokenEmail));
-      const tier = eligible.some((r) => r.type === 'STUDENT') ? await prisma.studentTier.findFirst({ where: { tenantId: tenant.id }, orderBy: { rank: 'asc' } }) : null;
-      const userId = randomUUID();
-      const actingUser = `${EXTERNAL_SYSTEM}:jit-sign-in`;
-      const firstName = person.preferredName || person.firstName || 'University';
-      const lastName = person.lastName || 'member';
-      const links = [];
-      try {
-        await prisma.$transaction(async (tx) => {
-          await tx.user.create({ data: { id: userId, tenantId: tenant.id, email: tokenEmail, passwordHash: null, passwordChangeRequired: false, firstName, lastName, status: 'ACTIVE' } });
-          for (const r of eligible) {
-            await grantRole(tx, { tenantId: tenant.id, userId, roleKey: r.type, source: 'SIS', evidence: { sisRecordId: r.sisId, institutionalId: r.number, personId: person.id, via: 'JIT_SIGN_IN' } });
-            if (r.type === 'STUDENT') await tx.studentProfile.create({ data: { tenantId: tenant.id, userId, tierId: tier?.id ?? null, studentNumber: r.number, academicStanding: null, currentTerm: null } });
-            else await tx.facultyProfile.create({ data: { tenantId: tenant.id, userId, employeeNumber: r.number, title: null, department: null } });
-          }
-          for (const r of eligible) {
-            links.push(await s.adapter.linkIdentity(
-              { externalSystem: EXTERNAL_SYSTEM, externalUserId: userId, externalEmail: tokenEmail, externalLabel: `${firstName} ${lastName}`, recordType: r.type, sisRecordId: r.sisId },
-              { actingUser, idempotencyKey: `jit-${userId}-${r.type}` },
-            ));
-          }
-        }, { timeout: 30_000, maxWait: 10_000 });
-      } catch (error) {
-        // The account was rolled back: withdraw any CampusCore link already made for it.
-        const made = links.length ? links : (await s.adapter.listIdentityLinks({ externalSystem: EXTERNAL_SYSTEM, externalUserId: userId, status: 'ACTIVE' }).then((r) => r.data).catch(() => []));
-        for (const l of made) await s.adapter.revokeIdentityLink(l.id, 'Account creation at first sign-in did not complete; link withdrawn automatically.', { actingUser }).catch((e) => logger.warn('Could not withdraw orphan CampusCore link', { linkId: l.id, code: e.code ?? null }));
-        throw error;
-      }
-      s.portal.invalidate(userId);
-      for (const r of eligible) await syncMirror({ tenantId: tenant.id, userId }, { status: 'LINKED', recordType: r.type, sisId: r.sisId }, r.type);
+      const userId = await createPersonAccount(s, { tenant, person, eligible, email: tokenEmail, via: 'JIT_SIGN_IN', actingUser: `${EXTERNAL_SYSTEM}:jit-sign-in`, keyPrefix: 'jit', rollbackReason: 'Account creation at first sign-in did not complete; link withdrawn automatically.' });
       await recordAudit({ tenantId: tenant.id, actorUserId: userId, action: 'SIS_ACCOUNT_PROVISIONED', entityType: 'User', entityId: userId, summary: `Created portal account at first ${providerLabel} sign-in for CampusCore person ${person.personNumber} (${eligible.map((r) => `${r.type.toLowerCase()} ${r.number}`).join(', ')})`, metadata: { via: 'JIT_SIGN_IN', personId: person.id, recordTypes: eligible.map((r) => r.type) } });
       return { userId, personNumber: person.personNumber, recordTypes: eligible.map((r) => r.type) };
     });

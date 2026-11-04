@@ -190,6 +190,21 @@ export function sisConfig() {
 }
 
 /**
+ * Registry sync (modules/sis/accountSync.js): new CampusCore people get a portal account automatically.
+ * Off unless CAMPUSCORE_ACCOUNT_SYNC_ENABLED=true. The first pass starts at CAMPUSCORE_ACCOUNT_SYNC_SINCE (ISO
+ * instant) or, without it, at the moment the job first runs, so turning it on never sweeps the historical registry.
+ */
+export function accountSyncConfig() {
+  const since = (process.env.CAMPUSCORE_ACCOUNT_SYNC_SINCE ?? '').trim();
+  const sinceDate = since ? new Date(since) : null;
+  return {
+    enabled: toBool(process.env.CAMPUSCORE_ACCOUNT_SYNC_ENABLED),
+    intervalMs: Math.min(Math.max(toInt(process.env.CAMPUSCORE_ACCOUNT_SYNC_INTERVAL_MS, 60_000), 10_000), 3_600_000),
+    since: sinceDate && !Number.isNaN(sinceDate.getTime()) ? sinceDate : null,
+  };
+}
+
+/**
  * Resolve the secret behind an Integration.credentialRef. Integrations store only the
  * NAME of an environment variable; the value is read here, on the server, and is never
  * serialised into an API response.
