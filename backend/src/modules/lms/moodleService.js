@@ -287,7 +287,18 @@ const sameEmail = (a, b) => Boolean(a && b && a.trim().toLowerCase() === b.trim(
 export const moodleUsernameFor = (student) => String(student.studentNumber).trim().toLowerCase().replace(/[^a-z0-9._@-]/g, '-');
 
 /** Unrecoverable password satisfying Moodle's default policy. Never stored, logged or returned. */
-const throwawayPassword = () => `${randomBytes(18).toString('base64url')}aA1!`;
+/**
+ * Sites may add rules beyond Moodle's defaults (MoodleCloud refuses "numeric sequence longer than 2" and "repeated
+ * characters longer than 2"): no three digits in a row and no character used more than twice. A random password
+ * that breaks either is drawn again.
+ */
+export const meetsStrictPolicy = (p) => meetsPasswordPolicy(p) && !/\d{3}/.test(p) && [...p].every((c, _i, all) => all.filter((x) => x === c).length <= 2);
+function throwawayPassword() {
+  for (;;) {
+    const candidate = `${randomBytes(12).toString('base64url')}aA1!`;
+    if (meetsStrictPolicy(candidate)) return candidate;
+  }
+}
 
 /**
  * Find the Moodle account for an identity { username, email, idnumber }, if one exists.

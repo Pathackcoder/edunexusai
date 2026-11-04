@@ -94,4 +94,10 @@ describe('Moodle account management from Systems', () => {
     assert.equal((await moodle.profileMoodleState(teacher.tenantId, 'FACULTY', teacher.facultyProfile.id)).state, 'NOT_LINKED');
     assert.ok(await prisma.auditLog.findFirst({ where: { action: 'MOODLE_ACCOUNT_UNLINKED', entityId: teacher.facultyProfile.id } }));
   });
+
+  it('generated Moodle passwords respect a strict site policy (no 3 digits in a row, no character more than twice)', () => {
+    assert.equal(moodle.meetsStrictPolicy('Xk9-_Qa2bT7mZaA1!'), true);
+    assert.equal(moodle.meetsStrictPolicy('Xk123-_QbTmZaA!'), false, 'numeric sequence');
+    assert.equal(moodle.meetsStrictPolicy('Xkkk-_Q9bTmZaA!'), false, 'repeated character');
+  });
 });
