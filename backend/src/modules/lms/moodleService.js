@@ -287,7 +287,18 @@ const sameEmail = (a, b) => Boolean(a && b && a.trim().toLowerCase() === b.trim(
 export const moodleUsernameFor = (student) => String(student.studentNumber).trim().toLowerCase().replace(/[^a-z0-9._@-]/g, '-');
 
 /** Unrecoverable password satisfying Moodle's default policy. Never stored, logged or returned. */
-const throwawayPassword = () => `${randomBytes(18).toString('base64url')}aA1!`;
+/**
+ * Sites may add rules beyond Moodle's defaults (MoodleCloud refuses "numeric sequence longer than 2" and "repeated
+ * characters longer than 2"): no three digits in a row and no character used more than twice. A random password
+ * that breaks either is drawn again.
+ */
+export const meetsStrictPolicy = (p) => meetsPasswordPolicy(p) && !/\d{3}/.test(p) && [...p].every((c, _i, all) => all.filter((x) => x === c).length <= 2);
+function throwawayPassword() {
+  for (;;) {
+    const candidate = `${randomBytes(12).toString('base64url')}aA1!`;
+    if (meetsStrictPolicy(candidate)) return candidate;
+  }
+}
 
 /**
  * Find the Moodle account for an identity { username, email, idnumber }, if one exists.
@@ -530,6 +541,7 @@ export async function linkStudent(auth, studentProfileId, { moodleUserId } = {})
     match = await findMoodleAccountFor(connector, student);
     if (!match) throw notFound('No Moodle account matches this student’s email or ID number. Provision one instead.');
   }
+  await assertNotOtherPerson(auth.tenantId, match.user.id, student.user.id);
 
   const link = await saveLink(prisma, {
     tenantId: auth.tenantId,
@@ -545,6 +557,113 @@ export async function linkStudent(auth, studentProfileId, { moodleUserId } = {})
 }
 
 /** Removes only the EduNexusAI link. The Moodle account and its history are untouched. */
+/**
+ * One Moodle account belongs to one person. A Moodle user already linked to ANOTHER EduNexusAI account (as student
+ * or faculty) is refused; the same person's other profile (SAME_PERSON) is fine.
+ */
+async function assertNotOtherPerson(tenantId, moodleUserId, userId) {
+  const links = await prisma.externalIdentity.findMany({ where: { tenantId, provider: PROVIDER, entityType: { in: [STUDENT, FACULTY] }, externalId: String(moodleUserId) } });
+  for (const link of links) {
+    const owner = link.entityType === STUDENT
+      ? await prisma.studentProfile.findUnique({ where: { id: link.internalId }, select: { userId: true, user: { select: { email: true } } } })
+      : await prisma.facultyProfile.findUnique({ where: { id: link.internalId }, select: { userId: true, user: { select: { email: true } } } });
+    if (owner && owner.userId !== userId) throw conflict(`Moodle account ${moodleUserId} is already linked to ${owner.user?.email ?? 'another person'}. One Moodle account belongs to one person; unlink it there first if it was linked by mistake.`);
+  }
+}
+
+const facultyIdentity = (faculty) => ({
+  username: String(faculty.employeeNumber).toLowerCase().replace(/[^a-z0-9._@-]/g, '-'),
+  email: faculty.user.email,
+  idnumber: faculty.employeeNumber,
+  firstname: faculty.user.firstName,
+  lastname: faculty.user.lastName,
+});
+
+/**
+ * Link an existing Moodle account to a faculty profile (explicit administrator action), with the same evidence
+ * rules as linkStudent: the person's other profile's account (SAME_PERSON), an explicit account checked against
+ * the employee number / email (verifyCandidate), or the one account matching ID number + email (findMoodleAccount).
+ */
+export async function linkFaculty(auth, facultyProfileId, { moodleUserId } = {}) {
+  const faculty = await loadFaculty(auth.tenantId, facultyProfileId);
+  if (await identityLink(auth.tenantId, FACULTY, faculty.id)) throw conflict('This faculty member is already linked to a Moodle account. Unlink it first.');
+  const { connector } = await connect(auth.tenantId);
+  const shared = await samePersonLink(auth.tenantId, faculty.user.id, FACULTY);
+  if (shared && moodleUserId && Number(moodleUserId) !== Number(shared.externalId)) {
+    throw conflict(`This person already uses Moodle account ${shared.externalId} through their student profile. Link the faculty profile to that account; one person never gets two Moodle accounts.`);
+  }
+  let match;
+  if (shared) {
+    const [user] = await connector.getUsersByField('id', [shared.externalId]);
+    if (!user) throw notFound(`Moodle has no user with id ${shared.externalId}.`);
+    match = { user, method: 'SAME_PERSON' };
+  } else if (moodleUserId) {
+    const [user] = await connector.getUsersByField('id', [moodleUserId]);
+    if (!user) throw notFound(`Moodle has no user with id ${moodleUserId}.`);
+    if (Number(user.id) === Number((await connector.siteInfo()).tokenUserId) || user.auth === 'moodlecloud') throw conflict('That is a site administration account and cannot be linked to a person.');
+    const verdict = verifyCandidate(user, { email: faculty.user.email, idnumber: faculty.employeeNumber });
+    if (!verdict.ok) {
+      throw conflict(verdict.reason === 'ID_NUMBER_CONFLICT'
+        ? 'That Moodle account carries a different ID number, so it belongs to someone else. It was not linked.'
+        : 'That Moodle account does not match this faculty member’s email or employee number, so it was not linked.');
+    }
+    match = { user, method: verdict.method };
+  } else {
+    match = await findMoodleAccount(connector, facultyIdentity(faculty));
+    if (!match) throw notFound('No Moodle account matches this faculty member’s email or employee number. Create one instead.');
+  }
+  await assertNotOtherPerson(auth.tenantId, match.user.id, faculty.user.id);
+  const link = await saveLink(prisma, { tenantId: auth.tenantId, entityType: FACULTY, internalId: faculty.id, externalId: match.user.id, linkMethod: match.method, actorUserId: auth.userId, status: Number(match.user.suspended) ? 'SUSPENDED' : 'ACTIVE' });
+  await recordAudit({ tenantId: auth.tenantId, actorUserId: auth.userId, action: 'MOODLE_ACCOUNT_LINKED', entityType: 'FacultyProfile', entityId: faculty.id, summary: `Linked ${faculty.employeeNumber} to Moodle user ${match.user.id}` });
+  return { moodleUserId: Number(link.externalId), linkMethod: link.linkMethod, status: link.status, account: mapUser(match.user) };
+}
+
+/** Removes only the EduNexusAI link. The Moodle account, its enrolments and history are untouched. */
+export async function unlinkFaculty(auth, facultyProfileId) {
+  const faculty = await loadFaculty(auth.tenantId, facultyProfileId);
+  const link = await identityLink(auth.tenantId, FACULTY, faculty.id);
+  if (!link) throw notFound('This faculty member is not linked to a Moodle account.');
+  await prisma.externalIdentity.delete({ where: { id: link.id } });
+  await recordAudit({ tenantId: auth.tenantId, actorUserId: auth.userId, action: 'MOODLE_ACCOUNT_UNLINKED', entityType: 'FacultyProfile', entityId: faculty.id, summary: `Unlinked ${faculty.employeeNumber} from Moodle user ${link.externalId}` });
+  return { unlinked: true, moodleUserId: Number(link.externalId) };
+}
+
+/**
+ * Read-only, for the Systems view: one profile's Moodle state.
+ *   LINKED / SUSPENDED          the link, the live account and its courses
+ *   NOT_LINKED + candidate      FOUND (an account matches the institutional ID / email: link it),
+ *                               NOT_FOUND (create one), CONFLICT (evidence disagrees: an administrator decides)
+ *   PROVISIONING_FAILED         not linked, and the last account operation for this profile did not complete
+ */
+export async function profileMoodleState(tenantId, entityType, profileId) {
+  const profile = entityType === STUDENT ? await loadStudent(tenantId, profileId) : await loadFaculty(tenantId, profileId);
+  const identity = entityType === STUDENT ? studentIdentity(profile) : facultyIdentity(profile);
+  const matchedOn = { institutionalId: identity.idnumber, email: identity.email, username: identity.username };
+  const lastOperation = await prisma.integrationOperation.findFirst({
+    where: { tenantId, internalId: profileId, operation: { in: ['USER.PROVISION', 'USER.PROVISION_FACULTY'] } },
+    orderBy: { updatedAt: 'desc' },
+    select: { status: true, errorMessage: true, updatedAt: true, completedAt: true },
+  });
+  const link = await identityLink(tenantId, entityType, profileId);
+  if (!link) {
+    const candidate = await lookupMoodleAccount(tenantId, identity);
+    const failed = lastOperation && ['FAILED', 'BLOCKED', 'NEEDS_RECONCILIATION', 'PARTIAL'].includes(lastOperation.status);
+    return { state: failed ? 'PROVISIONING_FAILED' : 'NOT_LINKED', matchedOn, candidate, lastOperation: lastOperation ?? null };
+  }
+  const out = { state: link.status === 'SUSPENDED' ? 'SUSPENDED' : 'LINKED', matchedOn, moodleUserId: Number(link.externalId), linkMethod: link.linkMethod, linkedAt: link.createdAt, lastVerifiedAt: link.verifiedAt ?? link.updatedAt, lastOperation: lastOperation ?? null };
+  try {
+    const { connector } = await connect(tenantId);
+    const [user] = await connector.getUsersByField('id', [Number(link.externalId)]);
+    if (!user) return { ...out, accountMissing: true };
+    out.account = mapUser(user);
+    out.courses = (await connector.getUserCourses(Number(link.externalId))).map((c) => ({ moodleCourseId: Number(c.id), shortName: c.shortname, fullName: c.fullname, url: `${connector.baseUrl}/course/view.php?id=${c.id}` }));
+    out.checkedAt = new Date().toISOString();
+  } catch (error) {
+    out.liveError = error.message;
+  }
+  return out;
+}
+
 export async function unlinkStudent(auth, studentProfileId) {
   const student = await loadStudent(auth.tenantId, studentProfileId);
   const link = await studentLink(auth.tenantId, student.id);
@@ -620,6 +739,7 @@ async function provisionIdentity(auth, { entityType, internalId, personUserId = 
 
       const found = await findMoodleAccount(connector, target);
       if (found) {
+        if (personUserId) await assertNotOtherPerson(auth.tenantId, found.user.id, personUserId);
         await saveLink(prisma, { tenantId: auth.tenantId, entityType, internalId, externalId: found.user.id, linkMethod: found.method, actorUserId: auth.userId, status: Number(found.user.suspended) ? 'SUSPENDED' : 'ACTIVE' });
         return { externalId: found.user.id, result: { action: 'LINKED_EXISTING', moodleUserId: Number(found.user.id), username: found.user.username, passwordDelivery: 'EXISTING_MOODLE_PASSWORD', loginUrl: moodleLoginUrl() } };
       }
@@ -695,13 +815,7 @@ export async function provisionFaculty(auth, facultyProfileId, { account, passwo
     personUserId: faculty.user.id,
     label: faculty.employeeNumber,
     auditEntity: 'FacultyProfile',
-    identity: {
-      username: String(faculty.employeeNumber).toLowerCase().replace(/[^a-z0-9._@-]/g, '-'),
-      email: faculty.user.email,
-      idnumber: faculty.employeeNumber,
-      firstname: faculty.user.firstName,
-      lastname: faculty.user.lastName,
-    },
+    identity: facultyIdentity(faculty),
     account,
     password,
     credentials,

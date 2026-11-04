@@ -32,7 +32,7 @@ import { MoodleEnrolmentFields } from './MoodleEnrolmentFields';
 
 const STATUS_COLOR = { DONE: 'success', ALREADY: 'info', SKIPPED: 'default', BLOCKED: 'warning', FAILED: 'error' };
 const STATUS_LABEL = { DONE: 'Done', ALREADY: 'Already in place', SKIPPED: 'Skipped', BLOCKED: 'Blocked', FAILED: 'Failed' };
-const CREDENTIALS = [
+export const CREDENTIALS = [
   ['EMAIL', 'Moodle emails a password', 'Moodle generates a password and emails it to the institutional address; it must be changed at first Moodle login. Needs a mailbox that receives mail.'],
   ['ONE_TIME', 'Show a one-time password to hand over', 'Shown once after onboarding, never stored. Moodle requires a new password at first login. Use when email cannot reach the person.'],
   ['NONE', 'No password now', 'The person uses "Forgotten password" on Moodle later (needs working email), or you issue a one-time password from Users & Roles → Systems.'],

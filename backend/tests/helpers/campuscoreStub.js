@@ -102,6 +102,10 @@ export async function startCampusCoreStub({ clientId, clientSecret }) {
       if (!S.scopes.includes('people:read') || (currentTokenScopes && !currentTokenScopes.includes('people:read'))) return err(403, 'insufficient_scope', 'This operation requires the scope(s): people:read.');
       return { body: paged(people().filter((p) => !p.identityExcluded).filter((p) => (!q.get('studentNumber') || p.relationships.some((x) => x.type === 'STUDENT' && x.number === q.get('studentNumber'))) && (!q.get('employeeNumber') || p.relationships.some((x) => x.type === 'FACULTY' && x.number === q.get('employeeNumber')))), q) };
     }
+    if (method === 'GET' && (m = path.match(/^\/people\/([^/]+)$/))) {
+      const person = people().find((p) => p.id === decodeURIComponent(m[1]) && !p.identityExcluded);
+      return person ? { body: { data: person } } : err(404, 'not_found', 'Person not found.');
+    }
     if (method === 'GET' && path === '/me') return { body: { clientId, name: 'Stub client', institution: S.institution, scopes: S.scopes } };
     if (method === 'GET' && path === '/capabilities') return { body: { data: { institution: S.institution, scopes: S.scopes, operations: capabilities() } } };
     if (method === 'PUT' && path === '/integration/write-preferences') {
