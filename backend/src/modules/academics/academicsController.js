@@ -47,7 +47,7 @@ export const getGrades = asyncHandler(async (req, res) => {
 
 export const listAnnouncements = asyncHandler(async (req, res) => {
   const { tenantId, userId, studentProfileId } = ctx(req);
-  const announcements = await service.listAnnouncements(tenantId, { userId, studentProfileId });
+  const announcements = await service.listAnnouncements(tenantId, { userId, studentProfileId, auth: req.auth });
   return sendSuccess(res, announcements, { count: announcements.length });
 });
 

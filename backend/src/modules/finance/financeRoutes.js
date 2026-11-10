@@ -22,13 +22,13 @@ const ctx = (req) => [req.auth.tenantId, req.auth.studentProfileId];
 
 financeRoutes.get(
   '/',
-  asyncHandler(async (req, res) => sendSuccess(res, await service.getFinance(...ctx(req)))),
+  asyncHandler(async (req, res) => sendSuccess(res, await service.getStudentFinance(req.auth))),
 );
 
 financeRoutes.get(
   '/payments',
   asyncHandler(async (req, res) => {
-    const payments = await service.listPayments(...ctx(req));
+    const payments = await service.listPayments(...ctx(req), req.auth);
     return sendSuccess(res, payments, { count: payments.length });
   }),
 );

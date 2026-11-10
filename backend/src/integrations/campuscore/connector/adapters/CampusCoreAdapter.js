@@ -73,6 +73,27 @@ export class CampusCoreAdapter extends SisAdapter {
     };
   }
 
+  // Student account (finance:read). CampusCore computes every total from its append-only ledger; amounts arrive as
+  // decimal strings and are mapped to numbers for display only. null: the student has no account (an empty state).
+  async getStudentAccount(id, termId) {
+    const a = (await this.client.get(`/students/${encodeURIComponent(id)}/account`, { termId })).data;
+    if (!a) return null;
+    const n = (v) => (v == null ? null : Number(v));
+    return {
+      source: ref(a.id), accountNumber: a.accountNumber, status: a.status, standing: a.standing, currency: a.currency, isDemo: a.isDemo,
+      term: { source: ref(a.term.id), code: a.term.code, name: a.term.name }, dueDate: a.dueDate,
+      totals: Object.fromEntries(Object.entries(a.totals).map(([k, v]) => [k, n(v)])),
+      nextDeadline: a.deadlines.next ? { ...a.deadlines.next, amount: n(a.deadlines.next.amount) } : null,
+      overdue: a.deadlines.overdue.map((d) => ({ ...d, amount: n(d.amount) })),
+      transactions: a.entries.map((e) => ({ source: ref(e.id), reference: e.reference, type: e.type, direction: e.direction, amount: n(e.amount), signedAmount: n(e.signedAmount), description: e.description, category: e.category, method: e.method, date: e.effectiveDate, postedAt: e.postedAt, status: e.status, reversedBy: e.reversedBy, isDemo: e.isDemo })),
+      invoices: a.invoices.map((i) => ({ source: ref(i.id), number: i.number, status: i.status, issuedAt: i.issuedAt, dueDate: i.dueDate, total: n(i.total), isDemo: i.isDemo, lines: i.lines.map((l) => ({ description: l.description, amount: n(l.amount), reference: l.reference })) })),
+    };
+  }
+
+  async listStudentAnnouncements(id) {
+    return (await this.client.get(`/students/${encodeURIComponent(id)}/announcements`)).data.map((a) => ({ source: ref(a.id), title: a.title, body: a.body, pinned: a.pinned, author: a.author, publishedAt: a.publishedAt, section: { source: ref(a.section.id), label: a.section.label, courseCode: a.section.courseCode, courseTitle: a.section.courseTitle, termCode: a.section.term } }));
+  }
+
   async getAcademicSummary(id) {
     const d = (await this.client.get(`/students/${encodeURIComponent(id)}/academic-record`)).data;
     return { studentRef: ref(d.studentId), gpa: d.cumulativeGpa, creditsEarned: d.creditsEarned, creditsInProgress: d.creditsInProgress, standing: d.academicStanding.toLowerCase(), level: d.classLevel.toLowerCase(), terms: d.terms.map((t) => ({ termCode: t.term, gpa: t.termGpa })) };

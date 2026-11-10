@@ -41,6 +41,7 @@ import { useI18n } from '../../i18n';
 import { SubmitModal } from '../../components/assignments/SubmitModal';
 import { AnnouncementModal } from '../../components/announcements/AnnouncementModal';
 import { PaymentModal } from '../../components/finance/PaymentModal';
+import { TuitionAccountSummary } from '../../components/finance/TuitionAccountSummary';
 import { useToast } from '../../components/common/Toast';
 import { FitList, Spotlight, WidgetEmpty } from '../../components/common/FitList';
 import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded';
@@ -81,6 +82,7 @@ const BreakdownRow = ({ color = 'primary.main', label, value, divider = false })
  * tier entitles them to, each panel loaded independently so one failure does not blank
  * the page. Panel keys, handlers and modals are unchanged; this file only presents them.
  */
+
 export const StudentDashboard = () => {
   const { user } = useAuth();
   const { financeData, makePayment, resetFinanceBalance } = useFinance();
@@ -121,7 +123,7 @@ export const StudentDashboard = () => {
   const sisOverview = useApiQuery(() => sisApi.myOverview());
   const sisSchedule = sisOverview.data?.state === 'OK' && sisOverview.data.schedule.state === 'OK' ? sisOverview.data.schedule.data : null;
   const TIMETABLE_CONNECTED = Boolean(sisSchedule);
-  const todayClasses = sisTodaysClasses(sisSchedule?.items ?? []);
+  const todayClasses = sisTodaysClasses(sisSchedule?.items ?? [], new Date(), sisOverview.data?.timezone ?? undefined);
   // Classes registered for a later term (registration usually happens for the next term).
   const upcomingTerm = (sisOverview.data?.terms ?? []).find((t) => !t.isCurrent && t.registered > 0 && (sisOverview.data?.classTermIds ?? []).includes(t.id)) ?? null;
   // Coursework is Moodle's: the widget reads live Moodle assignments, not local records.
@@ -150,6 +152,7 @@ export const StudentDashboard = () => {
 
   /** Marking an announcement read is a server write; reflect it locally straight away. */
   const handleAnnouncementRead = async (id) => {
+    const item = announcements.find((a) => a.id === id);
     setData((current) => {
       if (!current?.panels?.['dashboard.announcements']) return current;
       const next = structuredClone(current);
@@ -158,6 +161,8 @@ export const StudentDashboard = () => {
       );
       return next;
     });
+    // CampusCore class announcements have no local read record; the change is for this view only.
+    if (item?.source === 'campuscore') return;
     try {
       await academicApi.markAnnouncementRead(id);
       showToast('Announcement marked as read');
@@ -390,43 +395,28 @@ export const StudentDashboard = () => {
                   ))}
                 </WidgetCard>
             ) },
-            { key: 'dashboard.tuition', label: "Tuition & accounts", span: { md: 6, lg: 4 }, size: 'standard', node: (
+            { key: 'dashboard.tuition', label: "Tuition & Accounts", span: { md: 6, lg: 4 }, size: 'standard', node: (
 <WidgetCard
-                  title="Tuition & accounts"
+                  title="Tuition & Accounts"
                   subtitle={financeData.term || ''}
                   icon={CreditCardOutlinedIcon}
                   tone="warning"
                   actionLabel="Finance hub"
                   actionTo="/finance/tuition"
                 >
-                  {panelBody('dashboard.tuition', () => (
-                    <>
-                      <MetricLabel>Outstanding balance</MetricLabel>
-                      <Typography
-                        variant="metric"
-                        component="strong"
-                        sx={{ display: 'block', mt: 0.5, fontSize: { xs: '1.875rem', md: '2rem' }, color: financeData.currentBalance > 0 ? 'text.primary' : 'success.main' }}
-                      >
-                        {financeData.formattedBalance}
-                      </Typography>
-                      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mt: 1.25 }}>
-                        <Typography variant="body2" color="text.secondary">
-                          Due {financeData.dueDate ?? '—'}
-                        </Typography>
-                        <Badge variant={financeData.currentBalance > 0 ? 'warning' : 'success'}>
-                          {financeData.currentBalance > 0 ? 'Payment due' : 'Settled'}
-                        </Badge>
-                      </Stack>
-                      {financeData.transactions?.[0] && (
-                        <Typography variant="caption" component="p" sx={{ mt: 2, pt: 1.5, borderTop: 1, borderColor: 'divider', borderStyle: 'dashed', borderLeft: 0, borderRight: 0, borderBottom: 0 }}>
-                          Latest payment:{' '}
-                          <Box component="strong" sx={{ color: 'text.primary', fontWeight: 600 }}>
-                            {financeData.transactions[0].date} · ${Number(financeData.transactions[0].amount).toFixed(2)}
-                          </Box>
-                        </Typography>
-                      )}
-                      <Box sx={{ mt: 'auto', pt: 2 }}>
-                        {financeData.currentBalance > 0 ? (
+                  {panelBody('dashboard.tuition', () => (financeData.source === 'campuscore' && !financeData.hasAccount ? (
+                    <WidgetEmpty icon={CreditCardOutlinedIcon} tone="warning" title="Nothing owed">
+                      {financeData.message ?? 'No charges have been assessed for you yet.'}
+                    </WidgetEmpty>
+                  ) : (
+                    <TuitionAccountSummary
+                      finance={financeData}
+                      action={
+                        financeData.paymentsEnabled === false ? (
+                          <Button variant="outline" size="md" fullWidth component={RouterLink} to="/finance/tuition">
+                            View account
+                          </Button>
+                        ) : financeData.currentBalance > 0 ? (
                           <Button size="md" fullWidth onClick={() => setIsPaymentModalOpen(true)}>
                             Pay balance
                           </Button>
@@ -443,10 +433,10 @@ export const StudentDashboard = () => {
                           >
                             Reset demo balance
                           </Button>
-                        )}
-                      </Box>
-                    </>
-                  ))}
+                        )
+                      }
+                    />
+                  )))}
                 </WidgetCard>
             ) },
             { key: 'dashboard.assignments', label: "Upcoming assignments", span: { md: 12, lg: 8 }, size: 'large', node: (

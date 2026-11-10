@@ -18,6 +18,7 @@ export async function startCampusCoreStub({ clientId, clientSecret }) {
     down: false,
     seq: 1,
     students: new Map(),
+    accounts: new Map(),
     faculty: new Map(),
     links: [],
     idempotency: new Map(),
@@ -157,6 +158,12 @@ export async function startCampusCoreStub({ clientId, clientSecret }) {
       S.writes.push({ op: 'deactivate', actingUser: headers['x-acting-user'] });
       s.status = 'WITHDRAWN';
       return { body: { data: studentDto(s), meta: { changed: true } } };
+    }
+    // As CampusCore: finance:read; data is null when the student has no account.
+    if (method === 'GET' && (m = path.match(/^\/students\/([^/]+)\/account$/))) {
+      if (!S.scopes.includes('finance:read')) return err(403, 'insufficient_scope', 'This operation requires the scope(s): finance:read.');
+      if (!S.students.get(m[1])) return err(404, 'not_found', 'Student not found.');
+      return { body: { data: S.accounts.get(m[1]) ?? null } };
     }
     if ((m = path.match(/^\/students\/([^/]+)\/(schedule|academic-record|grades|registrations|audit)$/))) {
       const s = S.students.get(m[1]);

@@ -63,12 +63,17 @@ export async function getStudentDashboard(sessionAuth) {
   const sisAcademic = () => (snapshot ??= sis.academicSnapshot(sessionAuth));
 
   // Today's classes come from /sis/me/overview in the browser; this panel only names the day.
-  add('dashboard.schedule', async () => ({ source: 'campuscore', dayName: new Date().toLocaleDateString('en-US', { weekday: 'long' }), date: new Date().toISOString().slice(0, 10) }));
+  add('dashboard.schedule', async () => {
+    // The institution's day, not the server's: meeting times are institution-local.
+    const timeZone = (await sis.timezone()) ?? undefined;
+    const now = new Date();
+    return { source: 'campuscore', timezone: timeZone ?? null, dayName: now.toLocaleDateString('en-US', { weekday: 'long', timeZone }), date: now.toLocaleDateString('en-CA', { timeZone }) };
+  });
   add('dashboard.progress', sisAcademic);
-  add('dashboard.tuition', () => finance.getFinance(tenantId, studentProfileId));
+  add('dashboard.tuition', () => finance.getStudentFinance(sessionAuth));
   add('dashboard.assignments', () => academics.listAssignments(tenantId, studentProfileId));
   add('dashboard.financial_aid', () => financialAid.getFinancialAid(tenantId, studentProfileId, { userId }));
-  add('dashboard.announcements', () => academics.listAnnouncements(tenantId, { userId, studentProfileId }));
+  add('dashboard.announcements', () => academics.listAnnouncements(tenantId, { userId, studentProfileId, auth: sessionAuth }));
   add('dashboard.notifications', () => notifications.listNotifications(tenantId, userId));
   add('dashboard.library', () => campus.getLibrary(tenantId, studentProfileId));
   add('dashboard.calendar', async () => {
@@ -116,7 +121,7 @@ export async function getStudentDashboard(sessionAuth) {
     return { points: result.points, level: result.level, earned: result.earned, total: result.total, recent: result.badges.filter((badge) => badge.earned).slice(-3), next: result.nextMilestones[0] ?? null };
   });
   add('dashboard.learning_path', async () => {
-    const { paths } = await planning.getLearningPaths(tenantId, studentProfileId);
+    const { paths } = await planning.getLearningPaths(tenantId, studentProfileId, sessionAuth);
     const path = paths.find((item) => item.isActive) ?? paths.find((item) => item.recommended) ?? null;
     return path
       ? { id: path.id, title: path.title, isActive: path.isActive, progress: path.progress, currentStage: path.currentStage, completedSteps: path.completedSteps, totalSteps: path.totalSteps, nextStep: path.steps.find((step) => step.status !== 'COMPLETED') ?? null }

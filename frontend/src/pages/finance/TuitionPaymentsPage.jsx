@@ -17,6 +17,9 @@ import { PageHeader } from '../../components/common/PageHeader';
 import { MetricLabel } from '../../components/common/Section';
 import { useToast } from '../../components/common/Toast';
 import { useAuth } from '../../context/AuthContext';
+import { SisAccountView } from '../../components/finance/SisAccountView';
+import { DataState } from '../../components/common/DataState';
+import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
 
 const ChargeRow = ({ label, amount, muted, tone }) => (
   <Stack direction="row" justifyContent="space-between" spacing={2}>
@@ -32,7 +35,7 @@ const ChargeRow = ({ label, amount, muted, tone }) => (
 
 export const TuitionPaymentsPage = () => {
   const { user } = useAuth();
-  const { financeData, makePayment, resetFinanceBalance } = useFinance();
+  const { financeData, makePayment, resetFinanceBalance, loading, error, reloadFinance } = useFinance();
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const { showToast } = useToast();
 
@@ -46,6 +49,22 @@ export const TuitionPaymentsPage = () => {
     resetFinanceBalance();
     showToast('Demo balance reset to $4,280.00! Ready to simulate payment again.');
   };
+
+  // CampusCore SIS is the system of record: show its account; payments are recorded by Student Accounts there.
+  if (financeData.source === 'campuscore' || (loading && !financeData.source) || error) {
+    return (
+      <Box>
+        <PageHeader
+          title="Tuition & Student Accounts"
+          description={`Your student account from CampusCore SIS: assessed fees, payments, credits, invoices and payment deadlines for ${user?.fullName ?? 'your account'}.`}
+          actions={financeData.hasAccount ? <Button variant="secondary" size="sm" icon={PrintOutlinedIcon} onClick={() => window.print()}>Print statement</Button> : null}
+        />
+        <DataState loading={loading && !financeData.source} error={error} onRetry={reloadFinance} loadingLabel="Loading your account…">
+          <SisAccountView account={financeData} />
+        </DataState>
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -93,12 +112,10 @@ export const TuitionPaymentsPage = () => {
             </Stack>
 
             <Stack spacing={1.25}>
-              <ChargeRow label="Graduate Tuition (16 Credits)" amount="$9,600.00" />
-              <ChargeRow label="Technology & Computing Lab Fee" amount="$450.00" />
-              <ChargeRow label="Student Health & Wellness Fee" amount="$280.00" />
-              <ChargeRow label="Campus Infrastructure & Library Fee" amount="$150.00" />
-              <Divider sx={{ borderStyle: 'dashed' }} />
-              <ChargeRow label="Less: Financial Aid & Scholarships" amount="-$6,200.00" muted tone="secondary.main" />
+              {(financeData.breakdown ?? []).map((item, i) => (
+                <ChargeRow key={i} label={item.label} amount={`$${Number(item.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}`} />
+              ))}
+              {!financeData.breakdown?.length && <ChargeRow label="No itemized charges" amount="—" muted />}
             </Stack>
 
             <Stack

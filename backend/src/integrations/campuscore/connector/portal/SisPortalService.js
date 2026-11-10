@@ -75,6 +75,22 @@ export class SisPortalService {
     return { state: 'OK', identity: { sisId: id, institutionalId: identity.institutionalId }, profile, academic, schedule, grades, registrations };
   }
 
+  /** The signed-in student's own account. The SIS id comes from the verified link, never from the request. */
+  async studentFinance(user, { termId } = {}) {
+    const found = await this.#relationship(user, 'STUDENT');
+    if (found.missing === 'OTHER_ROLE') return { state: 'NOT_A_STUDENT' };
+    if (found.missing) return { state: 'UNMAPPED', message: 'Your portal account is not yet linked to a student record. Contact the registrar.' };
+    const account = await this.sis.getStudentAccount(found.identity.sisId, termId);
+    return { state: account ? 'OK' : 'NO_ACCOUNT', account };
+  }
+
+  /** Class announcements for the signed-in student's own registered sections. */
+  async studentAnnouncements(user) {
+    const found = await this.#relationship(user, 'STUDENT');
+    if (found.missing) return { state: found.missing === 'OTHER_ROLE' ? 'NOT_A_STUDENT' : 'UNMAPPED', items: [] };
+    return { state: 'OK', items: await this.sis.listStudentAnnouncements(found.identity.sisId) };
+  }
+
   // ── Faculty ──
   async #facultyId(user) {
     const found = await this.#relationship(user, 'FACULTY');

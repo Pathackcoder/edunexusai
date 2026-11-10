@@ -28,15 +28,15 @@ planningRoutes.put(
     return sendSuccess(res, await planning.getRecommendations(...ctx(req)));
   }),
 );
-planningRoutes.get('/learning-paths', asyncHandler(async (req, res) => sendSuccess(res, await planning.getLearningPaths(...ctx(req)))));
+planningRoutes.get('/learning-paths', asyncHandler(async (req, res) => sendSuccess(res, await planning.getLearningPaths(...ctx(req), req.auth))));
 planningRoutes.post(
   '/learning-paths/:id/activate',
   validate({ params: z.object({ id: z.string().uuid() }) }),
-  asyncHandler(async (req, res) => sendSuccess(res, await planning.activateLearningPath(...ctx(req), req.params.id))),
+  asyncHandler(async (req, res) => sendSuccess(res, await planning.activateLearningPath(...ctx(req), req.params.id, req.auth))),
 );
 planningRoutes.put(
   '/learning-steps/:id',
   validate({ params: z.object({ id: z.string().uuid() }), body: z.object({ status: z.enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETED']) }) }),
-  asyncHandler(async (req, res) => sendSuccess(res, await planning.setStepStatus(...ctx(req), req.params.id, req.body.status))),
+  asyncHandler(async (req, res) => sendSuccess(res, await planning.setStepStatus(...ctx(req), req.params.id, req.body.status, req.auth))),
 );
 planningRoutes.get('/insights', asyncHandler(async (req, res) => sendSuccess(res, await planning.getInsights(...ctx(req)))));
