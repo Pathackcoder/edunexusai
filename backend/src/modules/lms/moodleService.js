@@ -106,12 +106,24 @@ function presentOperation(op) {
 }
 
 /**
+ * Idempotency holds per Moodle site: the same person or course on another site (after moving to a new MoodleCloud
+ * site) is a new operation, and the earlier site's operations stay untouched as history. Keys passed back by a
+ * retry already carry the site.
+ */
+function siteScoped(key, baseUrl) {
+  if (!baseUrl) return key;
+  const suffix = `@${new URL(baseUrl).host}`;
+  return key.endsWith(suffix) ? key : `${key}${suffix}`;
+}
+
+/**
  * Record an operation, run it, and record the outcome. A SUCCEEDED operation with the
  * same idempotency key is returned as-is instead of running again, unless `stillValid`
  * says its result no longer holds (e.g. the link it made was removed since).
  */
-async function runOperation({ auth, integration, operation, idempotencyKey, entityType, internalId = null, request, handler, stillValid }) {
+async function runOperation({ auth, integration, operation, idempotencyKey: key, entityType, internalId = null, request, handler, stillValid }) {
   const tenantId = auth.tenantId;
+  const idempotencyKey = siteScoped(key, integration.baseUrl);
   const correlationId = randomUUID();
   const existing = await prisma.integrationOperation.findUnique({ where: { tenantId_idempotencyKey: { tenantId, idempotencyKey } } });
   if (existing?.status === 'SUCCEEDED' && (!stillValid || (await stillValid(existing)))) {

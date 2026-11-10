@@ -71,7 +71,7 @@ The systems already share a stable person key: the **CampusCore institutional ID
    |---|---|---|
    | EduNexusAI | `http://localhost:5173/auth/callback` (dev), `https://portal.feddrick.edu/auth/callback` (prod) | the login page |
    | CampusCore | `http://localhost:5180/auth/callback` (dev), production URL later | the login page |
-   | Moodle | `https://feddrick-university.moodlecloud.com/admin/oauth2callback.php` | — |
+   | Moodle | `https://my-feddrick-university.moodlecloud.com/admin/oauth2callback.php` | — |
 
    Store the client secrets only in each backend's secret store.
 

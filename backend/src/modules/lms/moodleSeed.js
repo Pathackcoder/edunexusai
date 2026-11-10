@@ -71,7 +71,9 @@ export const DEMO_MATH_COURSES = [
   { key: 'ENX-DEMO-MAT-202', fullName: 'ENX DEMO - Probability and Statistics', instructor: 'FAC-30102' },
 ].map((c) => ({ ...c, shortName: c.key, idNumber: c.key, summary: 'Demo Mathematics course shell created by the EduNexusAI development seed. Contains no learning content.' }));
 
-export const SEED_SCOPES = ['core', 'math'];
+// "restore" rebuilds the pilot environment of an expired site on a new one (see moodleRestore.js).
+export const SEED_SCOPES = ['core', 'math', 'restore'];
+const restore = () => import('./moodleRestore.js');
 
 export const demoAccountFor = (number, firstName, lastName) => {
   const slug = String(number).toLowerCase().replace(/[^a-z0-9-]/g, '-');
@@ -136,7 +138,7 @@ export async function countSiteUsers(connector, { chunk = 500, maxId = 20000 } =
   };
 }
 
-async function context(tenantSlug) {
+export async function seedContext(tenantSlug) {
   const tenant = await prisma.tenant.findFirst({ where: { slug: tenantSlug } });
   if (!tenant) throw new Error(`No tenant with slug "${tenantSlug}".`);
   const actor = await prisma.user.findFirst({ where: { tenantId: tenant.id, userRoles: { some: { role: { key: 'ADMIN' } } } }, select: { id: true } });
@@ -152,10 +154,11 @@ async function context(tenantSlug) {
  */
 export async function preflight({ tenantSlug, scope = 'core' }) {
   if (!SEED_SCOPES.includes(scope)) throw new Error(`Unknown seed scope "${scope}". Use one of: ${SEED_SCOPES.join(', ')}.`);
+  if (scope === 'restore') return (await restore()).preflightRestore({ tenantSlug });
   const config = moodleConfig();
   const blockers = [];
   const warnings = [];
-  const { tenant, auth, connector } = await context(tenantSlug);
+  const { tenant, auth, connector } = await seedContext(tenantSlug);
   const site = await connector.siteInfo({ refresh: true });
 
   const missing = REQUIRED_FUNCTIONS.filter((fn) => !site.functions.has(fn));
@@ -343,9 +346,10 @@ export async function preflight({ tenantSlug, scope = 'core' }) {
 export async function applySeed({ tenantSlug, scope = 'core', log = () => {} }) {
   const guards = seedGuards();
   if (!guards.ok) return { applied: false, blockers: guards.problems };
+  if (scope === 'restore') return (await restore()).applyRestore({ tenantSlug, log });
   const check = await preflight({ tenantSlug, scope });
   if (check.blockers.length) return { applied: false, blockers: check.blockers, preflight: check };
-  const { auth } = await context(tenantSlug);
+  const { auth } = await seedContext(tenantSlug);
   const password = meetsPasswordPolicy(process.env.MOODLE_DEMO_PASSWORD) ? process.env.MOODLE_DEMO_PASSWORD : undefined;
   const results = [];
   const courseIds = {};
@@ -400,8 +404,9 @@ export async function applySeed({ tenantSlug, scope = 'core', log = () => {} }) 
  * that protected courses match a before-image.
  */
 export async function verifySeed({ tenantSlug, before, scope = 'core' } = {}) {
+  if (scope === 'restore') return (await restore()).verifyRestore({ tenantSlug, before });
   const config = moodleConfig();
-  const { tenant, connector } = await context(tenantSlug);
+  const { tenant, connector } = await seedContext(tenantSlug);
   const problems = [];
   const checks = [];
   const courses = await connector.listCourses();

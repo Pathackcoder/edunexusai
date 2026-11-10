@@ -226,8 +226,24 @@ describe('Moodle administration', () => {
     assert.equal(second.body.data.replayed, true);
     assert.equal(stub.callsOf('core_user_create_users'), createsBefore + 1, 'exactly one account was created');
 
-    const op = await prisma.integrationOperation.findFirst({ where: { idempotencyKey: `USER.PROVISION:${maya.studentProfileId}` } });
+    const op = await prisma.integrationOperation.findFirst({ where: { idempotencyKey: `USER.PROVISION:${maya.studentProfileId}@${new URL(stub.url).host}` } });
     assert.ok(!JSON.stringify(op.request).toLowerCase().includes('password":"'), 'no password stored with the operation');
+  });
+
+  it('keeps an earlier Moodle site\'s operations as history instead of reusing them', async () => {
+    const token = await login('admin');
+    const maya = await studentByEmail(token, 'student.advanced@edunexus.ai');
+    const integration = await prisma.integration.findFirst({ where: { provider: 'MOODLE' } });
+    // The same provisioning on the previous site (unscoped key, as written before the move), whose link is gone.
+    const old = await prisma.integrationOperation.create({ data: { tenantId: integration.tenantId, integrationId: integration.id, operation: 'USER.PROVISION', idempotencyKey: `USER.PROVISION:${maya.studentProfileId}`, status: 'SUCCEEDED', entityType: 'STUDENT', internalId: maya.studentProfileId, externalId: '29', result: { action: 'CREATED', moodleUserId: 29 }, attempts: 1, correlationId: 'old-site' } });
+    const unlinked = await api(`${ADMIN}/students/${maya.studentProfileId}/link`, { method: 'DELETE', token });
+    assert.equal(unlinked.status, 200, JSON.stringify(unlinked.body));
+
+    const res = await api(`${ADMIN}/students/${maya.studentProfileId}/provision`, { method: 'POST', token, body: {} });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.notEqual(res.body.data.result.moodleUserId, 29, 'nothing from the earlier site is replayed');
+    const after = await prisma.integrationOperation.findUnique({ where: { id: old.id } });
+    assert.deepEqual({ status: after.status, attempts: after.attempts, result: after.result, correlationId: after.correlationId }, { status: 'SUCCEEDED', attempts: 1, result: { action: 'CREATED', moodleUserId: 29 }, correlationId: 'old-site' });
   });
 
   it('recovers from an uncertain create by linking, not by creating again', async () => {
