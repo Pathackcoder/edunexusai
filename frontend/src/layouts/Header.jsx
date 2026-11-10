@@ -70,7 +70,7 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
   const { unreadCount } = useNotifications();
   const chat = useChat();
   const chatUnread = chat?.unreadTotal ?? 0;
-  const { resetFinanceBalance } = useFinance();
+  const { resetFinanceBalance, financeData } = useFinance();
   const { showToast } = useToast();
   const [notifAnchor, setNotifAnchor] = useState(null);
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);
@@ -389,7 +389,7 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
               startIcon={<CreditCardRoundedIcon />}
               sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
             >
-              Pay Tuition
+              {financeData?.paymentsEnabled === false ? 'Tuition & Accounts' : 'Pay Tuition'}
             </Button>
           )}
 

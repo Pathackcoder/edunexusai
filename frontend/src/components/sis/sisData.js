@@ -35,8 +35,9 @@ export function toTimetableCourses(items = []) {
 }
 
 /** Classes meeting today (browser's weekday; CampusCore times are institution-local). */
-export function todaysClasses(items = [], now = new Date()) {
-  const today = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][now.getDay()];
+/** Today's meetings. Meeting times are institution-local, so "today" is decided in the institution's timezone. */
+export function todaysClasses(items = [], now = new Date(), timeZone = undefined) {
+  const today = now.toLocaleDateString('en-US', { weekday: 'short', timeZone }).slice(0, 3).toUpperCase();
   return items
     .flatMap((s) => (s.meetings ?? []).filter((m) => m.day === today).map((m) => ({ id: `${s.source.id}-${m.start}`, code: s.courseCode, name: s.courseTitle, time: `${m.start} – ${m.end}`, start: m.start, room: m.location, instructor: s.instructors?.join(', ') })))
     .sort((a, b) => a.start.localeCompare(b.start));

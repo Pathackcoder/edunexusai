@@ -15,9 +15,13 @@ export class SisAdapter {
   /** @returns {Promise<import('../canonical.js').CanonicalAcademicSummary>} */
   async getAcademicSummary(_id) { throw new Error('not implemented'); }
   async getGradeHistory(_id) { throw new Error('not implemented'); }
+  /** The student's account for a term (default: current), or null when none exists. */
+  async getStudentAccount(_id, _termId) { throw new Error('not implemented'); }
   async listFacultySections(_facultyId, _termId) { throw new Error('not implemented'); }
   async getRoster(_sectionId) { throw new Error('not implemented'); }
   async listAnnouncements() { throw new Error('not implemented'); }
+  /** Class announcements of the sections a student is registered in. */
+  async listStudentAnnouncements(_id) { throw new Error('not implemented'); }
   // Writes — adapters throw SisError('not_supported') when the connection lacks permission.
   async enroll(_studentId, _sectionId) { throw new Error('not implemented'); }
   async drop(_enrollmentId, _reason) { throw new Error('not implemented'); }

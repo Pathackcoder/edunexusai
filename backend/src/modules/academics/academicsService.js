@@ -16,6 +16,8 @@ import {
 } from './presenters.js';
 import { publishedCourseworkFor } from '../gradebook/gradebookService.js';
 import { logger } from '../../utils/logger.js';
+import * as sis from '../sis/sisService.js';
+import { formatTimeAgo, formatTimestamp } from '../../utils/format.js';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -239,7 +241,26 @@ export async function getGrades(tenantId, studentProfileId) {
 }
 
 /** ANNOUNCEMENTS — Edunexus-owned; read state is per user. */
-export async function listAnnouncements(tenantId, { userId, studentProfileId }) {
+// Class announcements are posted by instructors to their sections in CampusCore. "New" for a week after posting
+// (read state for SIS announcements is not tracked locally).
+const NEW_FOR_MS = 7 * 24 * 3600 * 1000;
+function presentSisAnnouncement(a) {
+  return {
+    id: a.source.id, source: 'campuscore', courseId: a.section.source.id, courseCode: a.section.courseCode, courseName: a.section.courseTitle, section: a.section.label,
+    title: a.title, author: a.author, postedAt: formatTimeAgo(a.publishedAt), date: formatTimestamp(a.publishedAt), publishedAt: a.publishedAt,
+    isRead: Date.now() - new Date(a.publishedAt).getTime() > NEW_FOR_MS, content: a.body, tags: a.pinned ? ['Pinned'] : [],
+  };
+}
+
+/**
+ * Course announcements for a student. With CampusCore connected: their instructors' class announcements for the
+ * sections they are registered in, read live (auth = the signed-in student). Otherwise the local records.
+ */
+export async function listAnnouncements(tenantId, { userId, studentProfileId, auth }) {
+  if (auth && sis.sisConfigured()) {
+    const r = await sis.studentAnnouncements(auth);
+    return r.items.map(presentSisAnnouncement);
+  }
   const enrollments = await prisma.enrollment.findMany({
     where: { tenantId, studentProfileId },
     select: { courseId: true },

@@ -2,6 +2,7 @@ import { prisma } from '../../db/prisma.js';
 import { notFound } from '../../utils/errors.js';
 import { toNumber } from '../../utils/format.js';
 import { PROVIDER, rankCourses } from './recommendationProvider.js';
+import * as sis from '../sis/sisService.js';
 
 /**
  * Academic planning: degree progress, course recommendations, learning paths and the
@@ -193,8 +194,18 @@ async function stepStatuses(userId, steps, takenCompleted, takenInProgress) {
   });
 }
 
-export async function getLearningPaths(tenantId, studentProfileId) {
-  const { profile, completed, inProgress } = await loadStudent(tenantId, studentProfileId);
+export async function getLearningPaths(tenantId, studentProfileId, auth = null) {
+  const local = await loadStudent(tenantId, studentProfileId);
+  const { profile } = local;
+  let { completed, inProgress } = local;
+  // With CampusCore connected, course steps are tracked from the official record, not local copies.
+  if (auth && sis.sisConfigured()) {
+    const courses = await sis.studentCourses(auth).catch(() => null);
+    if (courses) {
+      completed = courses.filter((c) => !c.inProgress && PASSING(c.grade));
+      inProgress = courses.filter((c) => c.inProgress);
+    }
+  }
   const userId = profile.user.id;
   const paths = await prisma.learningPath.findMany({
     where: { tenantId },
@@ -242,7 +253,7 @@ export async function getLearningPaths(tenantId, studentProfileId) {
   return { paths: presented, activePathId: presented.find((path) => path.isActive)?.id ?? null };
 }
 
-export async function activateLearningPath(tenantId, studentProfileId, pathId) {
+export async function activateLearningPath(tenantId, studentProfileId, pathId, auth = null) {
   const { profile } = await loadStudent(tenantId, studentProfileId);
   const path = await prisma.learningPath.findFirst({ where: { id: pathId, tenantId } });
   if (!path) throw notFound('Learning path not found.');
@@ -254,10 +265,10 @@ export async function activateLearningPath(tenantId, studentProfileId, pathId) {
       update: { isActive: true },
     }),
   ]);
-  return getLearningPaths(tenantId, studentProfileId);
+  return getLearningPaths(tenantId, studentProfileId, auth);
 }
 
-export async function setStepStatus(tenantId, studentProfileId, stepId, status) {
+export async function setStepStatus(tenantId, studentProfileId, stepId, status, auth = null) {
   const { profile } = await loadStudent(tenantId, studentProfileId);
   const step = await prisma.learningPathStep.findFirst({ where: { id: stepId, path: { tenantId } } });
   if (!step) throw notFound('Step not found.');
@@ -270,7 +281,7 @@ export async function setStepStatus(tenantId, studentProfileId, stepId, status) 
       update: { status, completedAt: status === 'COMPLETED' ? new Date() : null },
     });
   }
-  return getLearningPaths(tenantId, studentProfileId);
+  return getLearningPaths(tenantId, studentProfileId, auth);
 }
 
 /* ----- performance insights ----- */

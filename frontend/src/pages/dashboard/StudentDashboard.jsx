@@ -81,6 +81,8 @@ const BreakdownRow = ({ color = 'primary.main', label, value, divider = false })
  * tier entitles them to, each panel loaded independently so one failure does not blank
  * the page. Panel keys, handlers and modals are unchanged; this file only presents them.
  */
+const currency = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(n) || 0);
+
 export const StudentDashboard = () => {
   const { user } = useAuth();
   const { financeData, makePayment, resetFinanceBalance } = useFinance();
@@ -121,7 +123,7 @@ export const StudentDashboard = () => {
   const sisOverview = useApiQuery(() => sisApi.myOverview());
   const sisSchedule = sisOverview.data?.state === 'OK' && sisOverview.data.schedule.state === 'OK' ? sisOverview.data.schedule.data : null;
   const TIMETABLE_CONNECTED = Boolean(sisSchedule);
-  const todayClasses = sisTodaysClasses(sisSchedule?.items ?? []);
+  const todayClasses = sisTodaysClasses(sisSchedule?.items ?? [], new Date(), sisOverview.data?.timezone ?? undefined);
   // Classes registered for a later term (registration usually happens for the next term).
   const upcomingTerm = (sisOverview.data?.terms ?? []).find((t) => !t.isCurrent && t.registered > 0 && (sisOverview.data?.classTermIds ?? []).includes(t.id)) ?? null;
   // Coursework is Moodle's: the widget reads live Moodle assignments, not local records.
@@ -150,6 +152,7 @@ export const StudentDashboard = () => {
 
   /** Marking an announcement read is a server write; reflect it locally straight away. */
   const handleAnnouncementRead = async (id) => {
+    const item = announcements.find((a) => a.id === id);
     setData((current) => {
       if (!current?.panels?.['dashboard.announcements']) return current;
       const next = structuredClone(current);
@@ -158,6 +161,8 @@ export const StudentDashboard = () => {
       );
       return next;
     });
+    // CampusCore class announcements have no local read record; the change is for this view only.
+    if (item?.source === 'campuscore') return;
     try {
       await academicApi.markAnnouncementRead(id);
       showToast('Announcement marked as read');
@@ -399,9 +404,16 @@ export const StudentDashboard = () => {
                   actionLabel="Finance hub"
                   actionTo="/finance/tuition"
                 >
-                  {panelBody('dashboard.tuition', () => (
+                  {panelBody('dashboard.tuition', () => (financeData.source === 'campuscore' && !financeData.hasAccount ? (
+                    <WidgetEmpty icon={CreditCardOutlinedIcon} tone="warning" title="Nothing owed">
+                      {financeData.message ?? 'No charges have been assessed for you yet.'}
+                    </WidgetEmpty>
+                  ) : (
                     <>
-                      <MetricLabel>Outstanding balance</MetricLabel>
+                      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+                        <MetricLabel>Outstanding balance</MetricLabel>
+                        {financeData.isDemo && <Badge variant="neutral">Illustrative data</Badge>}
+                      </Stack>
                       <Typography
                         variant="metric"
                         component="strong"
@@ -411,22 +423,38 @@ export const StudentDashboard = () => {
                       </Typography>
                       <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mt: 1.25 }}>
                         <Typography variant="body2" color="text.secondary">
-                          Due {financeData.dueDate ?? '—'}
+                          {financeData.currentBalance > 0 ? `Due ${financeData.dueDate ?? '—'}` : 'Nothing due'}
                         </Typography>
-                        <Badge variant={financeData.currentBalance > 0 ? 'warning' : 'success'}>
-                          {financeData.currentBalance > 0 ? 'Payment due' : 'Settled'}
+                        <Badge variant={financeData.standing === 'PAST_DUE' ? 'danger' : financeData.currentBalance > 0 ? 'warning' : 'success'}>
+                          {financeData.standing === 'PAST_DUE' ? 'Past due' : financeData.currentBalance > 0 ? 'Payment due' : 'Settled'}
                         </Badge>
                       </Stack>
+                      {financeData.totals && (
+                        <Stack direction="row" spacing={2} sx={{ mt: 1.5 }}>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">Assessed</Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>{currency(financeData.totals.charges)}</Typography>
+                          </Box>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">Payments & credits</Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>{currency(financeData.totals.payments + financeData.totals.credits)}</Typography>
+                          </Box>
+                        </Stack>
+                      )}
                       {financeData.transactions?.[0] && (
                         <Typography variant="caption" component="p" sx={{ mt: 2, pt: 1.5, borderTop: 1, borderColor: 'divider', borderStyle: 'dashed', borderLeft: 0, borderRight: 0, borderBottom: 0 }}>
-                          Latest payment:{' '}
+                          Latest:{' '}
                           <Box component="strong" sx={{ color: 'text.primary', fontWeight: 600 }}>
-                            {financeData.transactions[0].date} · ${Number(financeData.transactions[0].amount).toFixed(2)}
+                            {financeData.transactions[0].type ? `${financeData.transactions[0].type} · ` : ''}{financeData.transactions[0].date} · {currency(financeData.transactions[0].amount)}
                           </Box>
                         </Typography>
                       )}
                       <Box sx={{ mt: 'auto', pt: 2 }}>
-                        {financeData.currentBalance > 0 ? (
+                        {financeData.paymentsEnabled === false ? (
+                          <Button variant="outline" size="md" fullWidth component={RouterLink} to="/finance/tuition">
+                            View account
+                          </Button>
+                        ) : financeData.currentBalance > 0 ? (
                           <Button size="md" fullWidth onClick={() => setIsPaymentModalOpen(true)}>
                             Pay balance
                           </Button>
@@ -446,7 +474,7 @@ export const StudentDashboard = () => {
                         )}
                       </Box>
                     </>
-                  ))}
+                  )))}
                 </WidgetCard>
             ) },
             { key: 'dashboard.assignments', label: "Upcoming assignments", span: { md: 12, lg: 8 }, size: 'large', node: (

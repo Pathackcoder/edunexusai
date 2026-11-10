@@ -1,5 +1,6 @@
 import { prisma } from '../../db/prisma.js';
 import { getDegreeProgress } from '../planning/planningService.js';
+import * as sis from '../sis/sisService.js';
 
 /**
  * Gamification. Badges are derived from records the student already has (submissions,
@@ -25,6 +26,15 @@ const BADGES = [
 
 const LEVELS = ['Explorer', 'Achiever', 'Trailblazer', 'Luminary'];
 
+// Degree completion: CampusCore's credits when connected (the figure the Degree Progress widget shows), else local.
+async function degreePercent(auth, profileId) {
+  if (sis.sisConfigured()) {
+    const snap = await sis.academicSnapshot(auth).catch(() => null);
+    if (snap?.creditsEarned != null && snap?.requiredCredits) return Math.min(100, Math.floor((snap.creditsEarned / snap.requiredCredits) * 100));
+  }
+  return (await getDegreeProgress(auth.tenantId, profileId).catch(() => null))?.percentComplete ?? 0;
+}
+
 export async function getAchievements(auth) {
   const profileId = auth.studentProfileId;
   const [submissions, profile, memberships, portfolio, appointments, pathSteps, saved, calendars, degree] = await Promise.all([
@@ -36,13 +46,13 @@ export async function getAchievements(auth) {
     prisma.learningStepProgress.count({ where: { userId: auth.userId, status: 'COMPLETED' } }),
     prisma.savedOpportunity.count({ where: { userId: auth.userId } }),
     prisma.calendarConnection.count({ where: { userId: auth.userId, status: 'CONNECTED' } }),
-    profileId ? getDegreeProgress(auth.tenantId, profileId).catch(() => null) : null,
+    profileId ? degreePercent(auth, profileId) : null,
   ]);
 
   const metrics = {
     submissions,
     honors: profile?.honors ? 1 : 0,
-    degreePercent: degree?.percentComplete ?? 0,
+    degreePercent: degree ?? 0,
     groups: memberships.length,
     leadership: memberships.filter((row) => row.role !== 'MEMBER').length,
     portfolio: portfolio.some((item) => item.kind === 'PROJECT') ? portfolio.length : Math.min(portfolio.length, 3),

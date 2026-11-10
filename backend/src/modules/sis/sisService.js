@@ -220,6 +220,8 @@ export async function studentOverview(auth, { termId } = {}) {
       const today = new Date().toISOString().slice(0, 10);
       return {
         ...overview,
+        // Meeting times are institution-local; "today" must be decided in the institution's timezone.
+        timezone: await institutionTimezone(s),
         terms: terms.map((t) => ({ id: t.source.id, code: t.code, name: t.name, startDate: t.startDate, endDate: t.endDate, isCurrent: t.isCurrent, registrationOpen: t.registrationOpen, ...(counts.get(t.code) ?? { registered: 0, waitlisted: 0 }) })),
         classTermIds: regs ? terms.filter((t) => counts.has(t.code) && (!t.endDate || String(t.endDate).slice(0, 10) >= today)).map((t) => t.source.id) : null,
       };
@@ -228,6 +230,42 @@ export async function studentOverview(auth, { termId } = {}) {
     if (error.code === 'SIS_UNAVAILABLE') return { state: 'UNAVAILABLE', message: error.message };
     throw error;
   }
+}
+
+// The institution's timezone (CampusCore /institution), cached briefly: meeting times are institution-local.
+let tzCache = { value: null, at: 0 };
+async function institutionTimezone(s) {
+  if (tzCache.value && Date.now() - tzCache.at < 3_600_000) return tzCache.value;
+  const value = (await s.adapter.getInstitution().catch(() => null))?.timezone ?? null;
+  if (value) tzCache = { value, at: Date.now() };
+  return value;
+}
+export const timezone = () => withSis((s) => institutionTimezone(s)).catch(() => null);
+
+/**
+ * The signed-in student's own account (finance:read). States: OK, NO_ACCOUNT, UNMAPPED, NOT_A_STUDENT; CampusCore
+ * being unreachable or the scope missing is an error, so the portal can offer a retry rather than a false "no account".
+ */
+export async function studentFinance(auth, { termId } = {}) {
+  assertTenant(auth);
+  return withSis((s) => s.portal.studentFinance(portalUser(auth), { termId }));
+}
+
+/** The signed-in student's courses from CampusCore's academic record (grades:read): graded and in progress. */
+export async function studentCourses(auth) {
+  assertTenant(auth);
+  return withSis(async (s) => {
+    const found = await relationship(s, auth, 'STUDENT');
+    if (found.missing) return null;
+    const terms = await s.adapter.getGradeHistory(found.identity.sisId);
+    return terms.flatMap((t) => t.courses.map((c) => ({ code: c.courseCode, title: c.courseTitle, credits: c.credits, grade: c.grade, inProgress: c.inProgress, term: t.termCode })));
+  });
+}
+
+/** Class announcements for the signed-in student's registered sections (announcements:read). */
+export async function studentAnnouncements(auth) {
+  assertTenant(auth);
+  return withSis((s) => s.portal.studentAnnouncements(portalUser(auth)));
 }
 
 /** Institution-wide academic calendar (calendar:read). Any signed-in user of this tenant. */

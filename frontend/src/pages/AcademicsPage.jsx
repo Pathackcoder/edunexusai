@@ -89,7 +89,7 @@ export const AcademicsPage = () => {
   const academic = sis.data?.state === 'OK' && sis.data.academic.state === 'OK' ? sis.data.academic.data : null;
   const sisSchedule = sis.data?.state === 'OK' && sis.data.schedule.state === 'OK' ? sis.data.schedule.data : null;
   const sisProfile = sis.data?.state === 'OK' && sis.data.profile.state === 'OK' ? sis.data.profile.data : null;
-  const todayClasses = sisTodaysClasses(sisSchedule?.items ?? []);
+  const todayClasses = sisTodaysClasses(sisSchedule?.items ?? [], new Date(), sis.data?.timezone ?? undefined);
   // Courses and coursework are Moodle's: read live, never from local records.
   const moodleCourses = useApiQuery(() => lmsApi.myMoodleCourses());
   const moodleWork = useApiQuery(() => lmsApi.myMoodleAssignments());
