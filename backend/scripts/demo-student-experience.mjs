@@ -12,6 +12,7 @@
  *      books the first one: an upcoming appointment, with both notified as the service always does.
  *   2. Learning path: a "Programming Foundations" path whose course steps are CampusCore catalogue courses; it is
  *      activated for the student. Progress is never set here: course steps track the student's CampusCore record.
+ *      A path this seed created earlier is brought in line with the steps below (an earlier version also had CS 120).
  * Everything created is recorded as an audit-log row "DEMO_SEED_*", which is how --cleanup finds it.
  */
 import 'dotenv/config';
@@ -31,7 +32,6 @@ const PATH = {
   description: 'From first program to a working application: programming, data structures and algorithms, databases and software engineering, ending in a project. Course steps follow your CampusCore record.',
   steps: [
     { stage: 'Foundations', kind: 'COURSE', courseCode: 'CS 101', title: 'Introduction to Programming', estimatedHours: 120 },
-    { stage: 'Foundations', kind: 'COURSE', courseCode: 'CS 120', title: 'Discrete Structures', estimatedHours: 110 },
     { stage: 'Core', kind: 'COURSE', courseCode: 'CS 201', title: 'Data Structures', estimatedHours: 120 },
     { stage: 'Core', kind: 'COURSE', courseCode: 'CS 301', title: 'Design & Analysis of Algorithms', estimatedHours: 120 },
     { stage: 'Core', kind: 'COURSE', courseCode: 'CS 310', title: 'Database Systems', estimatedHours: 120 },
@@ -89,7 +89,19 @@ try {
 
     // 2. Learning path
     let path = await prisma.learningPath.findUnique({ where: { tenantId_key: { tenantId, key: PATH.key } } });
-    if (path) say(`  learning path ${PATH.key}: exists`);
+    if (path && (await created('DEMO_SEED_LEARNING_PATH')).includes(path.id)) {
+      // Only a path this seed created is reconciled; a step that is no longer in the definition goes (with its progress).
+      const same = (st, d) => st.kind === d.kind && (d.courseCode ? st.courseCode === d.courseCode : st.title === d.title);
+      const steps = await prisma.learningPathStep.findMany({ where: { pathId: path.id }, orderBy: { sortOrder: 'asc' } });
+      const extra = steps.filter((st) => !PATH.steps.some((d) => same(st, d)));
+      if (extra.length && a.apply) {
+        await prisma.$transaction([
+          prisma.learningPathStep.deleteMany({ where: { id: { in: extra.map((st) => st.id) } } }),
+          ...steps.filter((st) => !extra.includes(st)).map((st, i) => prisma.learningPathStep.update({ where: { id: st.id }, data: { sortOrder: i + 1 } })),
+        ]);
+      }
+      say(`  learning path ${PATH.key}: exists${extra.length ? ` · ${a.apply ? 'removed' : 'would remove'} step(s) no longer in the demo: ${extra.map((st) => st.courseCode ?? st.title).join(', ')}` : ''}`);
+    } else if (path) say(`  learning path ${PATH.key}: exists (not created by this seed; left as it is)`);
     else if (a.apply) {
       path = await prisma.learningPath.create({ data: { tenantId, key: PATH.key, title: PATH.title, careerGoal: PATH.careerGoal, description: PATH.description, steps: { create: PATH.steps.map((s, i) => ({ ...s, sortOrder: i + 1 })) } } });
       await mark('DEMO_SEED_LEARNING_PATH', 'LearningPath', path.id, `Demo seed learning path ${PATH.key}`);
