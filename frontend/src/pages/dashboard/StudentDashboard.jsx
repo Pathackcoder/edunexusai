@@ -41,6 +41,7 @@ import { useI18n } from '../../i18n';
 import { SubmitModal } from '../../components/assignments/SubmitModal';
 import { AnnouncementModal } from '../../components/announcements/AnnouncementModal';
 import { PaymentModal } from '../../components/finance/PaymentModal';
+import { TuitionAccountSummary } from '../../components/finance/TuitionAccountSummary';
 import { useToast } from '../../components/common/Toast';
 import { FitList, Spotlight, WidgetEmpty } from '../../components/common/FitList';
 import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded';
@@ -81,7 +82,6 @@ const BreakdownRow = ({ color = 'primary.main', label, value, divider = false })
  * tier entitles them to, each panel loaded independently so one failure does not blank
  * the page. Panel keys, handlers and modals are unchanged; this file only presents them.
  */
-const currency = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(n) || 0);
 
 export const StudentDashboard = () => {
   const { user } = useAuth();
@@ -395,9 +395,9 @@ export const StudentDashboard = () => {
                   ))}
                 </WidgetCard>
             ) },
-            { key: 'dashboard.tuition', label: "Tuition & accounts", span: { md: 6, lg: 4 }, size: 'standard', node: (
+            { key: 'dashboard.tuition', label: "Tuition & Accounts", span: { md: 6, lg: 4 }, size: 'standard', node: (
 <WidgetCard
-                  title="Tuition & accounts"
+                  title="Tuition & Accounts"
                   subtitle={financeData.term || ''}
                   icon={CreditCardOutlinedIcon}
                   tone="warning"
@@ -409,48 +409,10 @@ export const StudentDashboard = () => {
                       {financeData.message ?? 'No charges have been assessed for you yet.'}
                     </WidgetEmpty>
                   ) : (
-                    <>
-                      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-                        <MetricLabel>Outstanding balance</MetricLabel>
-                        {financeData.isDemo && <Badge variant="neutral">Illustrative data</Badge>}
-                      </Stack>
-                      <Typography
-                        variant="metric"
-                        component="strong"
-                        sx={{ display: 'block', mt: 0.5, fontSize: { xs: '1.875rem', md: '2rem' }, color: financeData.currentBalance > 0 ? 'text.primary' : 'success.main' }}
-                      >
-                        {financeData.formattedBalance}
-                      </Typography>
-                      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mt: 1.25 }}>
-                        <Typography variant="body2" color="text.secondary">
-                          {financeData.currentBalance > 0 ? `Due ${financeData.dueDate ?? '—'}` : 'Nothing due'}
-                        </Typography>
-                        <Badge variant={financeData.standing === 'PAST_DUE' ? 'danger' : financeData.currentBalance > 0 ? 'warning' : 'success'}>
-                          {financeData.standing === 'PAST_DUE' ? 'Past due' : financeData.currentBalance > 0 ? 'Payment due' : 'Settled'}
-                        </Badge>
-                      </Stack>
-                      {financeData.totals && (
-                        <Stack direction="row" spacing={2} sx={{ mt: 1.5 }}>
-                          <Box>
-                            <Typography variant="caption" color="text.secondary">Assessed</Typography>
-                            <Typography variant="body2" sx={{ fontWeight: 600 }}>{currency(financeData.totals.charges)}</Typography>
-                          </Box>
-                          <Box>
-                            <Typography variant="caption" color="text.secondary">Payments & credits</Typography>
-                            <Typography variant="body2" sx={{ fontWeight: 600 }}>{currency(financeData.totals.payments + financeData.totals.credits)}</Typography>
-                          </Box>
-                        </Stack>
-                      )}
-                      {financeData.transactions?.[0] && (
-                        <Typography variant="caption" component="p" sx={{ mt: 2, pt: 1.5, borderTop: 1, borderColor: 'divider', borderStyle: 'dashed', borderLeft: 0, borderRight: 0, borderBottom: 0 }}>
-                          Latest:{' '}
-                          <Box component="strong" sx={{ color: 'text.primary', fontWeight: 600 }}>
-                            {financeData.transactions[0].type ? `${financeData.transactions[0].type} · ` : ''}{financeData.transactions[0].date} · {currency(financeData.transactions[0].amount)}
-                          </Box>
-                        </Typography>
-                      )}
-                      <Box sx={{ mt: 'auto', pt: 2 }}>
-                        {financeData.paymentsEnabled === false ? (
+                    <TuitionAccountSummary
+                      finance={financeData}
+                      action={
+                        financeData.paymentsEnabled === false ? (
                           <Button variant="outline" size="md" fullWidth component={RouterLink} to="/finance/tuition">
                             View account
                           </Button>
@@ -471,9 +433,9 @@ export const StudentDashboard = () => {
                           >
                             Reset demo balance
                           </Button>
-                        )}
-                      </Box>
-                    </>
+                        )
+                      }
+                    />
                   )))}
                 </WidgetCard>
             ) },

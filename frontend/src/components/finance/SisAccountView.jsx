@@ -23,10 +23,12 @@ const longDate = (iso) => (iso ? new Date(`${iso}T12:00:00Z`).toLocaleDateString
 const STANDING = {
   SETTLED: { label: 'Settled', variant: 'success' },
   CREDIT_BALANCE: { label: 'Credit balance', variant: 'success' },
-  BALANCE_DUE: { label: 'Balance due', variant: 'warning' },
+  BALANCE_DUE: { label: 'Payment due', variant: 'warning' },
   PAST_DUE: { label: 'Past due', variant: 'danger' },
 };
-const TYPE_VARIANT = { Charge: 'neutral', Payment: 'success', Credit: 'cyan', Refund: 'purple', Adjustment: 'warning', Reversal: 'danger' };
+// Same colours as the dashboard widget: charges amber, payments green, credits purple.
+const TYPE_VARIANT = { Charge: 'warning', Payment: 'success', Credit: 'purple', Refund: 'neutral', Adjustment: 'neutral', Reversal: 'danger' };
+const shortDate = (iso, fallback) => (iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) : fallback);
 
 const Row = ({ label, value, strong, tone }) => (
   <Stack direction="row" justifyContent="space-between" spacing={2}>
@@ -66,7 +68,7 @@ export const SisAccountView = ({ account }) => {
             {account.formattedBalance}
           </Typography>
           <Stack spacing={0.75}>
-            <Row label="Next payment due" value={account.nextDeadline ? `${longDate(account.nextDeadline.dueDate)} · ${usd(account.nextDeadline.amount)}` : account.currentBalance > 0 ? longDate(account.dueDateIso) : 'Nothing due'} />
+            <Row label="Payment due by" value={account.currentBalance > 0 ? longDate(account.nextDeadline?.dueDate ?? account.dueDateIso) : 'Nothing due'} />
             <Row label="Term" value={account.term} />
             <Row label="Account" value={account.accountNumber} />
             <Row label="Account status" value={account.accountStatus === 'OPEN' ? 'Open' : account.accountStatus === 'ON_HOLD' ? 'On hold' : 'Closed'} />
@@ -105,7 +107,16 @@ export const SisAccountView = ({ account }) => {
                   <Typography variant="caption" color="text.secondary">Issued {longDate(String(inv.issuedAt).slice(0, 10))} · due {longDate(inv.dueDate)}</Typography>
                 </Stack>
                 <Stack spacing={0.5}>
-                  {inv.lines.map((l) => <Row key={l.reference} label={`${l.description} · ${l.reference}`} value={usd(l.amount)} />)}
+                  {inv.lines.map((l) => (
+                    <Stack key={l.reference} direction="row" justifyContent="space-between" alignItems="baseline" spacing={2}>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="body2" color="text.secondary">{l.description}</Typography>
+                        <Typography variant="caption" color="text.disabled" sx={{ fontVariantNumeric: 'tabular-nums' }}>{l.reference}</Typography>
+                      </Box>
+                      <Typography variant="body2" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{usd(l.amount)}</Typography>
+                    </Stack>
+                  ))}
+                  <Divider sx={{ borderStyle: 'dashed', my: 0.5 }} />
                   <Row label="Invoice total" value={usd(inv.total)} strong />
                 </Stack>
               </Box>
@@ -134,9 +145,9 @@ export const SisAccountView = ({ account }) => {
               <TableBody>
                 {account.transactions.map((tx) => (
                   <TableRow key={tx.id} hover>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{tx.date}</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{shortDate(tx.dateIso, tx.date)}</TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{tx.id}</TableCell>
-                    <TableCell sx={{ color: 'text.secondary' }}>
+                    <TableCell sx={{ color: 'text.secondary', minWidth: 220 }}>
                       {tx.description}
                       {tx.paymentMethod ? ` · ${tx.paymentMethod}` : ''}
                       {tx.status === 'Reversed' && <Typography component="span" variant="caption" color="error.main"> (reversed)</Typography>}
