@@ -32,7 +32,8 @@ export const RESTORE_COURSES = [
 
 /**
  * CampusCore sections delivered in each course, named by course code, section and term: each environment's
- * CampusCore resolves them to its own section ids, and exactly one section must match.
+ * CampusCore resolves them to its own section ids. A section this environment's CampusCore does not have is
+ * skipped (never invented); more than one match is a blocker.
  */
 export const RESTORE_SECTIONS = [
   { course: 'ADBMS', courseCode: 'CS 310', sectionNumber: '01', termCode: '2027SP' },
@@ -49,8 +50,8 @@ async function resolveSection({ courseCode, sectionNumber, termCode, label }) {
     if (!term) throw new Error(`CampusCore has no term ${termCode}.`);
     const res = await adapter.client.get('/sections', { termId: term.source.id, search: courseCode, pageSize: 100 });
     const hits = res.data.filter((s) => s.course?.code === courseCode && s.sectionNumber === sectionNumber);
-    if (hits.length !== 1) throw new Error(`${hits.length} CampusCore sections match ${label}.`);
-    return hits[0].id;
+    if (hits.length > 1) throw new Error(`${hits.length} CampusCore sections match ${label}.`);
+    return hits[0]?.id ?? null;
   });
 }
 
@@ -226,6 +227,11 @@ export async function preflightRestore({ tenantSlug }) {
       sections.push({ ...def, sisSectionId, action: 'BLOCKED' });
       continue;
     }
+    if (!sisSectionId) {
+      warnings.push(`CampusCore section ${def.label} does not exist in this environment's CampusCore; its mapping is skipped.`);
+      sections.push({ ...def, sisSectionId, action: 'NOT_IN_SIS' });
+      continue;
+    }
     const row = await prisma.sisSectionMoodleCourse.findUnique({ where: { tenantId_sisSectionId: { tenantId: tenant.id, sisSectionId } } });
     const course = courseRows.find((c) => c.key === def.course);
     const action = row ? (course.moodleCourseId && row.moodleCourseId === course.moodleCourseId ? 'ALREADY_MAPPED' : 'BLOCKED') : 'MAP';
@@ -375,6 +381,10 @@ export async function verifyRestore({ tenantSlug, before } = {}) {
   const sectionIds = [];
   for (const s of RESTORE_SECTIONS) {
     const sisSectionId = await resolveSection(s);
+    if (!sisSectionId) {
+      checks.push({ check: `section ${s.label}: not in this environment's CampusCore (skipped)`, ok: true });
+      continue;
+    }
     sectionIds.push(sisSectionId);
     const row = await prisma.sisSectionMoodleCourse.findUnique({ where: { tenantId_sisSectionId: { tenantId: tenant.id, sisSectionId } } });
     check(`section ${s.label} → ${s.course} (Moodle course ${courseIds[s.course] ?? '—'})`, Boolean(row && row.moodleCourseId === courseIds[s.course]));
