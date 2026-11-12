@@ -11,6 +11,8 @@ import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettin
 import HubOutlinedIcon from '@mui/icons-material/HubOutlined';
 import PaletteOutlinedIcon from '@mui/icons-material/PaletteOutlined';
 import WorkOutlineRoundedIcon from '@mui/icons-material/WorkOutlineRounded';
+import InsightsOutlinedIcon from '@mui/icons-material/InsightsOutlined';
+import { ANALYTICS_BASE, ANALYTICS_SECTIONS } from '../pages/admin/analytics/sections.js';
 
 /**
  * Navigation is assembled from the signed-in persona and that persona's entitlements.
@@ -170,6 +172,14 @@ export const buildNavSections = ({ isAdmin, isFaculty, can, unreadCount, cmsPage
       ],
     },
     {
+      id: 'admin-analytics',
+      label: 'Analytics',
+      pathPrefix: ANALYTICS_BASE,
+      icon: InsightsOutlinedIcon,
+      // One page per section; Overview is the section's own address, so it is matched exactly (`end`).
+      children: ANALYTICS_SECTIONS.map((section) => ({ label: section.label, path: section.path, ...(section.id === 'overview' ? { end: true } : {}) })),
+    },
+    {
       id: 'admin-integrations',
       label: 'Integrations',
       path: '/admin/integrations',
@@ -286,7 +296,7 @@ export const buildNavGroups = ({ isAdmin, isFaculty, can, canIn, contexts = [], 
     const sections = key === 'student' ? pick(student, ['academics', 'finance', 'career']) : key === 'faculty' ? pick(faculty, ['faculty-teaching']) : [];
     if (sections.length) groups.push({ id: `context-${key}`, label: CONTEXT_GROUP_LABELS[key] ?? key, sections });
   }
-  if (workspaces.includes('admin')) groups.push({ id: 'workspace-admin', label: 'Administration', sections: pick(admin, ['admin-access', 'admin-integrations', 'admin-appearance']) });
+  if (workspaces.includes('admin')) groups.push({ id: 'workspace-admin', label: 'Administration', sections: pick(admin, ['admin-access', 'admin-analytics', 'admin-integrations', 'admin-appearance']) });
 
   // Shared sections, once. Faculty and administrators always had the full Campus list; a student
   // gets the entitlement-gated one. Students have the fuller Profile.

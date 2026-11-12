@@ -5,6 +5,7 @@ import { sendSuccess } from '../../utils/apiResponse.js';
 import { validate } from '../../middleware/validate.js';
 import { requireAuth } from '../../middleware/auth.js';
 import * as service from './notificationService.js';
+import { trackFeature } from '../analytics/serverEvents.js';
 
 const querySchema = z.object({
   unreadOnly: z
@@ -34,14 +35,18 @@ notificationRoutes.get(
 notificationRoutes.patch(
   '/:id/read',
   validate({ params: idParamSchema }),
-  asyncHandler(async (req, res) =>
-    sendSuccess(res, await service.markRead(req.auth.tenantId, req.auth.userId, req.params.id)),
-  ),
+  asyncHandler(async (req, res) => {
+    const result = await service.markRead(req.auth.tenantId, req.auth.userId, req.params.id);
+    void trackFeature(req.auth, 'notifications.read');
+    return sendSuccess(res, result);
+  }),
 );
 
 notificationRoutes.patch(
   '/read-all',
-  asyncHandler(async (req, res) =>
-    sendSuccess(res, await service.markAllRead(req.auth.tenantId, req.auth.userId)),
-  ),
+  asyncHandler(async (req, res) => {
+    const result = await service.markAllRead(req.auth.tenantId, req.auth.userId);
+    void trackFeature(req.auth, 'notifications.read');
+    return sendSuccess(res, result);
+  }),
 );

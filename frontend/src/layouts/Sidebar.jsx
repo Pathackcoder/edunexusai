@@ -31,6 +31,7 @@ import { useI18n } from '../i18n';
 import { DarkSurface } from '../components/common/DarkSurface';
 import { InstitutionLogo, PoweredBy } from '../components/brand/Brand';
 import { institution } from '../branding';
+import { trackFeature, trackNav } from '../analytics/index.js';
 
 /*
  * Geometry is identical in both states so nothing moves while the width animates:
@@ -155,7 +156,7 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
         <ListItemButton
           component={NavLink}
           to={section.path}
-          onClick={onCloseMobile}
+          onClick={() => { trackNav(section.path, 'SIDEBAR'); onCloseMobile?.(); }}
           aria-label={collapsed ? t(section.label) : undefined}
           sx={rowSx(active)}
         >
@@ -249,7 +250,7 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
                 component={NavLink}
                 to={child.path}
                 end={child.end}
-                onClick={onCloseMobile}
+                onClick={() => { trackNav(child.path, 'SIDEBAR'); onCloseMobile?.(); }}
                 sx={(theme) => ({
                   minHeight: 28,
                   px: 1.25,
@@ -403,7 +404,7 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
           <List disablePadding subheader={subheader('University systems', { mt: 1 })}>
             {user.apps.map((app) => (
               <Tooltip key={app.key} title={collapsed ? app.label : app.description ?? ''} placement="right">
-                <ListItemButton component="a" href={app.url} target="_blank" rel="noopener noreferrer" aria-label={`${app.label} (opens in a new tab)`} sx={rowSx(false)}>
+                <ListItemButton component="a" href={app.url} target="_blank" rel="noopener noreferrer" onClick={() => { trackNav(`app.${app.key}`, 'SIDEBAR'); trackFeature('campuscore.opened'); }} aria-label={`${app.label} (opens in a new tab)`} sx={rowSx(false)}>
                   <ListItemIcon><OpenInNewRoundedIcon fontSize="small" /></ListItemIcon>
                   <ListItemText primary={app.label} primaryTypographyProps={labelProps(false)} sx={{ ...fade(collapsed), minWidth: 0 }} />
                 </ListItemButton>
@@ -457,7 +458,7 @@ export const Sidebar = ({ collapsed = false, onToggle, onCloseMobile, isMobile =
             component={NavLink}
             to={child.path}
             end={child.end}
-            onClick={closeFlyout}
+            onClick={() => { trackNav(child.path, 'SIDEBAR_FLYOUT'); closeFlyout(); }}
             sx={(theme) => ({
               '&.active': { color: 'primary.main', fontWeight: 600, bgcolor: alpha(theme.palette.primary.main, 0.08) },
             })}

@@ -2,6 +2,7 @@ import { asyncHandler } from '../../utils/asyncHandler.js';
 import { sendSuccess } from '../../utils/apiResponse.js';
 import * as service from './academicsService.js';
 import { myCourses as myMoodleCourses } from '../lms/moodleService.js';
+import { trackFeature } from '../analytics/serverEvents.js';
 
 const ctx = (req) => ({
   tenantId: req.auth.tenantId,
@@ -78,6 +79,7 @@ export const listTranscriptRequests = asyncHandler(async (req, res) => {
 export const createTranscriptRequest = asyncHandler(async (req, res) => {
   const { tenantId, studentProfileId } = ctx(req);
   const request = await service.createTranscriptRequest(tenantId, studentProfileId, req.body);
+  void trackFeature(req.auth, 'transcripts.requested');
   return sendSuccess(res, request, { status: 201 });
 });
 

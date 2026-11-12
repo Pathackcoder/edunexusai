@@ -17,6 +17,7 @@ import { ErrorPanel } from '../../components/common/DataState';
 import { contentApi } from '../../services/api/cmsApi';
 import CampaignOutlinedIcon from '@mui/icons-material/CampaignOutlined';
 import Diversity3OutlinedIcon from '@mui/icons-material/Diversity3Outlined';
+import { WidgetBeacon } from '../../analytics/WidgetBeacon';
 
 const TITLES = {
   staff: { eyebrow: 'Working', title: 'Staff', description: 'Staff news, the academic calendar, resources addressed to staff and your requests.', audience: 'STAFF', cmsAudience: 'staff' },
@@ -101,12 +102,12 @@ export function CommunityContextDashboard({ contextKey }) {
     <Stack spacing={{ xs: 2, sm: 2.25 }}>
       <HeroBanner dense eyebrow={meta.eyebrow} title={meta.title} description={meta.description} />
       <DashboardGrid>
-        {offered('announcements') && <GridItem span={{ md: 7 }}><Box sx={{ width: '100%' }}><ContextNews audience={meta.cmsAudience} title={contextKey === 'alumni' ? 'Alumni news' : 'Campus news for staff'} /></Box></GridItem>}
-        {offered('community') && <GridItem span={{ md: 12 }}><Box sx={{ width: '100%' }}><ContextPages audience={meta.cmsAudience} title="Networking, mentoring, events & giving" /></Box></GridItem>}
-        {offered('calendar') && <GridItem span={{ md: 5 }}><Box sx={{ width: '100%' }}><EventsListBlock title={contextKey === 'alumni' ? 'Campus events' : 'Upcoming dates'} limit={5} categories={contextKey === 'alumni' ? ['EVENT', 'ACADEMIC', 'HOLIDAY'] : null} /></Box></GridItem>}
-        {offered('resources') && <GridItem span={{ md: 6 }}><Box sx={{ width: '100%' }}><ResourcesWidget audience={meta.audience} title={contextKey === 'alumni' ? 'Alumni resources' : 'Resources for staff'} /></Box></GridItem>}
+        {offered('announcements') && <GridItem span={{ md: 7 }}><Box sx={{ width: '100%' }}><WidgetBeacon widgetKey={`${contextKey}.announcements`} /><ContextNews audience={meta.cmsAudience} title={contextKey === 'alumni' ? 'Alumni news' : 'Campus news for staff'} /></Box></GridItem>}
+        {offered('community') && <GridItem span={{ md: 12 }}><Box sx={{ width: '100%' }}><WidgetBeacon widgetKey={`${contextKey}.community`} /><ContextPages audience={meta.cmsAudience} title="Networking, mentoring, events & giving" /></Box></GridItem>}
+        {offered('calendar') && <GridItem span={{ md: 5 }}><Box sx={{ width: '100%' }}><WidgetBeacon widgetKey={`${contextKey}.calendar`} /><EventsListBlock title={contextKey === 'alumni' ? 'Campus events' : 'Upcoming dates'} limit={5} categories={contextKey === 'alumni' ? ['EVENT', 'ACADEMIC', 'HOLIDAY'] : null} /></Box></GridItem>}
+        {offered('resources') && <GridItem span={{ md: 6 }}><Box sx={{ width: '100%' }}><WidgetBeacon widgetKey={`${contextKey}.resources`} /><ResourcesWidget audience={meta.audience} title={contextKey === 'alumni' ? 'Alumni resources' : 'Resources for staff'} /></Box></GridItem>}
         {offered('requests') && (
-          <GridItem span={{ md: 6 }}><Box sx={{ width: '100%' }}>
+          <GridItem span={{ md: 6 }}><Box sx={{ width: '100%' }}><WidgetBeacon widgetKey={`${contextKey}.requests`} />
             <WidgetCard title="My requests & help desk" icon={SupportAgentOutlinedIcon}>
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                 <Button size="small" variant="outlined" component={RouterLink} to="/help/requests">My requests</Button>

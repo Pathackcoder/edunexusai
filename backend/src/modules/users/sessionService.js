@@ -3,6 +3,7 @@ import { resolveContextEntitlements, resolveEntitlements } from '../entitlements
 import { resolveRoleContexts } from './roleContexts.js';
 import { toNumber } from '../../utils/format.js';
 import { notFound } from '../../utils/errors.js';
+import { analyticsConfig } from '../analytics/config.js';
 
 /**
  * The payload behind GET /api/v1/auth/me.
@@ -38,6 +39,12 @@ async function universityApps(user, roles) {
     description: areas.length ? 'Your records in the student information system' : 'Registrar console (CampusCore staff account required)',
     url: start,
   }];
+}
+
+function collectingFor(user) {
+  const config = analyticsConfig();
+  if (!config.enabled || user.analyticsExcludedAt) return false;
+  return user.tenant.analyticsEnabled || config.allowUserIds.includes(user.id);
 }
 
 export async function buildCurrentUser({ userId, signIn = null }) {
@@ -110,6 +117,10 @@ export async function buildCurrentUser({ userId, signIn = null }) {
     defaultContext: roleContexts.defaultContext,
     apps: await universityApps(user, roles),
     lastLoginAt: user.lastLoginAt,
+    // Named permissions on top of the roles (e.g. analytics.view), and whether this person's portal use is
+    // being measured right now. The browser tracker stays silent unless `collecting` is true.
+    permissions: (await prisma.userPermission.findMany({ where: { tenantId: user.tenantId, userId: user.id }, select: { permission: true } })).map((row) => row.permission),
+    analytics: { collecting: collectingFor(user) },
   };
 
   if (user.studentProfile) {

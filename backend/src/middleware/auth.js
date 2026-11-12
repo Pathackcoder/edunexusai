@@ -53,7 +53,7 @@ export async function authenticateAccessToken(token, { allowPendingPasswordChang
       studentProfile: { include: { tier: true } },
       facultyProfile: true,
       staffProfile: true,
-      tenant: { select: { id: true, slug: true, name: true, shortName: true, isActive: true } },
+      tenant: { select: { id: true, slug: true, name: true, shortName: true, isActive: true, analyticsEnabled: true } },
     },
   });
 
@@ -96,6 +96,8 @@ export async function authenticateAccessToken(token, { allowPendingPasswordChang
     staffProfileId: user.staffProfile?.id ?? null,
     // How this session started: PASSWORD, or SSO with the institution's provider key.
     signIn: ssoSession ? { method: 'SSO', provider: payload.idp ?? null, sid: payload.sid } : { method: 'PASSWORD', provider: null },
+    // Portal analytics: has the institution switched collection on, and is this account excluded from it?
+    analytics: { tenantEnabled: user.tenant.analyticsEnabled, excluded: Boolean(user.analyticsExcludedAt) },
     // Seconds since the epoch at which this access token stops being valid.
     tokenExpiresAt: payload.exp ?? null,
   };
@@ -129,6 +131,22 @@ export const requireRole =
     }
     return next();
   };
+
+/**
+ * Named-permission gate, on top of a role gate: `requireRole('ADMIN'), requirePermission('analytics.view')`.
+ * A permission is granted to one account by name (user_permissions) and is looked up here, per request, so
+ * a revoked grant stops working at once and the common request path carries no extra query.
+ */
+export const requirePermission = (permission) => async (req, _res, next) => {
+  try {
+    if (!req.auth) return next(unauthenticated());
+    const grant = await prisma.userPermission.findFirst({ where: { tenantId: req.auth.tenantId, userId: req.auth.userId, permission }, select: { id: true } });
+    if (!grant) return next(new AppError(403, ErrorCode.FORBIDDEN, 'Your account has not been given access to this area. An administrator who already has it can grant it to you.', { reason: 'PERMISSION_REQUIRED', permission }));
+    return next();
+  } catch (error) {
+    return next(error);
+  }
+};
 
 /** Guard for student-scoped routes: also asserts the student profile exists. */
 export function requireStudentProfile(req, _res, next) {

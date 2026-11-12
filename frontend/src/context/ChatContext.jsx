@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 import { apiOrigin, chatApi, refreshAccessToken, tokenStore } from '../services/api';
+import { trackFeature } from '../analytics/index.js';
 
 /**
  * Portal messaging state for the signed-in person: one Socket.IO connection (same backend, same
@@ -254,6 +255,7 @@ export function ChatProvider({ children }) {
 
   /* ------------------------------------------------------------ the panel */
   const openConversation = useCallback((id, conversation = null) => {
+    trackFeature('chat.opened', 'CONVERSATION');
     setPanel({ open: true, conversationId: id, opening: false, error: null });
     patchThread(id, (thread) => ({ conversation: conversation ?? thread.conversation ?? inbox.conversations.find((c) => c.id === id) ?? null }));
     loadThread(id, { quiet: Boolean(threads[id]?.messages?.length) });
@@ -261,6 +263,7 @@ export function ChatProvider({ children }) {
   }, [patchThread, loadThread, markRead, inbox.conversations, threads]);
 
   const openInbox = useCallback(() => {
+    trackFeature('chat.opened', 'INBOX');
     setPanel({ open: true, conversationId: null, opening: false, error: null });
     loadInbox();
   }, [loadInbox]);

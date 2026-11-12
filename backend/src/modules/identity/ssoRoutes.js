@@ -9,6 +9,7 @@ import { env } from '../../config/env.js';
 import { logger } from '../../utils/logger.js';
 import { prisma } from '../../db/prisma.js';
 import { buildCurrentUser } from '../users/sessionService.js';
+import { trackSignOut } from '../analytics/serverEvents.js';
 import { providerLogoutUrl } from './ssoLogout.js';
 import { beginLogin, completeLogin, openTransaction, OidcError, safeReturnPath, sealTransaction, TRANSACTION_TTL_MS, verifyLogoutToken } from './oidcClient.js';
 import { clientSecretFor, enabledProvider, enabledProviders, tenantBySlug } from './providerService.js';
@@ -166,7 +167,9 @@ ssoRoutes.post(
       return res.status(400).json({ error: 'invalid_request' });
     }
     const where = { tenantId: tenant.id, providerId: provider.id, ...(claims.sid ? { idpSessionId: claims.sid } : {}), ...(claims.subject ? { subject: claims.subject } : {}) };
+    const affected = await prisma.ssoSession.findMany({ where: { ...where, endedAt: null }, select: { userId: true }, distinct: ['userId'] });
     const ended = await endSsoSessions(where, 'PROVIDER_LOGOUT');
+    for (const session of affected) void trackSignOut({ tenantId: tenant.id, userId: session.userId, reason: 'PROVIDER' });
     if (ended) await recordAudit({ tenantId: tenant.id, action: 'SSO_BACKCHANNEL_LOGOUT', entityType: 'IdentityProvider', entityId: provider.id, summary: `${provider.displayName} ended ${ended} session(s)` }).catch(() => {});
     return res.status(200).end();
   }),

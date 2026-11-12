@@ -7,6 +7,7 @@ import { TENANT_FALLBACK_SLUG } from './constants.js';
 import { recordAudit } from '../audit/auditService.js';
 import { activeSsoSession } from '../identity/ssoSessions.js';
 import { burnComparison, hashPassword, needsRehash, verifyPassword } from './passwords.js';
+import { trackSignIn } from '../analytics/serverEvents.js';
 
 /**
  * Prototype authentication.
@@ -121,6 +122,8 @@ export async function issueSession(user, { idp = null, sid = null } = {}) {
   const { token: refreshToken } = signRefreshToken(loaded, { idp, sid });
   await persistRefreshToken(loaded.id, refreshToken);
   await prisma.user.update({ where: { id: loaded.id }, data: { lastLoginAt: new Date() } });
+  // Analytics (only when collection is on): one sign-in per issued session; a token refresh never comes here.
+  void trackSignIn({ tenantId: loaded.tenantId, userId: loaded.id, rolesHeld: roles, method: idp ? 'SSO' : 'PASSWORD' });
 
   return {
     accessToken,

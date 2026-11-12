@@ -23,6 +23,7 @@ import { recordAudit } from '../audit/auditService.js';
 import * as access from './accessService.js';
 import { identityAdminRoutes } from '../identity/identityAdminRoutes.js';
 import * as sis from '../sis/sisService.js';
+import { adminAnalyticsRoutes } from '../analytics/adminAnalyticsRoutes.js';
 
 const idParam = z.object({ id: z.string().uuid('Expected a resource id.') });
 
@@ -126,6 +127,9 @@ adminRoutes.use(adminInterventionRoutes);
 
 /* ----- Institutional sign-in: identity providers and role-mapping rules ----- */
 adminRoutes.use(identityAdminRoutes);
+
+/* ----- Portal usage analytics (reports need the named analytics.view permission) ----- */
+adminRoutes.use('/analytics', adminAnalyticsRoutes);
 
 /* ----- Dashboard ----- */
 adminRoutes.get(

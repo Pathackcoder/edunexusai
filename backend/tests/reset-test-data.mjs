@@ -38,6 +38,10 @@ await prisma.user.deleteMany({ where: { email: { startsWith: 'multirole.' } } })
 // Resource-access fixtures (tests/resource-access.test.js): test resources and the second tenant.
 await prisma.portalResource.deleteMany({ where: { slug: { startsWith: 'mr-test-' } } });
 await prisma.tenant.deleteMany({ where: { slug: { startsWith: 'mr-test-' } } });
+// Analytics fixtures (tests/analytics.test.js): collection off again, no leftover rows or grants.
+await prisma.tenant.updateMany({ data: { analyticsEnabled: false, analyticsStartedAt: null } });
+for (const table of ['analyticsEvent', 'analyticsPageView', 'analyticsVisit', 'analyticsUserDaily', 'analyticsRollup', 'analyticsRollupRun', 'userPermission']) await prisma[table].deleteMany({});
+await prisma.auditLog.deleteMany({ where: { action: { startsWith: 'ANALYTICS_' } } });
 // Institutional sign-in fixtures (tests/sso-flow.test.js): the test provider and everything linked to it.
 await prisma.identityProvider.deleteMany({ where: { key: 'test-sso' } });
 

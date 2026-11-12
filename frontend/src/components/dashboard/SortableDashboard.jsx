@@ -8,6 +8,8 @@ import { FadeIn } from '../common/Skeletons';
 import { WidgetSlotContext } from '../common/widgetSlot';
 import { dashboardApi } from '../../services/api';
 import { useI18n } from '../../i18n';
+import { trackFeature } from '../../analytics/index.js';
+import { WidgetBeacon } from '../../analytics/WidgetBeacon';
 
 /**
  * Drag-and-drop dashboard grid.
@@ -107,6 +109,7 @@ export function useDashboardLayout(dashboardKey, serverOrder, availableKeys) {
       }
       try {
         await dashboardApi.saveLayout(dashboardKey, full);
+        trackFeature('dashboard.reordered');
         return true;
       } catch {
         return false;
@@ -552,6 +555,8 @@ export function SortableDashboard({ items, order, onOrderChange, ariaLabel = 'Da
                 '&:hover .drag-grip, &:focus-within .drag-grip, &.is-dragging .drag-grip': { opacity: 1 },
               })}
             >
+              {/* Usage analytics for this widget (catalogue keys only; renders nothing visible). */}
+              <WidgetBeacon widgetKey={key} />
               <WidgetSlotContext.Provider value={slotValue(key)}>
                 <FadeIn delay={Math.min(visible.indexOf(key), 8) * 45} sx={{ width: '100%', display: 'flex' }}>{item.node}</FadeIn>
               </WidgetSlotContext.Provider>

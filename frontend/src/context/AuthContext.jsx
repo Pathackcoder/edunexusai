@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { authApi, onSessionExpired, ssoApi, tokenStore } from '../services/api';
 import { clearSisProfile } from '../hooks/useSisProfile';
 import { activeContextsOf, canIn, hasActiveContext, isMultiRole, unlinkedContextsOf, workspacesOf } from './roleContexts';
+import { flushAnalytics } from '../analytics/index.js';
 
 // Roles and record links can change while a tab is open (an administrator adds a role, a record is
 // linked). The API applies such changes on the next request; the UI re-reads the session when the
@@ -95,6 +96,8 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const logout = useCallback(async ({ everywhere = true } = {}) => {
+    // Send any queued usage events while the session token still works.
+    await flushAnalytics();
     const providerLogoutUrl = await authApi.logout({ everywhere });
     clearSisProfile();
     setUser(null);

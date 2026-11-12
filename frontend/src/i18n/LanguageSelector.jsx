@@ -9,6 +9,7 @@ import Box from '@mui/material/Box';
 import TranslateRoundedIcon from '@mui/icons-material/TranslateRounded';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import { useI18n } from './index';
+import { trackFeature } from '../analytics/index.js';
 
 /** Header language switcher. Shows the current language code next to the icon. */
 export function LanguageSelector() {
@@ -30,6 +31,7 @@ export function LanguageSelector() {
             key={language.code}
             selected={language.code === locale}
             onClick={() => {
+              if (language.code !== locale) trackFeature('language.changed');
               setLocale(language.code);
               setAnchor(null);
             }}

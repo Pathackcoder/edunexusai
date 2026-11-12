@@ -24,6 +24,8 @@ export const apiRateLimiter = rateLimit({
   max: env.isTest ? 100_000 : 600,
   standardHeaders: true,
   legacyHeaders: false,
+  // The analytics tracker has its own limits (modules/analytics/analyticsRoutes.js) and must not use up a campus's shared budget.
+  skip: (req) => req.path === '/v1/analytics/events',
   message: {
     success: false,
     error: { code: ErrorCode.RATE_LIMITED, message: 'Too many requests. Please slow down.' },

@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../db/prisma.js';
 import { AppError, ErrorCode, badRequest, forbidden, notFound } from '../../utils/errors.js';
+import { trackFeature } from '../analytics/serverEvents.js';
 
 /**
  * Portal messaging (one-to-one). Every function takes the caller's verified context (`auth`, from
@@ -196,6 +197,7 @@ export async function sendMessage(auth, conversationId, { body, clientId } = {})
       await tx.conversationParticipant.update({ where: { conversationId_userId: { conversationId, userId: auth.userId } }, data: { lastReadAt: created.createdAt } });
       return created;
     });
+    void trackFeature(auth, 'chat.message_sent');
     return { message: presentMessage(message), participantIds, duplicate: false };
   } catch (error) {
     if (clientId && error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {

@@ -21,6 +21,7 @@ import { DataState } from '../../components/common/DataState';
 import { Badge } from '../../components/common/Badge';
 import { useApiQuery } from '../../hooks/useApiQuery';
 import { directoryApi } from '../../services/api';
+import { trackFeature } from '../../analytics/index.js';
 
 /**
  * Campus Directory: people in the institution's identity provider (Keycloak), searched and paged by the
@@ -85,6 +86,10 @@ export const CampusDirectoryPage = () => {
     const timer = setTimeout(() => setSearchParams(term ? { q: term } : {}, { replace: true }), 350);
     return () => clearTimeout(timer);
   }, [input]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Analytics: that a directory search ran (never what was searched for).
+  useEffect(() => {
+    if (query) trackFeature('directory.searched', 'CAMPUS');
+  }, [query]);
   // Back/forward (or a link) changed the search: show it in the box.
   useEffect(() => {
     setInput((current) => (current.trim() === query ? current : query));
