@@ -23,3 +23,4 @@ export { sisApi, sisAdminApi } from './sisApi.js';
 export { contentApi, studioApi } from './cmsApi.js';
 export { ssoApi, SSO_ERROR_MESSAGES } from './ssoApi.js';
 export { chatApi } from './chatApi.js';
+export { analyticsApi } from './analyticsApi.js';

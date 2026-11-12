@@ -11,6 +11,7 @@ import * as resources from './resourceService.js';
 import * as broadcasts from './broadcastService.js';
 import { getAttachmentForDownload } from './attachmentService.js';
 import { listAudit } from '../audit/auditService.js';
+import { trackFeature } from '../analytics/serverEvents.js';
 
 const idParam = z.object({ id: z.string().uuid('Expected a record id.') });
 const attachmentSchema = z
@@ -117,7 +118,11 @@ workflowRoutes.get('/requests', asyncHandler(async (req, res) => sendSuccess(res
 workflowRoutes.post(
   '/requests',
   validate({ body: createRequestSchema }),
-  asyncHandler(async (req, res) => sendSuccess(res, await requests.createGenericRequest(req.auth, req.body), { status: 201 })),
+  asyncHandler(async (req, res) => {
+    const created = await requests.createGenericRequest(req.auth, req.body);
+    void trackFeature(req.auth, 'requests.submitted');
+    return sendSuccess(res, created, { status: 201 });
+  }),
 );
 workflowRoutes.get('/requests/:id', validate({ params: idParam }), asyncHandler(async (req, res) => sendSuccess(res, await requests.getRequest(req.auth, req.params.id))));
 workflowRoutes.post(
@@ -135,7 +140,11 @@ workflowRoutes.get('/support/tickets', asyncHandler(async (req, res) => sendSucc
 workflowRoutes.post(
   '/support/tickets',
   validate({ body: createTicketSchema }),
-  asyncHandler(async (req, res) => sendSuccess(res, await tickets.createTicket(req.auth, req.body), { status: 201 })),
+  asyncHandler(async (req, res) => {
+    const created = await tickets.createTicket(req.auth, req.body);
+    void trackFeature(req.auth, 'tickets.created');
+    return sendSuccess(res, created, { status: 201 });
+  }),
 );
 workflowRoutes.get('/support/tickets/:id', validate({ params: idParam }), asyncHandler(async (req, res) => sendSuccess(res, await tickets.getTicket(req.auth, req.params.id))));
 workflowRoutes.post(
@@ -153,7 +162,11 @@ workflowRoutes.get('/forms', asyncHandler(async (req, res) => sendSuccess(res, a
 workflowRoutes.post(
   '/forms/:id/submissions',
   validate({ params: idParam, body: submitFormSchema }),
-  asyncHandler(async (req, res) => sendSuccess(res, await forms.submitForm(req.auth, req.params.id, req.body), { status: 201 })),
+  asyncHandler(async (req, res) => {
+    const created = await forms.submitForm(req.auth, req.params.id, req.body);
+    void trackFeature(req.auth, 'forms.submitted');
+    return sendSuccess(res, created, { status: 201 });
+  }),
 );
 
 workflowRoutes.get(

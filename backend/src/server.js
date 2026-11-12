@@ -4,6 +4,7 @@ import { checkDatabase, disconnect } from './db/prisma.js';
 import { logger } from './utils/logger.js';
 import { attachChatSocket, closeChatSocket } from './modules/chat/chatSocket.js';
 import { startAccountSyncWorker } from './modules/sis/accountSync.js';
+import { startAnalyticsWorker } from './modules/analytics/rollupService.js';
 
 const server = app.listen(env.port, async () => {
   const database = await checkDatabase();
@@ -27,10 +28,14 @@ attachChatSocket(server);
 // New CampusCore people get a portal account automatically (CAMPUSCORE_ACCOUNT_SYNC_ENABLED).
 const accountSync = startAccountSyncWorker();
 
+// Portal analytics aggregation and retention (ANALYTICS_ENABLED; off by default).
+const analyticsWorker = startAnalyticsWorker();
+
 /** Close connections cleanly so `node --watch` restarts do not leak them. */
 const shutdown = async (signal) => {
   logger.info(`${signal} received, shutting down.`);
   accountSync?.stop();
+  analyticsWorker?.stop();
   closeChatSocket();
   server.close(async () => {
     await disconnect();

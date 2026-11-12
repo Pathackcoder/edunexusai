@@ -5,6 +5,8 @@ import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
+import { trackNav } from '../../analytics/index.js';
+import { ANALYTICS_SECTIONS } from '../../pages/admin/analytics/sections.js';
 
 const routeLabels = {
   // Top-level
@@ -55,8 +57,12 @@ const routeLabels = {
   integrations: 'Integrations',
   moodle: 'Moodle LMS',
   appearance: 'Portal Appearance',
+  analytics: 'Analytics',
   faqs: 'FAQs',
 };
+
+// Full-path labels win over the per-segment ones (an Analytics section named "people" is not People Search).
+const pathLabels = Object.fromEntries(ANALYTICS_SECTIONS.filter((section) => section.id !== 'overview').map((section) => [section.path, section.label]));
 
 /** Context row above the page heading. Hidden on the dashboard, as before. */
 export const Breadcrumbs = () => {
@@ -76,6 +82,7 @@ export const Breadcrumbs = () => {
       <Link
         component={RouterLink}
         to="/dashboard"
+        onClick={() => trackNav('/dashboard', 'BREADCRUMB')}
         underline="none"
         color="text.secondary"
         sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, '&:hover': { color: 'primary.main' } }}
@@ -87,7 +94,7 @@ export const Breadcrumbs = () => {
       {pathnames.map((segment, index) => {
         const isLast = index === pathnames.length - 1;
         const to = `/${pathnames.slice(0, index + 1).join('/')}`;
-        const label = routeLabels[segment] || segment.charAt(0).toUpperCase() + segment.slice(1);
+        const label = pathLabels[to] || routeLabels[segment] || segment.charAt(0).toUpperCase() + segment.slice(1);
 
         return isLast ? (
           <Typography key={to} variant="body2" color="text.primary" fontWeight={600} aria-current="page" noWrap sx={{ maxWidth: 260 }}>
@@ -98,6 +105,7 @@ export const Breadcrumbs = () => {
             key={to}
             component={RouterLink}
             to={to}
+            onClick={() => trackNav(to, 'BREADCRUMB')}
             underline="none"
             color="text.secondary"
             sx={{ '&:hover': { color: 'primary.main' } }}

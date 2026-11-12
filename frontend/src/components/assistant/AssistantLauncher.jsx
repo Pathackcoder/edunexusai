@@ -18,6 +18,7 @@ import DeleteSweepOutlinedIcon from '@mui/icons-material/DeleteSweepOutlined';
 import { assistantApi } from '../../services/api';
 import { useI18n } from '../../i18n';
 import { liftSx } from '../floating/FloatingDock';
+import { trackFeature } from '../../analytics/index.js';
 
 /**
  * Floating portal assistant. Answers come from the user's own portal records and the
@@ -134,7 +135,7 @@ export function AssistantLauncher() {
         <Tooltip title={t('Ask EduNexusAI')} placement="left">
           <Fab
             color="primary"
-            onClick={() => setOpen((value) => !value)}
+            onClick={() => { if (!open) trackFeature('assistant.opened'); setOpen((value) => !value); }}
             aria-label={t('Ask EduNexusAI')}
             sx={(theme) => ({ background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`, boxShadow: `0 10px 24px -8px ${alpha(theme.palette.primary.main, 0.6)}`, transition: 'transform 200ms ease, box-shadow 200ms ease', '&:hover': { transform: 'translateY(-2px) scale(1.04)' } })}
           >

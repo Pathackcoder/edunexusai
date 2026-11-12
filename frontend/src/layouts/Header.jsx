@@ -52,6 +52,7 @@ import { LanguageSelector } from '../i18n/LanguageSelector';
 import { InstitutionLogo } from '../components/brand/Brand';
 import { useStudioMode } from '../pages/studio/studioMode';
 import { layout } from '../theme/theme';
+import { trackFeature, trackNav } from '../analytics/index.js';
 
 const PERSONA_LABEL = { STUDENT: 'Student', FACULTY: 'Faculty', STAFF: 'Staff', ALUMNI: 'Alumni', ADMIN: 'Administrator' };
 
@@ -167,7 +168,10 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
 
   const hasAnyResults = matchedPeople.length > 0 || matchedCourses.length > 0 || quickNavMatches.length > 0;
 
-  const handleSelectResult = (path) => {
+  const handleSelectResult = (path, kind) => {
+    // Analytics keeps only the kind of result and the page it leads to, never the search text.
+    trackFeature('search.result_selected', kind);
+    trackNav(path, 'SEARCH');
     setIsSearchDropdownOpen(false);
     setSearchTerm('');
     navigate(path);
@@ -247,8 +251,7 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
                 onFocus={() => setIsSearchDropdownOpen(true)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && searchTerm.trim()) {
-                    setIsSearchDropdownOpen(false);
-                    navigate(`/campus/people?q=${encodeURIComponent(searchTerm.trim())}`);
+                    handleSelectResult(`/campus/people?q=${encodeURIComponent(searchTerm.trim())}`, 'SEE_ALL');
                   }
                 }}
                 inputProps={{ 'aria-label': 'Search students, faculty, staff, courses' }}
@@ -287,7 +290,7 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
                         {matchedPeople.map(person => (
                           <ListItemButton
                             key={person.id}
-                            onClick={() => handleSelectResult(`/campus/people?q=${encodeURIComponent(person.name)}`)}
+                            onClick={() => handleSelectResult(`/campus/people?q=${encodeURIComponent(person.name)}`, 'PERSON')}
                             sx={{ borderRadius: 2, gap: 1.5 }}
                           >
                             <Avatar sx={{ width: 30, height: 30, fontSize: '0.75rem', bgcolor: 'primary.lighter', color: 'primary.dark' }}>
@@ -315,7 +318,7 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
                           {matchedCourses.map(course => (
                             <ListItemButton
                               key={course.id}
-                              onClick={() => handleSelectResult('/academics/schedule')}
+                              onClick={() => handleSelectResult('/academics/schedule', 'COURSE')}
                               sx={{ borderRadius: 2 }}
                             >
                               <ListItemText
@@ -342,7 +345,7 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
                         <Divider sx={{ my: 0.75 }} />
                         <List dense disablePadding subheader={groupLabel('Services & Portals')}>
                           {quickNavMatches.map((item, idx) => (
-                            <ListItemButton key={idx} onClick={() => handleSelectResult(item.path)} sx={{ borderRadius: 2 }}>
+                            <ListItemButton key={idx} onClick={() => handleSelectResult(item.path, 'QUICK_NAV')} sx={{ borderRadius: 2 }}>
                               <ListItemText primary={item.label} primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }} />
                               <ArrowForwardRoundedIcon sx={{ fontSize: 16, color: 'grey.400' }} />
                             </ListItemButton>
@@ -355,8 +358,7 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
                     <Divider sx={{ my: 0.75 }} />
                     <ListItemButton
                       onClick={() => {
-                        setIsSearchDropdownOpen(false);
-                        navigate(`/campus/people?q=${encodeURIComponent(searchTerm.trim())}`);
+                        handleSelectResult(`/campus/people?q=${encodeURIComponent(searchTerm.trim())}`, 'SEE_ALL');
                       }}
                       sx={{ borderRadius: 2, justifyContent: 'center', py: 1 }}
                     >
@@ -413,7 +415,7 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
           <Tooltip title="Notifications">
             <IconButton
               data-notif-trigger="true"
-              onClick={(e) => setNotifAnchor((prev) => (prev ? null : e.currentTarget))}
+              onClick={(e) => { if (!notifAnchor) trackFeature('notifications.opened'); setNotifAnchor((prev) => (prev ? null : e.currentTarget)); }}
               aria-label="View notifications"
               sx={{ color: isNotifOpen ? 'primary.main' : 'text.secondary', bgcolor: isNotifOpen ? 'primary.lighter' : undefined }}
             >
@@ -485,24 +487,24 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
             </Box>
             <Divider sx={{ mb: 0.75 }} />
 
-            <MenuItem component={RouterLink} to="/profile" onClick={() => setIsUserMenuOpen(false)}>
+            <MenuItem component={RouterLink} to="/profile" onClick={() => { trackNav('/profile', 'HEADER_MENU'); setIsUserMenuOpen(false); }}>
               <ListItemIcon><PersonOutlineRoundedIcon fontSize="small" /></ListItemIcon>
               My Profile
             </MenuItem>
             {user?.hasPassword !== false && (
-              <MenuItem component={RouterLink} to="/profile/password" onClick={() => setIsUserMenuOpen(false)}>
+              <MenuItem component={RouterLink} to="/profile/password" onClick={() => { trackNav('/profile/password', 'HEADER_MENU'); setIsUserMenuOpen(false); }}>
                 <ListItemIcon><KeyRoundedIcon fontSize="small" /></ListItemIcon>
                 Change password
               </MenuItem>
             )}
-            <MenuItem component={RouterLink} to="/help" onClick={() => setIsUserMenuOpen(false)}>
+            <MenuItem component={RouterLink} to="/help" onClick={() => { trackNav('/help', 'HEADER_MENU'); setIsUserMenuOpen(false); }}>
               <ListItemIcon><HelpOutlineRoundedIcon fontSize="small" /></ListItemIcon>
               Help & FAQs
             </MenuItem>
             <MenuItem
               component={RouterLink}
               to="/campus/security"
-              onClick={() => setIsUserMenuOpen(false)}
+              onClick={() => { trackNav('/campus/security', 'HEADER_MENU'); setIsUserMenuOpen(false); }}
               sx={{ color: 'error.dark', '&:hover': { bgcolor: 'error.lighter' } }}
             >
               <ListItemIcon sx={{ color: 'error.main' }}><EmergencyOutlinedIcon fontSize="small" /></ListItemIcon>
@@ -519,7 +521,7 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
 
             {/* Always reachable here, including after "Don't show again" on the floating prompt. */}
             {!isInstalled && (
-              <MenuItem onClick={() => { setIsUserMenuOpen(false); promptInstall(); }}>
+              <MenuItem onClick={() => { trackFeature('pwa.install_prompted'); setIsUserMenuOpen(false); promptInstall(); }}>
                 <ListItemIcon><FileDownloadOutlinedIcon fontSize="small" /></ListItemIcon>
                 Install Portal App
               </MenuItem>

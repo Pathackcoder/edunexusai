@@ -7,6 +7,7 @@ import { validate } from '../../middleware/validate.js';
 import { requireAuth } from '../../middleware/auth.js';
 import { formatTimeAgo } from '../../utils/format.js';
 import { CALENDAR_PROVIDERS, calendarProviderAdapter } from '../../integrations/adapters/calendarProviderAdapter.js';
+import { trackFeature } from '../analytics/serverEvents.js';
 
 /**
  * External calendar sync (Google / Outlook). The connection state is persisted per
@@ -73,6 +74,7 @@ calendarSyncRoutes.post(
       update: { status: 'CONNECTED', accountEmail: linked.accountEmail },
     });
     await sync(req.auth, provider);
+    void trackFeature(req.auth, 'calendar.connected');
     return sendSuccess(res, await status(req.auth));
   }),
 );

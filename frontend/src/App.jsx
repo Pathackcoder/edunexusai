@@ -77,6 +77,8 @@ import { AdminIntegrationDetailPage } from './pages/admin/AdminIntegrationDetail
 import { AdminMoodlePage } from './pages/admin/AdminMoodlePage';
 import { AdminSisPage } from './pages/admin/AdminSisPage';
 
+const AdminAnalyticsPage = lazy(() => import('./pages/admin/AdminAnalyticsPage'));
+
 // Help & Support (requester side of the cross-persona workflows)
 import { MyRequestsPage } from './pages/help/MyRequestsPage';
 import { SupportTicketsPage } from './pages/help/SupportTicketsPage';
@@ -231,6 +233,9 @@ function AppRoutes() {
         <Route path="admin/entitlements" element={<RoleRoute allow={['ADMIN']}><AdminEntitlementsPage /></RoleRoute>} />
         <Route path="admin/sign-in" element={<RoleRoute allow={['ADMIN']}><AdminSignInPage /></RoleRoute>} />
         <Route path="admin/integrations" element={<RoleRoute allow={['ADMIN']}><AdminIntegrationsPage /></RoleRoute>} />
+        {/* Usage analytics: administrators only, and the API additionally requires the named analytics.view permission. */}
+        <Route path="admin/analytics" element={<RoleRoute allow={['ADMIN']}><Suspense fallback={<FullPageLoader label="Opening Analytics…" />}><AdminAnalyticsPage /></Suspense></RoleRoute>} />
+        <Route path="admin/analytics/:section" element={<RoleRoute allow={['ADMIN']}><Suspense fallback={<FullPageLoader label="Opening Analytics…" />}><AdminAnalyticsPage /></Suspense></RoleRoute>} />
         <Route path="admin/appearance" element={<RoleRoute allow={['ADMIN']}><AdminAppearancePage /></RoleRoute>} />
         <Route path="admin/integrations/campuscore" element={<RoleRoute allow={['ADMIN']}><AdminSisPage /></RoleRoute>} />
         <Route path="admin/integrations/moodle" element={<RoleRoute allow={['ADMIN']}><AdminMoodlePage /></RoleRoute>} />

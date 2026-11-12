@@ -6,6 +6,7 @@ import { validate } from '../../middleware/validate.js';
 import { requireAuth, requireRole } from '../../middleware/auth.js';
 import * as interventions from './interventionService.js';
 import * as advising from './advisingService.js';
+import { trackFeature } from '../analytics/serverEvents.js';
 
 const idParam = z.object({ id: z.string().uuid('Expected a record id.') });
 
@@ -67,7 +68,11 @@ advisingRoutes.post(
   '/appointments',
   requireRole('STUDENT'),
   validate({ body: z.object({ slotId: z.string().uuid(), topic: z.string().trim().min(3, 'Add a topic.').max(200), notes: z.string().trim().max(2000).optional() }) }),
-  asyncHandler(async (req, res) => sendSuccess(res, await advising.bookAppointment(req.auth, req.body), { status: 201 })),
+  asyncHandler(async (req, res) => {
+    const booked = await advising.bookAppointment(req.auth, req.body);
+    void trackFeature(req.auth, 'advising.booked');
+    return sendSuccess(res, booked, { status: 201 });
+  }),
 );
 advisingRoutes.post(
   '/appointments/:id/reschedule',

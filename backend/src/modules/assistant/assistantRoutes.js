@@ -6,6 +6,7 @@ import { sendSuccess } from '../../utils/apiResponse.js';
 import { validate } from '../../middleware/validate.js';
 import { requireAuth } from '../../middleware/auth.js';
 import { PROVIDER, SUGGESTIONS, respond } from './assistantProvider.js';
+import { trackFeature } from '../analytics/serverEvents.js';
 
 const present = (row) => ({ id: row.id, role: row.role, content: row.content, actions: row.actions ?? [], at: row.createdAt });
 const suggestionsFor = (auth) => (auth.studentProfileId ? SUGGESTIONS.STUDENT : SUGGESTIONS.FACULTY);
@@ -32,6 +33,7 @@ assistantRoutes.post(
     const reply = await prisma.assistantMessage.create({
       data: { tenantId, userId, role: 'assistant', content: answer.text, actions: answer.actions ?? [] },
     });
+    void trackFeature(req.auth, 'assistant.question_asked');
     return sendSuccess(res, { messages: [present(question), present(reply)], intent: answer.intent, citation: answer.citation ?? null }, { status: 201 });
   }),
 );

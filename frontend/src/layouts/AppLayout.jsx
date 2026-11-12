@@ -20,6 +20,7 @@ import { useAuth } from '../context/AuthContext';
 import { STUDIO_RAIL_WIDTH, StudioRail } from './StudioRail';
 import { rememberReturnPath } from '../pages/studio/studioSession';
 import { StudioModeProvider, editableTarget, useStudioMode } from '../pages/studio/studioMode';
+import { AnalyticsProvider } from '../analytics/AnalyticsProvider';
 
 const InPlaceEditor = lazy(() => import('../pages/studio/InPlaceEditor'));
 
@@ -104,6 +105,8 @@ const AppShellInner = () => {
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', ...(fullBleed ? { height: '100vh', overflow: 'hidden' } : {}), width: '100%', bgcolor: 'background.default', position: 'relative', isolation: 'isolate' }}>
+      {/* Portal usage analytics (renders nothing; silent unless collection is on for this person). */}
+      <AnalyticsProvider />
       {/* Portal atmosphere: soft brand light and a faint dot grid behind the content. */}
       <Box
         aria-hidden

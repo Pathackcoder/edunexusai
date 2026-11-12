@@ -58,12 +58,16 @@ export function createApp() {
     }),
   );
 
+  // Analytics batches are small by design; this parser runs first, so the larger limit below never applies to them.
+  app.use('/api/v1/analytics/events', express.json({ limit: '64kb' }));
   // Large enough for up to three 1 MB supporting documents sent as base64.
   app.use(express.json({ limit: '5mb' }));
   app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
   if (!env.isTest) {
-    app.use(morgan(env.logLevel));
+    // The analytics tracker is not request-logged: the log format carries the client address and user agent,
+    // which analytics must never keep.
+    app.use(morgan(env.logLevel, { skip: (req) => req.originalUrl.startsWith('/api/v1/analytics/events') }));
   }
 
   app.use('/api', apiRateLimiter);

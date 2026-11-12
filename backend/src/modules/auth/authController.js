@@ -3,6 +3,7 @@ import { sendSuccess } from '../../utils/apiResponse.js';
 import * as authService from './authService.js';
 import { buildCurrentUser } from '../users/sessionService.js';
 import { endInstitutionalSession } from '../identity/ssoLogout.js';
+import { trackSignOut } from '../analytics/serverEvents.js';
 
 export const login = asyncHandler(async (req, res) => {
   const session = await authService.login(req.body);
@@ -34,6 +35,7 @@ export const logout = asyncHandler(async (req, res) => {
   // An institutional session ends here in every case; unless the person chose "EdunexusAI only", it also
   // ends at the provider (RP-initiated logout, which signs out the other apps too); the app follows this URL.
   const providerLogoutUrl = await endInstitutionalSession(req.auth, { everywhere: req.body?.everywhere !== false }).catch(() => null);
+  void trackSignOut({ tenantId: req.auth.tenantId, userId: req.auth.userId, rolesHeld: req.auth.roles, reason: req.body?.everywhere === false ? 'PORTAL_LOCAL' : 'PORTAL' });
   return sendSuccess(res, { ...result, providerLogoutUrl });
 });
 

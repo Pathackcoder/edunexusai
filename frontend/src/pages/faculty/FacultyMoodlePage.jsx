@@ -23,6 +23,7 @@ import { useToast } from '../../components/common/Toast';
 import { MoodleUnavailablePart } from '../../components/lms/MoodleNotice';
 import { useApiQuery } from '../../hooks/useApiQuery';
 import { facultyMoodleApi } from '../../services/api';
+import { trackFeature } from '../../analytics/index.js';
 
 const when = (iso) => (iso ? new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—');
 const SUBMISSION = { submitted: 'Submitted', draft: 'Draft', new: 'Not submitted', reopened: 'Reopened' };
@@ -171,8 +172,8 @@ function CourseDetail({ courseId }) {
                   <Typography variant="caption">{data.students.length} student(s) enrolled in Moodle</Typography>
                 </Box>
                 <Stack direction="row" spacing={1} alignItems="flex-start" useFlexGap flexWrap="wrap">
-                  <Button size="sm" variant="secondary" icon={AddRoundedIcon} component="a" href={data.course.addAssignmentUrl} target="_blank" rel="noopener noreferrer">Add assignment in Moodle</Button>
-                  <Button size="sm" variant="ghost" icon={OpenInNewRoundedIcon} component="a" href={data.course.courseUrl} target="_blank" rel="noopener noreferrer">Open course</Button>
+                  <Button size="sm" variant="secondary" icon={AddRoundedIcon} component="a" href={data.course.addAssignmentUrl} onClick={() => trackFeature('moodle.opened', 'ASSIGNMENT')} target="_blank" rel="noopener noreferrer">Add assignment in Moodle</Button>
+                  <Button size="sm" variant="ghost" icon={OpenInNewRoundedIcon} component="a" href={data.course.courseUrl} onClick={() => trackFeature('moodle.opened', 'COURSE')} target="_blank" rel="noopener noreferrer">Open course</Button>
                 </Stack>
               </Stack>
               <Typography variant="caption" component="p" sx={{ mt: 1 }}>
@@ -209,9 +210,9 @@ function CourseDetail({ courseId }) {
                           <TableCell><Chip size="small" variant="outlined" color={a.visibleToStudents ? 'success' : 'default'} label={a.visibleToStudents ? 'Visible' : 'Hidden'} /></TableCell>
                           <TableCell align="right">
                             <MuiButton size="small" onClick={() => setAssignmentId(a.assignmentId)}>Submissions &amp; grading</MuiButton>
-                            <MuiButton size="small" href={a.url} target="_blank" rel="noopener noreferrer" endIcon={<OpenInNewRoundedIcon fontSize="small" />}>Moodle</MuiButton>
-                            {a.editUrl && <MuiButton size="small" href={a.editUrl} target="_blank" rel="noopener noreferrer" endIcon={<OpenInNewRoundedIcon fontSize="small" />}>Edit in Moodle</MuiButton>}
-                            {a.graderUrl && <MuiButton size="small" href={a.graderUrl} target="_blank" rel="noopener noreferrer" endIcon={<OpenInNewRoundedIcon fontSize="small" />}>Moodle grader</MuiButton>}
+                            <MuiButton size="small" href={a.url} onClick={() => trackFeature('moodle.opened', 'ASSIGNMENT')} target="_blank" rel="noopener noreferrer" endIcon={<OpenInNewRoundedIcon fontSize="small" />}>Moodle</MuiButton>
+                            {a.editUrl && <MuiButton size="small" href={a.editUrl} onClick={() => trackFeature('moodle.opened', 'ASSIGNMENT')} target="_blank" rel="noopener noreferrer" endIcon={<OpenInNewRoundedIcon fontSize="small" />}>Edit in Moodle</MuiButton>}
+                            {a.graderUrl && <MuiButton size="small" href={a.graderUrl} onClick={() => trackFeature('moodle.opened', 'GRADER')} target="_blank" rel="noopener noreferrer" endIcon={<OpenInNewRoundedIcon fontSize="small" />}>Moodle grader</MuiButton>}
                           </TableCell>
                         </TableRow>
                       ))}

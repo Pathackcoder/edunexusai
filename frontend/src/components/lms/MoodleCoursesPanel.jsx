@@ -17,6 +17,7 @@ import { Modal } from '../common/Modal';
 import { DataState } from '../common/DataState';
 import { useApiQuery } from '../../hooks/useApiQuery';
 import { lmsApi } from '../../services/api';
+import { trackFeature } from '../../analytics/index.js';
 
 const fmt = (iso, withTime = false) =>
   iso ? new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', ...(withTime ? { hour: 'numeric', minute: '2-digit' } : {}) }) : null;
@@ -24,8 +25,8 @@ const fmt = (iso, withTime = false) =>
 const SUBMISSION_LABEL = { submitted: 'Submitted', draft: 'Draft saved', new: 'Not submitted', nosubmission: 'Not submitted', reopened: 'Reopened' };
 
 /** External link to Moodle. Opening it may ask the student to sign in to Moodle. */
-const MoodleLink = ({ href, children = 'Open in Moodle', size = 'sm', variant = 'secondary' }) => (
-  <Button variant={variant} size={size} icon={OpenInNewRoundedIcon} component="a" href={href} target="_blank" rel="noopener noreferrer">
+const MoodleLink = ({ href, children = 'Open in Moodle', size = 'sm', variant = 'secondary', kind = 'COURSE' }) => (
+  <Button variant={variant} size={size} icon={OpenInNewRoundedIcon} component="a" href={href} onClick={() => trackFeature('moodle.opened', kind)} target="_blank" rel="noopener noreferrer">
     {children}
   </Button>
 );
@@ -51,7 +52,7 @@ function CourseDetail({ courseId }) {
                   {data.assignments.items.map((a) => (
                     <Stack key={a.assignmentId} direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ sm: 'center' }}>
                       <Box sx={{ minWidth: 0 }}>
-                        <Link href={a.url} target="_blank" rel="noopener noreferrer" underline="hover" sx={{ fontWeight: 600 }}>{a.name}</Link>
+                        <Link href={a.url} onClick={() => trackFeature('moodle.opened', 'ASSIGNMENT')} target="_blank" rel="noopener noreferrer" underline="hover" sx={{ fontWeight: 600 }}>{a.name}</Link>
                         <Typography variant="caption" component="div">{a.dueDate ? `Due ${fmt(a.dueDate, true)}` : 'No due date'}{a.maxGrade ? ` · out of ${a.maxGrade}` : ''}</Typography>
                       </Box>
                       {a.submission ? (
@@ -115,7 +116,7 @@ function CourseDetail({ courseId }) {
                         {section.activities.map((activity) => (
                           <Box component="li" key={activity.cmid} sx={{ typography: 'body2', py: 0.25 }}>
                             {activity.url ? (
-                              <Link href={activity.url} target="_blank" rel="noopener noreferrer" underline="hover">{activity.name}</Link>
+                              <Link href={activity.url} onClick={() => trackFeature('moodle.opened', 'ACTIVITY')} target="_blank" rel="noopener noreferrer" underline="hover">{activity.name}</Link>
                             ) : (
                               activity.name
                             )}
@@ -169,7 +170,7 @@ export const MoodleCoursesPanel = () => {
           }
           if (data.status === 'NOT_LINKED') {
             return (
-              <Alert severity="info" action={<MoodleLink href={data.site.loginUrl} size="sm">Moodle sign-in</MoodleLink>}>
+              <Alert severity="info" action={<MoodleLink href={data.site.loginUrl} size="sm" kind="LOGIN">Moodle sign-in</MoodleLink>}>
                 Your Moodle account has not been linked to the portal yet. Your institution’s administrator links it; until then you can still use Moodle directly.
               </Alert>
             );

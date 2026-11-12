@@ -31,6 +31,7 @@ import { sisRoutes } from '../modules/sis/sisRoutes.js';
 import { academicAliasRoutes } from '../modules/academics/academicsAliasRoutes.js';
 import { publicRoutes } from '../modules/public/publicRoutes.js';
 import { chatRoutes } from '../modules/chat/chatRoutes.js';
+import { analyticsRoutes } from '../modules/analytics/analyticsRoutes.js';
 
 /**
  * The v1 surface. One line per domain; each module owns its own routes, validation and
@@ -61,6 +62,9 @@ apiV1.use('/profile', profileRoutes);
 apiV1.use('/help', supportRoutes);
 // One-to-one messaging (realtime delivery: modules/chat/chatSocket.js on /socket.io)
 apiV1.use('/chat', chatRoutes);
+
+// Portal usage analytics: the browser tracker's ingestion route (reports live under /admin/analytics).
+apiV1.use('/analytics', analyticsRoutes);
 
 // Feddrick CMS: Studio (ADMIN) and published content delivery. Mounted before the
 // root-level workflow routes so those never intercept these paths.

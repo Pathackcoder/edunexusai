@@ -21,6 +21,7 @@ import { IconTile } from '../../components/common/IconTile';
 import { useApiQuery } from '../../hooks/useApiQuery';
 import { directoryApi } from '../../services/api';
 import { DataState } from '../../components/common/DataState';
+import { trackFeature } from '../../analytics/index.js';
 
 export const PeopleSearchPage = () => {
   // The whole visible directory is fetched once and filtered in the browser, matching
@@ -42,6 +43,14 @@ export const PeopleSearchPage = () => {
       setSearchQuery(urlQuery);
     }
   }, [urlQuery]);
+
+  // Analytics: that a people search was made (never its text), once the typing has paused.
+  const searching = Boolean(searchQuery.trim());
+  useEffect(() => {
+    if (!searching) return undefined;
+    const timer = setTimeout(() => trackFeature('directory.searched', 'PEOPLE'), 1500);
+    return () => clearTimeout(timer);
+  }, [searching]);
 
   const handleSearchChange = (val) => {
     setSearchQuery(val);
