@@ -87,7 +87,7 @@ function NewRequestDialog({ open, onClose, onCreated }) {
       title="New request"
       subtitle="Your request goes straight to the Administration operations queue. You will be notified at every step."
       maxWidth="620px"
-      footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button><Button type="submit" form="new-request" loading={saving}>Submit request</Button></>}
+      footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button><Button type="submit" form="new-request" loading={saving} mutates>Submit request</Button></>}
     >
       <Stack component="form" id="new-request" spacing={2} onSubmit={submit} noValidate>
         {errors.form && <Alert severity="error">{errors.form}</Alert>}
@@ -153,7 +153,7 @@ function RequestDetail({ request, onClose, onChanged }) {
       title={request.title}
       subtitle={`${request.reference} · ${request.typeLabel}`}
       maxWidth="640px"
-      footer={request.canCancel ? <Button variant="outline" onClick={cancel} loading={busy}>Withdraw request</Button> : null}
+      footer={request.canCancel ? <Button variant="outline" onClick={cancel} loading={busy} mutates>Withdraw request</Button> : null}
     >
       <Stack spacing={2.25}>
         <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
@@ -192,7 +192,7 @@ function RequestDetail({ request, onClose, onChanged }) {
             <Typography variant="subtitle2">Reply to the administrator</Typography>
             <TextField multiline minRows={3} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Provide the requested information…" sx={{ bgcolor: 'background.paper' }} />
             <FileAttachInput value={files} onChange={setFiles} label="Attach document" />
-            <Box><Button onClick={respond} loading={busy}>Send information</Button></Box>
+            <Box><Button onClick={respond} loading={busy} mutates>Send information</Button></Box>
           </Stack>
         )}
       </Stack>

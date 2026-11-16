@@ -1,6 +1,7 @@
 import { cmsConfig } from '../../config/env.js';
 import { AppError, ErrorCode } from '../../utils/errors.js';
 import { logger } from '../../utils/logger.js';
+import { assertNotViewAs } from '../viewAs/viewAsContext.js';
 
 /**
  * The only code that talks to the Feddrick CMS (Strapi). Calls its tenant-scoped
@@ -27,6 +28,7 @@ export function cmsReady() {
 const tokenFor = (method) => (method === 'GET' ? process.env.CMS_API_TOKEN : process.env.CMS_MANAGE_API_TOKEN);
 
 export async function cmsRequest(method, path, { query, body, form } = {}) {
+  if (method !== 'GET') assertNotViewAs(`CMS ${method} ${path}`);
   const config = cmsConfig();
   if (!config.valid) throw new CmsError(503, 'CMS_NOT_CONFIGURED', `The CMS is not configured: ${config.problems.join(' ')}`);
   const token = tokenFor(method);

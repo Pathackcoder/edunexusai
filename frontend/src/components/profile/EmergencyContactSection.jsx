@@ -69,7 +69,7 @@ export const EmergencyContactSection = ({ contactData, emergencyContact, onSaveC
         tone="danger"
         headerAction={
           !isEditing ? (
-            <Button type="button" variant="outline" size="sm" icon={EditOutlinedIcon} onClick={() => setIsEditing(true)}>
+            <Button type="button" variant="outline" size="sm" icon={EditOutlinedIcon} onClick={() => setIsEditing(true)} mutates>
               Edit Contact
             </Button>
           ) : (
@@ -77,7 +77,7 @@ export const EmergencyContactSection = ({ contactData, emergencyContact, onSaveC
               <Button type="button" variant="secondary" size="sm" icon={CloseRoundedIcon} onClick={handleCancel} disabled={isSaving}>
                 Cancel
               </Button>
-              <Button type="submit" variant="primary" size="sm" icon={SaveOutlinedIcon} loading={isSaving}>
+              <Button type="submit" variant="primary" size="sm" icon={SaveOutlinedIcon} loading={isSaving} mutates>
                 Save Emergency Contact
               </Button>
             </Stack>

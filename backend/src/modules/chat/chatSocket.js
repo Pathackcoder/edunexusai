@@ -21,6 +21,7 @@ import { assertParticipant, markRead, sendMessage, unreadSummary } from './chatS
  * Server → client:
  *   chat:message { conversationId, message }   chat:read { conversationId, userId, lastReadAt }
  *   chat:unread  { total, conversations }       chat:session-expired
+ *   notifications:urgent {}   (an urgent announcement awaits acknowledgement; see publishToUsers)
  */
 
 let io = null;
@@ -43,6 +44,15 @@ export async function publishRead(auth, conversationId, { lastReadAt, participan
   if (!io) return;
   io.to(participantIds.map(userRoom)).emit('chat:read', { conversationId, userId: auth.userId, lastReadAt });
   await emitUnread(auth);
+}
+
+/**
+ * A signal to the signed-in sessions of these people (their `user:<id>` rooms), for features other than chat
+ * (e.g. `notifications:urgent`). Carries no content: clients fetch what changed through the authorised REST API.
+ */
+export function publishToUsers(userIds, event, payload = {}) {
+  if (!io || !userIds?.length) return;
+  io.to(userIds.map(userRoom)).emit(event, payload);
 }
 
 const failure = (error) => {

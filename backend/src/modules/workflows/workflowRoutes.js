@@ -99,7 +99,8 @@ const broadcastSchema = z.object({
   category: z.string().trim().max(40).optional(),
   priority: z.string().trim().max(20).optional(),
   audienceType: z.string().trim().max(40),
-  audienceValue: z.string().trim().max(200).optional().nullable(),
+  // INDIVIDUAL audiences list several emails or student numbers.
+  audienceValue: z.string().trim().max(4000).optional().nullable(),
   audienceLabel: z.string().trim().max(200).optional(),
   channels: z.array(z.string().trim().max(20)).max(6).optional(),
   scheduledFor: z.string().trim().max(40).optional().nullable(),

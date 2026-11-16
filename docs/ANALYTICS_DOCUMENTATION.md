@@ -1,7 +1,10 @@
 # EdunexusAI Admin Analytics — Technical Documentation
 
-The engineering reference for portal usage analytics (Administration → Analytics). It describes the code as it exists
-on branch `feature/admin-analytics` (uncommitted, not released) as of 2026-11-12. Every table, column, endpoint and
+The engineering reference for portal usage analytics (Administration → Analytics). Sections 1–12 describe the first
+release (commit `352037e`, in production since 2026-11-12 with collection off). Section 13 describes the Overview
+redesign on branch `feature/analytics-overview-v2` (local, not committed or deployed as of 2026-11-12): live concurrent
+users, sign-ins, peak concurrency, browser and operating system, accounts that have not signed in, and demo data.
+Where §13 changes something described earlier, §13 wins. Every table, column, endpoint and
 formula below was taken from the source; file references are repository-relative (`edunexus/…` omitted) with the line
 where the function starts. Where behaviour is inferred rather than read directly, it says so.
 
@@ -24,6 +27,7 @@ the code win.
 10. [Limitations and known inaccuracies](#10-limitations-and-known-inaccuracies)
 11. [Production readiness](#11-production-readiness)
 12. [Tracing a metric end to end](#12-tracing-a-metric-end-to-end)
+13. [Overview redesign: live users, sign-ins, browser/OS, inactive accounts, demo data](#13-overview-redesign-live-users-sign-ins-browseros-inactive-accounts-demo-data)
 
 ---
 
@@ -90,9 +94,9 @@ or person-day `devices` array.
 
 ### 2.1 Overview — `/admin/analytics`
 
-Component `frontend/src/pages/admin/analytics/OverviewTab.jsx`; endpoint `GET /api/v1/admin/analytics/overview`;
-service `overviewReport()` (`reportService.js` line 173). Two KPI groups (Audience, Engagement), a daily trend,
-most-visited pages, most-used features, device share and plain-language observations. Its sub-metrics are 2.2–2.10.
+**Redesigned on `feature/analytics-overview-v2`: see §13.1.** The Overview no longer shows Daily/Weekly/Monthly
+active users, Page views or Unique page visitors cards; those figures remain in People & activity and Pages &
+navigation, and the definitions in 2.2–2.10 still apply there.
 
 ### 2.2 Active users
 
@@ -711,3 +715,136 @@ Example: **Page views** for `academics.grades`.
 
 The same path applies to any metric: catalogue key → tracker or server event → `ingest`/`serverEvents` → raw table →
 `rebuildDay` fact or person-day row → report function → section component.
+
+---
+
+## 13. Overview redesign: live users, sign-ins, browser/OS, inactive accounts, demo data
+
+Branch `feature/analytics-overview-v2` (from `c66dbe5`), migration `20261112150000_analytics_live_demo`. Local only:
+not committed, not deployed.
+
+### 13.1 Overview layout — `OverviewTab.jsx`
+
+| Row | Content | Source |
+|---|---|---|
+| 1 | **Concurrent active users (LIVE)**, **Total logins**, **Peak concurrent users** | `GET /live` (polled every 5 s), `GET /overview` |
+| 2 | **Active users by time**: 24 hours / 7 days / 30 days | `GET /concurrency?window=` (polled every 60 s) |
+| 3 | **Usage by Browser** (donut), **Usage by Operating System** (donut), **Usage by Device** (bars) | `GET /overview` (`browsers`, `operatingSystems`, `devices`) |
+| 4 | Most used features, Most visited pages | `GET /overview` |
+| 5 | **Users who haven't logged in** | `GET /inactive-users` |
+| 6 | Worth a look (observations) | `GET /overview` |
+
+- **Removed from the Overview**: Daily active users (average), Weekly active users, Monthly active users, Page views and Unique page visitors cards. The API no longer returns those KPIs from `/overview` (tests assert this).
+- **Layout**: each row is a CSS grid with `align-items: stretch`; every card takes the row height; long content scrolls inside its card (`Scroll`, max 360 px; inactive table max 440 px with a sticky header). Rows collapse to one column on phones; the technical row is 1 / 2 / 3 columns (xs / md / xl).
+- **Donut layout** depends on the card's width (flex-wrap), not the screen's, so a narrow card stacks the legend under the chart.
+- A module-wide banner (`AdminAnalyticsPage.jsx`) says on every section when demo data is included.
+
+### 13.2 Concurrent active users (live)
+
+- **Definition**: distinct signed-in people of the institution, measured for analytics (collection on, account not excluded), whose portal sent a heartbeat within the presence window (`ANALYTICS_PRESENCE_TTL_SECONDS`, default 120 s, allowed 45–900).
+- **Browser** (`frontend/src/analytics/presence.js`, run by `AnalyticsProvider.jsx`): `POST /api/v1/analytics/presence` with an empty body, sent when the portal opens, when a tab becomes visible again, and every 30 s while the tab is visible and there was input in the last 5 minutes. Tabs share a clock in `localStorage` (`edunexus.analytics.presence.<userId>`): a tab skips its beat when another sent one in the last 20 s. Never refreshes a token; stops when the server answers `enabled: false`. Stopped before sign-out (`stopPresence()` in `AuthContext.logout`).
+- **Server** (`presenceService.js`): `analytics_presence` has one row per (tenant, account), upserted with `GREATEST(lastSeenAt)`. The account and institution come from the access token; the body must be `{}` (strict). Multiple tabs, windows, devices or refreshes therefore count once.
+- **Leaving**: sign-out deletes the row (`authController.logout`, and SSO back-channel logout in `ssoRoutes.js`); otherwise the person drops out when `lastSeenAt` is older than the window. Rows older than a day are deleted by the sampler.
+- **Count**: `SELECT count(*) FROM analytics_presence WHERE "tenantId" = :tenant AND "lastSeenAt" >= now − window`.
+- **Collection off**: the heartbeat answers `{ enabled: false }` and stores nothing; the card shows "—" with "Usage collection is off".
+- **Protection**: `requireAuth`, the shared per-address limiter (6,000/min), a per-account limiter (12/min), 1 KB body limit, excluded from the request log (`app.js`) and the general API limiter.
+- **Demo**: while demo data is included, `demo` = the dataset's people with `online = true` (always 150); `total = real + demo`; the card shows "2 real + 150 demo = 152 shown".
+
+### 13.3 Active users by time and peak concurrent users
+
+- **Sampler** (`startPresenceSampler`, started with the aggregation worker, so only when `ANALYTICS_ENABLED`): every `ANALYTICS_PRESENCE_SAMPLE_SECONDS` (default 60) counts each institution's live people and upserts the 5-minute bucket of `analytics_concurrency` with `GREATEST(users)`. A real sample is written where the institution collects (a measured zero) or someone is present (allow-listed account). While demo data is on, the demo online count is written to `analytics_demo_concurrency` the same way.
+- **Timeline** (`liveReports.concurrencyReport`): 24 h → 15-minute points, 7 d → hourly, 30 d → 4-hourly. Each point = the highest (real + demo) of the 5-minute buckets in it, with that bucket's split. No bucket → `null` (drawn as a gap, "Not measured"). Last point = the live count (`live: true`).
+- **Peak concurrent users** (`reportService.peakConcurrency`): highest (real + demo) 5-minute bucket whose start lies in the selected local date range; returns the time and split. Previous-period chip only when the previous period is comparable. Role and device filters do not apply (presence carries neither).
+- **Consistency**: the live KPI, the timeline and the peak all use the presence definition above.
+
+### 13.4 Total logins
+
+- **Source**: `auth.sign_in` events written by `authService.issueSession()`, the single point where a portal session is issued after a successful password or institutional (Keycloak/OIDC) sign-in. `refresh()` does not pass through it; page views never create one; failed attempts never reach it.
+- **Formula** (`reportService.loginTotals`): inside the raw window `count(*)` of `analytics_events` (plus demo events when included) with `name = 'auth.sign_in'` and `occurredAt` in the local range, split by `action` (SSO / PASSWORD), plus distinct people; older ranges use rollup fact `AUTH`. Role filter applies; device filter does not.
+- **Gate**: like every server event, recorded only while collection is on for that person. Sign-ins made while collection was off are not counted.
+
+### 13.5 Browser, operating system and device
+
+- **Detection** (`shared/analyticsAgent.js`, run in the browser by `AnalyticsProvider.jsx`): `classifyBrowser(userAgent, userAgentData.brands)` → CHROME, SAFARI, EDGE, FIREFOX, OPERA, OTHER, UNKNOWN. Client-hint brands decide first ("Microsoft Edge", "Opera", "Brave"/"Samsung Internet"/… → OTHER, "Google Chrome"/"HeadlessChrome"); the string fallback checks Edge, Opera, Firefox and named Chromium/WebKit browsers before Chrome and Safari (and names `HeadlessChrome/` explicitly: it has no word boundary before "Chrome" and used to fall through to Safari on a Mac). `classifyOs(userAgent, userAgentData.platform, maxTouchPoints)` → WINDOWS, MACOS, IOS (iOS and iPadOS; a "Macintosh" with a touch screen is an iPad), ANDROID, CHROMEOS, LINUX, OTHER, UNKNOWN; the platform hint wins, else the string. The two are independent. Only the key is sent (`browser`, `os` on the batch envelope, optional enums); the user-agent string is never sent or stored. Tested against a matrix of 25 browser/system user agents plus client-hint cases (`tests/analytics-live-demo.test.js`).
+- **Storage**: `analytics_visits.browser`, `.os` (CHECK-constrained). NULL = not measured (a visit from before this change, or from a tab still running an older bundle); `UNKNOWN` = measured, but the browser could not tell. The first known value wins (`COALESCE(NULLIF(new,'UNKNOWN'), old, new)`).
+- **Aggregation**: rollup facts `BROWSER` and `OS` (one row per measured visit, by subject, role and device margins; NULL visits get no row).
+- **Reporting** (`visitDistribution`): device, browser and OS all divide the same total — `VISIT` visits in the range. Visits without a category are added to Unknown, so each chart's categories sum to that total exactly, and are also returned as `notRecorded` (shown as a caption under each donut). Device keeps MOBILE / TABLET / DESKTOP (the device class is never unknown).
+
+### 13.6 Users who haven't logged in — `inactiveUsersService.js`
+
+- **Source**: `users.lastLoginAt` (set by `issueSession` on every successful sign-in, never by a refresh), independent of usage collection. Never the collection start date.
+- **Views**: `days=5|15|30` → `lastLoginAt < now − N days` (signed in at least once); `view=never` → `lastLoginAt IS NULL`. Counts for all four are returned together.
+- **Filters**: role (default Students in the UI), search on name, email or institution id (ILIKE with wildcards escaped), suspended accounts excluded unless `includeSuspended=true`, accounts with `analyticsExcludedAt` always excluded, pagination 10/25/50. One query for counts and one for the page (no N+1).
+- **Columns**: name, email, institution id (`student_profiles.studentNumber`, else faculty/staff `employeeNumber`), roles, last sign-in, days since, status, `demo`.
+- **Privacy**: the only person-level list in Analytics; `analytics.view` holders only (server-enforced; 403 otherwise). Decision of 2026-11-12.
+
+### 13.7 Demo analytics data — `demoService.js`
+
+- **Switch**: `tenants.analyticsDemoEnabled` (default false), Data health → Include demo data; `PUT /admin/analytics/demo { enabled }` (ADMIN + `analytics.view`, 6/min per institution), audited `ANALYTICS_DEMO_ENABLED` / `ANALYTICS_DEMO_DISABLED`. On: generates the dataset first only if the institution has none (≈ 17 s locally). Off: reports stop reading it at once; the dataset is kept, so on again is instant and creates nothing.
+- **Storage (isolated)**: `analytics_demo_people`, `_visits`, `_page_views`, `_events`, `_user_daily`, `_rollups`, `_concurrency`, `_notifications`, `_datasets`. No foreign key to `users`; people ids `demo-NNNNN` and addresses `@example.invalid` are enforced by CHECK constraints. Nothing is written to `users`, Keycloak, CampusCore, Moodle, Strapi or any other table, and nothing outside Analytics reads these tables.
+- **Dataset**: 520 people (72% students), exactly 150 marked online, 90 days of history: ≈ 32k visits, 110k page views, 215k events, 17k notifications. Deterministic per institution (fixed seed), dated relative to the moment of generation. Sessions, sign-ins, pages (only those the person's roles can open), navigation, widgets and features follow the same rules as real data; the concurrency history is counted from the generated visits, and exactly the 150 online people have a visit open at generation time. Some people are lapsed, suspended, invited or have never signed in, so the inactive list has content.
+- **Aggregation**: the demo raw rows go through the real `rebuildDay()` (`source: 'DEMO'`, tables `TABLES.DEMO`), so demo rollups are computed exactly like real ones.
+- **Reporting**: `reportService.src(ctx, table)` returns the real table, or (demo on) the real and demo rows together under the real table's name (`UNION ALL`; rollups summed per key). Distinct counts add because no synthetic person is a real account. Every response carries `meta.demo.included`.
+- **Not affected by demo data**: integration status, synchronisation runs, SSO health (audit logs), Data health's pipeline figures, broadcasts list and course announcements.
+- **Lifecycle — one source of truth** (`tenants.analyticsDemoEnabled`, shown and changed under Data health):
+
+  | Action | Result |
+  |---|---|
+  | Fresh database | Demo OFF, no demo rows |
+  | `generate --apply` (command) | Builds or rebuilds the dataset (idempotent, replaced in one transaction), then switches demo ON |
+  | `reset --apply` (command) | Switches demo OFF and deletes every `analytics_demo_*` row of the institution, in one transaction |
+  | Data health → Turn demo data off | Reports are real-only at once; demo rows are kept |
+  | Data health → Include demo data | Includes the kept dataset (generates it first only if there is none) |
+  | Data health → Regenerate | Same as `generate` |
+
+  Every change is audited (`ANALYTICS_DEMO_ENABLED` / `_DISABLED` / `_REGENERATED` / `_RESET`, with "command line" or "Data health" in the summary). Generation, reset and the demo concurrency sampler share one per-institution advisory lock, and the sampler writes a demo sample only while demo is ON and a dataset exists, so nothing demo can appear after a reset. Real analytics tables, `users`, Keycloak, CampusCore, Moodle and Strapi are never touched.
+- **Commands** (from `backend/`; each is a dry run until `--apply`; `status` and `generate`/`reset` print the real / demo / displayed figures for the last 30 days, read from the database):
+
+  ```bash
+  node scripts/analytics-demo.mjs status   --tenant demo-university
+  node scripts/analytics-demo.mjs generate --tenant demo-university --apply   # build/repair + demo ON
+  node scripts/analytics-demo.mjs reset    --tenant demo-university --apply   # demo OFF + delete demo rows only
+  ```
+- **Open pages update by themselves**: `GET /live` (polled every 5 s on every Analytics section) returns `demoState` (`on|off:<generatedAt|none>`); when it changes, the page reloads every figure, so a command-line generate or reset shows up within seconds without a page reload.
+- **Real / demo breakdown**: every report response carries `meta.sources = { demoIncluded, real, demo, displayed }` with visits, active people and successful logins for the same range and filters (`reportService.sourceBreakdown`, which reads the real and demo tables separately; `displayed = real + demo`). The page banner shows it ("Showing combined data · 32 real + 11,000 demo = 11,032 visits …"), the Overview's login card and device caption show their split, and Data health shows a Real / Demo / Shown table plus the rows held per demo table (`demo.records`).
+- **Simulated online people**: the 150 are a flag on demo people (`analytics_demo_people.online`), not presence rows, so they never mix with real presence and vanish the moment demo is switched off or reset.
+- **Staleness**: the history ends on the day it was generated. While the sampler runs, the 150 online people keep being recorded; Data health offers Regenerate when the dataset predates today.
+- **Why the dashboard can show visits with demo OFF**: those are real rows in `analytics_visits` (your own and colleagues' local sign-ins). Reset never deletes them. Visits recorded before browser/OS detection existed have no category: they are shown under Unknown and counted in `notRecorded` (caption under each donut).
+
+### 13.8 Database changes (`20261112150000_analytics_live_demo`, additive)
+
+| Change | Purpose |
+|---|---|
+| `analytics_visits.browser`, `.os` VARCHAR(12) NULL + CHECK | Normalised categories |
+| `tenants.analyticsDemoEnabled` BOOLEAN DEFAULT false | Demo switch |
+| `analytics_presence` (tenantId, userId) PK, `firstSeenAt`, `lastSeenAt`; index (tenantId, lastSeenAt); FKs cascade to tenants/users | Live users |
+| `analytics_concurrency` (tenantId, bucketStart) PK, `users` ≥ 0 | Concurrency history, 400-day retention |
+| `analytics_demo_*` (nine tables) | Demo dataset (§13.7) |
+
+Rollback SQL is in the migration header (demo off, collection off first).
+
+### 13.9 API additions (`/api/v1/admin/analytics`, ADMIN + `analytics.view`)
+
+| Method | Path | Returns |
+|---|---|---|
+| GET | `/live` | `{ asOf, real, demo, total, collecting, demoIncluded, presenceWindowSeconds }` |
+| GET | `/concurrency?window=24h\|7d\|30d` | `{ window, stepMinutes, timezone, points[{ at, real, demo, total, live? }], peak, measuredIntervals }` |
+| GET | `/inactive-users?days=&view=&role=&search=&includeSuspended=&page=&pageSize=` | `{ total, pages, counts{5,15,30,never}, rows[…], demoIncluded }` |
+| PUT | `/demo` `{ enabled }` | `{ enabled, generated }` |
+| POST | `/demo/regenerate` | dataset summary |
+
+Changed: `/overview` KPIs are now `logins`, `peakConcurrent`, `activeUsers`, `returningRate`, `visits`, plus `browsers`, `operatingSystems`, `devices` (`{ total, rows[{ key, visits, share }] }`); `/devices` adds `browsers`, `operatingSystems`; `/integrations` adds `usage`; `/communication` adds `demoScope`; `/health` adds `demo` and `live`; every usage report's `meta` adds `demo`.
+Browser route: `POST /api/v1/analytics/presence` (empty body). The batch envelope accepts optional `browser` and `os`.
+
+### 13.10 Configuration
+
+| Variable | Default | Controls |
+|---|---|---|
+| `ANALYTICS_PRESENCE_TTL_SECONDS` | 120 (45–900) | How long after the last heartbeat a person counts as online |
+| `ANALYTICS_PRESENCE_SAMPLE_SECONDS` | 60 (10–600) | Concurrency sampling interval |
+
+### 13.11 Deployment notes for this change (not done)
+
+- Production nginx logs every path except `location = /api/v1/analytics/events`; add the same `access_log off` block for `/api/v1/analytics/presence` before releasing, or the heartbeat's client address and user agent would be logged.
+- The privacy dialog now names browser/OS categories and "currently online"; the institution's privacy notice should cover them before collection is switched on.
+- The inactive-users list shows names and addresses to `analytics.view` holders; confirm this is acceptable under the institution's policy.

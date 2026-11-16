@@ -4,6 +4,7 @@ import {
   ANALYTICS_SCHEMA_VERSION, DASHBOARD_VIEW_ROLES, DEVICE_CLASSES, FEATURES, NAV_SOURCES, PAGE_KEYS, WIDGETS, WIDGET_ACTIONS,
   featureByKey, isNavTarget, resolveContextRole,
 } from '../../../../shared/analyticsCatalog.js';
+import { BROWSERS, OPERATING_SYSTEMS } from '../../../../shared/analyticsAgent.js';
 import { MAX_BATCH_EVENTS, MAX_EVENT_AGE_MS, MAX_FUTURE_SKEW_MS, PAGE_VISIBLE_CAP_MS } from './config.js';
 import { utcTimestamp } from './rollupService.js';
 
@@ -43,6 +44,9 @@ export const envelopeSchema = z.object({
   visitId: uuid,
   visitStartedAt: instant,
   deviceClass: z.enum(DEVICE_CLASSES),
+  // Category keys worked out in the browser (shared/analyticsAgent.js); optional so older tabs keep working.
+  browser: z.enum(BROWSERS).optional(),
+  os: z.enum(OPERATING_SYSTEMS).optional(),
   events: z.array(z.unknown()).min(1).max(MAX_BATCH_EVENTS),
 }).strict();
 
@@ -116,10 +120,12 @@ export async function ingest(auth, envelope, { now = new Date() } = {}) {
   // belongs to another person or institution is refused (RETURNING is empty), and with it the whole batch.
   const visitStartedAt = new Date(Math.min(Math.max(corrected(envelope.visitStartedAt), nowMs - MAX_EVENT_AGE_MS), lastSeen));
   const owned = await prisma.$queryRaw`
-    INSERT INTO "analytics_visits" AS v ("id", "tenantId", "userId", "rolesHeld", "authMethod", "deviceClass", "entryPageKey", "startedAt", "lastSeenAt")
+    INSERT INTO "analytics_visits" AS v ("id", "tenantId", "userId", "rolesHeld", "authMethod", "deviceClass", "entryPageKey", "startedAt", "lastSeenAt", "browser", "os")
     VALUES (${envelope.visitId}::uuid, ${auth.tenantId}, ${auth.userId}, ${rolesHeld}::"RoleKey"[], ${auth.signIn?.method === 'SSO' ? 'SSO' : 'PASSWORD'},
-            ${envelope.deviceClass}::"AnalyticsDevice", ${entryPageKey}, ${utcTimestamp(visitStartedAt)}, ${utcTimestamp(new Date(lastSeen))})
-    ON CONFLICT ("id") DO UPDATE SET "lastSeenAt" = GREATEST(v."lastSeenAt", EXCLUDED."lastSeenAt")
+            ${envelope.deviceClass}::"AnalyticsDevice", ${entryPageKey}, ${utcTimestamp(visitStartedAt)}, ${utcTimestamp(new Date(lastSeen))},
+            ${envelope.browser ?? null}, ${envelope.os ?? null})
+    ON CONFLICT ("id") DO UPDATE SET "lastSeenAt" = GREATEST(v."lastSeenAt", EXCLUDED."lastSeenAt"),
+      "browser" = COALESCE(NULLIF(EXCLUDED."browser", 'UNKNOWN'), v."browser", EXCLUDED."browser"), "os" = COALESCE(NULLIF(EXCLUDED."os", 'UNKNOWN'), v."os", EXCLUDED."os")
     WHERE v."userId" = EXCLUDED."userId" AND v."tenantId" = EXCLUDED."tenantId"
     RETURNING v."id"`;
   if (!owned.length) {

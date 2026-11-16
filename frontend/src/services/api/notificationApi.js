@@ -7,4 +7,7 @@ export const notificationApi = {
   },
   markRead: (id) => apiClient.patch(`/notifications/${id}/read`),
   markAllRead: () => apiClient.patch('/notifications/read-all'),
+  /** Urgent announcements still waiting for this person's OK, oldest first. */
+  pendingUrgent: () => apiClient.get('/notifications/urgent/pending'),
+  acknowledgeUrgent: (id) => apiClient.post(`/notifications/urgent/${id}/acknowledge`),
 };

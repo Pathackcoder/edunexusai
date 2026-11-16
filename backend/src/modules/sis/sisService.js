@@ -10,6 +10,7 @@ import { refreshDirectoryEntry } from '../people/directorySync.js';
 import { CampusCoreAdapter } from '../../integrations/campuscore/connector/adapters/CampusCoreAdapter.js';
 import { SisPortalService } from '../../integrations/campuscore/connector/portal/SisPortalService.js';
 import { SisError } from '../../integrations/campuscore/connector/errors.js';
+import { viewAsGuardedFetch } from '../viewAs/guardedFetch.js';
 
 /**
  * EduNexusAI's side of the CampusCore SIS integration.
@@ -51,6 +52,8 @@ function build() {
     clientId: config.clientId,
     clientSecret: process.env.CAMPUSCORE_CLIENT_SECRET,
     timeoutMs: config.timeoutMs,
+    // Refuses CampusCore writes during a View-As request (read-only administrator support access).
+    fetchImpl: viewAsGuardedFetch('CampusCore'),
     // The connector logs token issuance (scopes, lifetime) and retries; never tokens or secrets.
     logger: { info: (m) => logger.info(m), warn: (m) => logger.warn(m) },
   });

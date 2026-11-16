@@ -74,6 +74,75 @@ export const tokenStore = {
   },
 };
 
+/**
+ * View-As (read-only administrator support access). A View-As tab keeps the administrator's own tokens above and adds
+ * the session secret it was handed when it opened. The secret is kept in sessionStorage, so it belongs to this one tab:
+ * the administrator's original tab (and any other tab) never sends it, and closing the tab forgets it. It is never
+ * put in a URL. Every request from the tab carries it; the server then serves the viewed person's portal, read-only.
+ */
+const VIEW_AS_KEY = 'edunexus.viewAs';
+export const VIEW_AS_HEADER = 'X-View-As-Session';
+export const VIEW_AS_READ_ONLY_MESSAGE = 'This is a read-only View-As session: actions are disabled.';
+export const viewAsStore = {
+  get() {
+    try {
+      return sessionStorage.getItem(VIEW_AS_KEY);
+    } catch {
+      return null;
+    }
+  },
+  set(token) {
+    try {
+      sessionStorage.setItem(VIEW_AS_KEY, token);
+    } catch {
+      /* without sessionStorage there is no tab-scoped place to keep it: the tab simply stays the administrator's */
+    }
+  },
+  clear() {
+    try {
+      sessionStorage.removeItem(VIEW_AS_KEY);
+    } catch {
+      /* ignore */
+    }
+  },
+  active() {
+    return Boolean(this.get());
+  },
+};
+
+/** View-As events for the shell: an action was refused (show why), or the session is over (leave the portal). */
+const viewAsListeners = { blocked: new Set(), ended: new Set() };
+export const onViewAsEvent = (type, listener) => {
+  viewAsListeners[type].add(listener);
+  return () => viewAsListeners[type].delete(listener);
+};
+const emitViewAs = (type, detail) => viewAsListeners[type].forEach((listener) => {
+  try {
+    listener(detail);
+  } catch {
+    /* a bad listener must not break the request path */
+  }
+});
+const VIEW_AS_ENDED_CODES = new Set(['VIEW_AS_SESSION_ENDED', 'VIEW_AS_SESSION_INVALID']);
+const isReadMethod = (method) => method === 'GET' || method === 'HEAD';
+
+/** Read-only View-As: refuse a state-changing request in the browser too, before anything is sent. */
+export function assertViewAsAllows(method, path) {
+  if (!viewAsStore.active() || isReadMethod(method) || (method === 'DELETE' && path === '/view-as/current')) return;
+  emitViewAs('blocked', { method, path });
+  throw new ApiError({ message: VIEW_AS_READ_ONLY_MESSAGE, code: 'VIEW_AS_READ_ONLY', status: 403 });
+}
+
+/** Authorization (and, in a View-As tab, the session secret) for callers that use fetch directly. */
+export function authHeaders() {
+  const headers = {};
+  const token = tokenStore.getAccessToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const viewAs = viewAsStore.get();
+  if (viewAs) headers[VIEW_AS_HEADER] = viewAs;
+  return headers;
+}
+
 /** One error type for every failure, so screens can branch on `code`. */
 export class ApiError extends Error {
   constructor({ message, code, status, details }) {
@@ -197,8 +266,8 @@ async function send(path, { method = 'GET', body, query, signal, auth = true, re
   const headers = { Accept: 'application/json' };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (auth) {
-    const token = tokenStore.getAccessToken();
-    if (token) headers.Authorization = `Bearer ${token}`;
+    assertViewAsAllows(method, path);
+    Object.assign(headers, authHeaders());
   }
 
   let response;
@@ -232,6 +301,9 @@ async function send(path, { method = 'GET', body, query, signal, auth = true, re
   if (demoLatency) await demoPause(startedAt);
 
   if (!response.ok || payload?.success === false) {
+    const code = payload?.error?.code;
+    if (viewAsStore.active() && VIEW_AS_ENDED_CODES.has(code)) emitViewAs('ended', { code, reason: payload?.error?.details?.reason ?? null });
+    if (code === 'VIEW_AS_READ_ONLY') emitViewAs('blocked', { method, path });
     throw new ApiError({
       message: payload?.error?.message ?? `Request failed with status ${response.status}.`,
       code: payload?.error?.code,

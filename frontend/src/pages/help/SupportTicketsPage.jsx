@@ -102,7 +102,7 @@ export function TicketThread({ ticket, staffView = false, onChanged }) {
             value={reply}
             onChange={(e) => setReply(e.target.value)}
           />
-          <Button icon={SendRoundedIcon} onClick={send} loading={busy} disabled={!reply.trim()}>Send</Button>
+          <Button icon={SendRoundedIcon} onClick={send} loading={busy} disabled={!reply.trim()} mutates>Send</Button>
         </Stack>
       )}
     </Stack>
@@ -143,7 +143,7 @@ function NewTicketDialog({ open, categories, onClose, onCreated }) {
       title="Open a support ticket"
       subtitle="The help desk team sees your ticket immediately and replies here."
       maxWidth="600px"
-      footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button><Button type="submit" form="new-ticket" loading={saving}>Submit ticket</Button></>}
+      footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button><Button type="submit" form="new-ticket" loading={saving} mutates>Submit ticket</Button></>}
     >
       <Stack component="form" id="new-ticket" spacing={2} onSubmit={submit} noValidate>
         {errors.form && <Alert severity="error">{errors.form}</Alert>}
@@ -254,11 +254,11 @@ export const SupportTicketsPage = () => {
         footer={
           selected?.isOpen ? (
             <>
-              <Button variant="outline" onClick={() => setStatus('CLOSED')}>Close ticket</Button>
-              <Button icon={CheckCircleOutlineRoundedIcon} onClick={() => setStatus('RESOLVED')}>Mark resolved</Button>
+              <Button variant="outline" onClick={() => setStatus('CLOSED')} mutates>Close ticket</Button>
+              <Button icon={CheckCircleOutlineRoundedIcon} onClick={() => setStatus('RESOLVED')} mutates>Mark resolved</Button>
             </>
           ) : selected?.status === 'RESOLVED' ? (
-            <Button variant="outline" onClick={() => setStatus('CLOSED')}>Close ticket</Button>
+            <Button variant="outline" onClick={() => setStatus('CLOSED')} mutates>Close ticket</Button>
           ) : null
         }
       >

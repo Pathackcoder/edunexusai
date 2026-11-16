@@ -10,6 +10,7 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import { analyticsApi } from '../../../services/api';
+import { ChartTable } from '../../../components/charts/Charts';
 import { useAuth } from '../../../context/AuthContext';
 import { Badge } from '../../../components/common/Badge';
 import { Button } from '../../../components/common/Button';
@@ -17,6 +18,66 @@ import { Fact, FactGrid, Grid2, Panel, RankTable } from '../../../components/ana
 import { formatAgo, formatDayLong, formatDuration, formatInstant, formatNumber, formatPercent } from '../../../components/analytics/format.js';
 import { AccessPanel } from './AccessPanel';
 import { ReportState, useReport } from './shared';
+
+/**
+ * "Include demo data": adds the synthetic analytics dataset to every usage report (Analytics only). Generating it
+ * the first time takes about 20 seconds; after that switching is instant and creates nothing new.
+ */
+const DEMO_RECORD_LABELS = { people: 'Sample people', visits: 'Visits', page_views: 'Page views', events: 'Events (sign-ins, features, widgets)', user_daily: 'Person-days', rollups: 'Daily facts', concurrency: 'Concurrency samples', notifications: 'Notifications' };
+
+/** Real, demo and shown figures for the period (server-computed), so it is clear what the demo data adds. */
+function SourceTable({ sources }) {
+  const rows = [['Visits', 'visits'], ['Active people', 'people'], ['Successful logins', 'logins']];
+  return (
+    <ChartTable
+      columns={[{ key: 'label', label: 'In this period' }, { key: 'real', label: 'Real' }, { key: 'demo', label: 'Demo' }, { key: 'shown', label: 'Shown' }]}
+      rows={rows.map(([label, key]) => ({ label, real: formatNumber(sources.real[key]), demo: sources.demoIncluded ? formatNumber(sources.demo[key]) : '—', shown: formatNumber(sources.displayed[key]) }))}
+    />
+  );
+}
+
+function DemoPanel({ demo, sources, timezone, onChanged }) {
+  const [saving, setSaving] = useState(null);
+  const [failure, setFailure] = useState(null);
+  const run = async (action, call) => {
+    setSaving(action);
+    setFailure(null);
+    try {
+      await call();
+      onChanged();
+    } catch (caught) {
+      setFailure(caught?.message ?? 'The change could not be saved.');
+    } finally {
+      setSaving(null);
+    }
+  };
+  const { dataset } = demo;
+  return (
+    <Panel title="Include demo data" info="For demonstrations before real usage has built up. Turning this on adds a synthetic dataset to the Analytics reports only: 520 sample people (150 of them shown as online now), 90 days of visits, sign-ins, page views, feature use and notifications. The sample people are not portal accounts and never appear anywhere else: not in the directory, CampusCore, Keycloak, Moodle or Strapi, and nobody can sign in as them. System status under Integrations is never affected. Turning it off returns every report to real figures at once; the sample data is kept so turning it on again is instant.">
+      <Stack spacing={1.5}>
+        <Stack direction="row" alignItems="center" spacing={1.5} useFlexGap flexWrap="wrap">
+          <Badge variant={demo.enabled ? 'warning' : 'neutral'} dot>{demo.enabled ? 'On: reports include demo data' : 'Off: reports show real data only'}</Badge>
+          {dataset && <Typography variant="body2" color="text.secondary">Sample data covers {formatDayLong(dataset.coversFrom)} to {formatDayLong(dataset.coversTo)} · {formatNumber(dataset.people)} sample people, {formatNumber(dataset.online)} online · generated {formatInstant(dataset.generatedAt, timezone)}</Typography>}
+        </Stack>
+        {dataset && demo.records && (
+          <Typography variant="caption" color="text.secondary" component="p" sx={{ m: 0 }}>
+            Stored demo rows: {Object.entries(DEMO_RECORD_LABELS).map(([key, label]) => `${label} ${formatNumber(demo.records[key] ?? 0)}`).join(' · ')}
+          </Typography>
+        )}
+        {sources && <SourceTable sources={sources} />}
+        {demo.enabled && demo.stale && <Alert severity="info" variant="outlined">The sample data was generated before today, so its history stops on {formatDayLong(dataset.coversTo)}. Regenerate it to bring it up to date.</Alert>}
+        {saving === 'on' && !dataset && <Alert severity="info" variant="outlined">Preparing the sample data. This takes about 20 seconds the first time.</Alert>}
+        {failure && <Alert severity="error">{failure}</Alert>}
+        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+          {demo.enabled
+            ? <Button variant="secondary" size="sm" loading={saving === 'off'} disabled={Boolean(saving)} onClick={() => run('off', () => analyticsApi.setDemo(false))}>Turn demo data off</Button>
+            : <Button variant="primary" size="sm" loading={saving === 'on'} disabled={Boolean(saving)} onClick={() => run('on', () => analyticsApi.setDemo(true))}>Include demo data</Button>}
+          {dataset && <Button variant="ghost" size="sm" loading={saving === 'regenerate'} disabled={Boolean(saving)} onClick={() => run('regenerate', () => analyticsApi.regenerateDemo())}>Regenerate sample data</Button>}
+        </Stack>
+      </Stack>
+    </Panel>
+  );
+}
 
 const RUN_BADGE = { FINAL: ['success', 'Final'], PARTIAL: ['info', 'In progress'], FAILED: ['danger', 'Failed'] };
 const REJECTION_LABELS = { INVALID: 'Not in the fixed format', STALE: 'Too old or dated in the future', NOT_PERMITTED: 'A page the account cannot open', FOREIGN_ID: 'An id belonging to someone else' };
@@ -74,9 +135,10 @@ function CollectionPanel({ collection, timezone, onChanged }) {
             <Box component="ul" sx={{ m: 0, pl: 2.5, typography: 'body2', '& li': { mb: 0.5 } }}>
               <li>which portal pages are opened (by a fixed page name, never an address, record or search), and how long they are on screen;</li>
               <li>navigation clicks, dashboard widgets seen and used, and named features used;</li>
-              <li>whether the device is a phone, tablet or computer; sign-ins and sign-outs.</li>
+              <li>whether the device is a phone, tablet or computer, and the kind of browser and operating system (for example "Chrome" and "Windows"); sign-ins and sign-outs;</li>
+              <li>whether a person currently has the portal open (to count people online now; cleared when they sign out).</li>
             </Box>
-            <Typography variant="body2">It never records passwords, IP addresses, browser details, search text, messages, form answers, grades or payments. Reports show totals only: never a name, an email address or one person's own activity.</Typography>
+            <Typography variant="body2">It never records passwords, IP addresses, the browser's full identification string, search text, messages, form answers, grades or payments. Usage reports show totals only: never a name, an email address or one person's own activity. (The list of people who have not signed in recently comes from sign-in records, not from this measurement.)</Typography>
             <Alert severity="warning" variant="outlined">Measuring how people use the portal is processing of personal data. Make sure your institution's privacy notice describes it, and that it has been reviewed as your institution requires, before you continue.</Alert>
             <FormControlLabel control={<Checkbox checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />} label="Our privacy notice covers portal usage measurement, and this has been approved at our institution." />
             {failure && <Alert severity="error">{failure}</Alert>}
@@ -122,6 +184,17 @@ export function HealthTab({ filters, refreshKey, onChanged }) {
                   <Fact label="Updated every">{formatDuration(freshness.aggregationIntervalSeconds * 1000)}</Fact>
                   <Fact label="Last activity received">{freshness.lastActivityReceivedAt ? formatAgo(freshness.lastActivityReceivedAt) : 'None yet'}</Fact>
                   <Fact label="Last 24 hours">{formatNumber(freshness.pageViews24h)} page views · {formatNumber(freshness.events24h)} events</Fact>
+                </FactGrid>
+              </Panel>
+            </Grid2>
+
+            <Grid2>
+              <DemoPanel demo={data.demo} sources={meta.sources} timezone={meta.timezone} onChanged={onChanged} />
+              <Panel title="Live users" info="How Concurrent active users is measured. Every open, visible and recently used portal tab of a measured person reports in every 30 seconds; the person is counted once while a report arrived within the window below. Signing out removes them at once. The live count is recorded every sample interval to build the history and the peak.">
+                <FactGrid>
+                  <Fact label="Counted as online for" info="After the last signal from any of the person's tabs.">{formatDuration(data.live.presenceWindowSeconds * 1000)}</Fact>
+                  <Fact label="History sampled every">{formatDuration(data.live.sampleIntervalSeconds * 1000)}</Fact>
+                  <Fact label="Last sample">{data.live.lastSampleAt ? formatAgo(data.live.lastSampleAt) : 'None yet'}</Fact>
                 </FactGrid>
               </Panel>
             </Grid2>

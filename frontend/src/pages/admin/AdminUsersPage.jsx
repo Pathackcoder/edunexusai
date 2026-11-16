@@ -13,8 +13,10 @@ import TableBody from '@mui/material/TableBody';
 import TableRow from '@mui/material/TableRow';
 import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
+import Tooltip from '@mui/material/Tooltip';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import PersonAddAlt1OutlinedIcon from '@mui/icons-material/PersonAddAlt1Outlined';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import { useApiQuery } from '../../hooks/useApiQuery';
 import { adminApi } from '../../services/api';
 import { Badge } from '../../components/common/Badge';
@@ -26,6 +28,9 @@ import { DataState } from '../../components/common/DataState';
 import { OnboardPersonDialog } from '../../components/admin/OnboardPersonDialog';
 import { PersonSystemsDialog } from '../../components/admin/PersonSystemsDialog';
 import { AccountAccessDrawer, ROLE_LABEL } from '../../components/admin/AccountAccessDrawer';
+import { ImpersonateDialog } from '../../components/admin/ImpersonateDialog';
+import { useAuth } from '../../context/AuthContext';
+import { viewAsOffer } from '../../viewAs/handoff';
 
 const ROLES = ['STUDENT', 'FACULTY', 'STAFF', 'ALUMNI', 'ADMIN'];
 const ROLE_STATUS_HINT = { UNLINKED: 'record missing', SIS_NOT_LINKED: 'SIS link missing' };
@@ -36,9 +41,34 @@ const ROLE_STATUS_HINT = { UNLINKED: 'record missing', SIS_NOT_LINKED: 'SIS link
  * the account's roles, records, links and sign-in identities, where roles are added and removed
  * under the rules (Student/Faculty only by linking the institutional record).
  *
+ * Impersonate opens a read-only View-As of an active student's or faculty member's portal in a new tab, for
+ * administrators holding the users.view_as permission (the server decides; the button only reflects it).
+ *
  * Changing a student's tier here is the configurability demonstration: the next dashboard
  * that student loads returns a different widget set, with no code change and no deploy.
  */
+/** The Impersonate action for one row: hidden where View-As never applies, disabled (with the reason) where it cannot. */
+const ImpersonateAction = ({ offer, name, onOpen }) => {
+  if (!offer.show) return null;
+  return (
+    <Tooltip title={offer.enabled ? 'Open a read-only View-As of this portal in a new tab' : offer.reason}>
+      <span style={{ display: 'inline-flex' }}>
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={VisibilityOutlinedIcon}
+          disabled={!offer.enabled}
+          onClick={onOpen}
+          aria-label={`Impersonate ${name} (read-only View-As in a new tab)`}
+          sx={{ color: 'primary.main', px: 1, minWidth: 0, '& .MuiButton-startIcon': { mr: 0.5 }, '&:hover': { bgcolor: 'primary.lighter' } }}
+        >
+          Impersonate
+        </Button>
+      </span>
+    </Tooltip>
+  );
+};
+
 export const AdminUsersPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const roleFilter = searchParams.get('role') ?? '';
@@ -57,6 +87,9 @@ export const AdminUsersPage = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [systemsFor, setSystemsFor] = useState(null);
   const [accessFor, setAccessFor] = useState(null);
+  const [impersonateFor, setImpersonateFor] = useState(null);
+  const { user: viewer } = useAuth();
+  const canViewAs = (viewer?.permissions ?? []).includes('users.view_as');
 
   const handleTierChange = async (user, tierKey) => {
     try {
@@ -189,16 +222,23 @@ export const AdminUsersPage = () => {
                           <Badge variant={user.status === 'ACTIVE' ? 'success' : 'warning'} dot>{user.status}</Badge>
                         </TableCell>
                         <TableCell align="right">
-                          <Button variant="ghost" size="sm" onClick={() => setAccessFor(user.id)}>Access</Button>
-                          <Button variant="ghost" size="sm" onClick={() => setSystemsFor(user.id)}>Systems</Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleStatusToggle(user)}
-                            sx={user.status === 'ACTIVE' ? { color: 'error.main', '&:hover': { bgcolor: 'error.lighter' } } : { color: 'success.main', '&:hover': { bgcolor: 'success.lighter' } }}
-                          >
-                            {user.status === 'ACTIVE' ? 'Suspend' : 'Reactivate'}
-                          </Button>
+                          {/* Impersonate sits before the existing actions on one line when there is room, and just above
+                              them when there is not, so it never pushes Access / Systems / Suspend out of view. */}
+                          <Stack direction="row" useFlexGap flexWrap="wrap" justifyContent="flex-end" alignItems="center" rowGap={0.25}>
+                            <ImpersonateAction offer={viewAsOffer(user, { viewerId: viewer?.id, canViewAs })} name={user.fullName} onOpen={() => setImpersonateFor(user.id)} />
+                            <Box sx={{ whiteSpace: 'nowrap' }}>
+                              <Button variant="ghost" size="sm" onClick={() => setAccessFor(user.id)}>Access</Button>
+                              <Button variant="ghost" size="sm" onClick={() => setSystemsFor(user.id)}>Systems</Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleStatusToggle(user)}
+                                sx={user.status === 'ACTIVE' ? { color: 'error.main', '&:hover': { bgcolor: 'error.lighter' } } : { color: 'success.main', '&:hover': { bgcolor: 'success.lighter' } }}
+                              >
+                                {user.status === 'ACTIVE' ? 'Suspend' : 'Reactivate'}
+                              </Button>
+                            </Box>
+                          </Stack>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -212,6 +252,7 @@ export const AdminUsersPage = () => {
 
       <OnboardPersonDialog open={isCreateOpen} onClose={() => setIsCreateOpen(false)} onDone={refetch} tiers={tierOptions} />
       {systemsFor && <PersonSystemsDialog userId={systemsFor} onClose={() => setSystemsFor(null)} />}
+      {impersonateFor && <ImpersonateDialog userId={impersonateFor} onClose={() => setImpersonateFor(null)} />}
       {accessFor && <AccountAccessDrawer userId={accessFor} tiers={tierOptions} onClose={() => setAccessFor(null)} onChanged={refetch} />}
     </Box>
   );

@@ -24,6 +24,7 @@ import * as access from './accessService.js';
 import { identityAdminRoutes } from '../identity/identityAdminRoutes.js';
 import * as sis from '../sis/sisService.js';
 import { adminAnalyticsRoutes } from '../analytics/adminAnalyticsRoutes.js';
+import { adminViewAsRoutes } from '../viewAs/viewAsRoutes.js';
 
 const idParam = z.object({ id: z.string().uuid('Expected a resource id.') });
 
@@ -130,6 +131,9 @@ adminRoutes.use(identityAdminRoutes);
 
 /* ----- Portal usage analytics (reports need the named analytics.view permission) ----- */
 adminRoutes.use('/analytics', adminAnalyticsRoutes);
+
+/* ----- View-As: read-only support access to a student's or faculty member's portal (named permission users.view_as) ----- */
+adminRoutes.use('/view-as', adminViewAsRoutes);
 
 /* ----- Dashboard ----- */
 adminRoutes.get(

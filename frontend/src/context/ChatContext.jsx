@@ -34,6 +34,8 @@ export function ChatProvider({ children }) {
   const { isAuthenticated, user } = useAuth();
   const me = user?.id ?? null;
   const socketRef = useRef(null);
+  // Other features' listeners on this same connection (event -> Set of handlers); see subscribeRealtime.
+  const realtimeRef = useRef(new Map());
   const [status, setStatus] = useState('idle'); // idle | connecting | connected | reconnecting | offline
   const [unread, setUnread] = useState({ total: 0, conversations: {} });
   const [inbox, setInbox] = useState({ conversations: [], loading: false, error: null, loaded: false });
@@ -152,8 +154,11 @@ export function ChatProvider({ children }) {
   }, [patchThread, deliver]);
 
   /* ------------------------------------------------------------ the connection */
+  // No connection in a read-only View-As tab: the socket authenticates with the administrator's own token, so it would
+  // carry the administrator's messages into the viewed portal (and private messages are not shown in View-As anyway).
+  const viewAs = Boolean(user?.viewAs);
   useEffect(() => {
-    if (!isAuthenticated || !me) return undefined;
+    if (!isAuthenticated || !me || viewAs) return undefined;
     const socket = io(apiOrigin(), {
       path: '/socket.io',
       // Read at every (re)connect, so a refreshed token is always the one presented.
@@ -170,6 +175,12 @@ export function ChatProvider({ children }) {
       if (await refreshAccessToken()) socket.connect();
       else setStatus('offline');
     };
+
+    // Events other than chat go to subscribeRealtime listeners; 'connect' too, so they can catch up on
+    // anything sent while this client was disconnected.
+    const dispatch = (event, payload) => realtimeRef.current.get(event)?.forEach((handler) => handler(payload));
+    socket.onAny((event, payload) => { if (!event.startsWith('chat:')) dispatch(event, payload); });
+    socket.on('connect', () => dispatch('connect'));
 
     socket.on('connect', () => {
       setStatus('connected');
@@ -219,7 +230,7 @@ export function ChatProvider({ children }) {
       socketRef.current = null;
       setStatus('idle');
     };
-  }, [isAuthenticated, me, loadUnread, loadInbox, loadThread, receive, markRead]);
+  }, [isAuthenticated, me, viewAs, loadUnread, loadInbox, loadThread, receive, markRead]);
 
   // Signed out: forget everything.
   useEffect(() => {
@@ -285,12 +296,20 @@ export function ChatProvider({ children }) {
   }, [loadInbox]);
   const closePanel = useCallback(() => setPanel((current) => ({ ...current, open: false, opening: false })), []);
 
+  /** Listen for a non-chat server event on the portal's realtime connection. Returns the unsubscribe function. */
+  const subscribeRealtime = useCallback((event, handler) => {
+    const listeners = realtimeRef.current;
+    if (!listeners.has(event)) listeners.set(event, new Set());
+    listeners.get(event).add(handler);
+    return () => listeners.get(event)?.delete(handler);
+  }, []);
+
   const value = useMemo(() => ({
     me, status, unreadTotal: unread.total, unreadByConversation: unread.conversations,
     inbox, threads, panel,
     openInbox, openWithProfile, openConversation, backToInbox, closePanel,
-    loadInbox, loadThread, loadOlder, send, retry, markRead,
-  }), [me, status, unread, inbox, threads, panel, openInbox, openWithProfile, openConversation, backToInbox, closePanel, loadInbox, loadThread, loadOlder, send, retry, markRead]);
+    loadInbox, loadThread, loadOlder, send, retry, markRead, subscribeRealtime,
+  }), [me, status, unread, inbox, threads, panel, openInbox, openWithProfile, openConversation, backToInbox, closePanel, loadInbox, loadThread, loadOlder, send, retry, markRead, subscribeRealtime]);
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
 }

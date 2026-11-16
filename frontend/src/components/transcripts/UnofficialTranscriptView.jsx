@@ -32,6 +32,9 @@ import { DataState } from '../common/DataState';
 
 const EMPTY_SUMMARY = {};
 
+/** Credits as "4.00"; anything that is not a number stays an em dash. */
+const formatCredits = (value) => (value != null && Number.isFinite(Number(value)) ? Number(value).toFixed(2) : '—');
+
 const SummaryField = ({ label, children }) => (
   <Box sx={{ minWidth: 0 }}>
     <MetricLabel sx={{ fontSize: '0.625rem' }}>{label}</MetricLabel>
@@ -187,7 +190,7 @@ export const UnofficialTranscriptView = () => {
                 </SummaryField>
                 <SummaryField label="Cumulative GPA">
                   <Box component="span" sx={{ color: 'primary.main', fontFamily: 'Rubik, sans-serif', fontSize: '1rem' }}>
-                    {Number(transcriptSummary.cumulativeGpa ?? 0).toFixed(2)}
+                    {transcriptSummary.cumulativeGpa ?? '—'}
                   </Box>
                 </SummaryField>
                 <SummaryField label="Credits Earned / Required">
@@ -258,7 +261,7 @@ export const UnofficialTranscriptView = () => {
                               <TableRow key={course.code} hover>
                                 <TableCell sx={{ fontWeight: 700, color: 'primary.main', whiteSpace: 'nowrap' }}>{course.code}</TableCell>
                                 <TableCell>{course.title}</TableCell>
-                                <TableCell align="center" sx={{ color: 'text.secondary' }}>{course.credits}.00</TableCell>
+                                <TableCell align="center" sx={{ color: 'text.secondary' }}>{formatCredits(course.credits)}</TableCell>
                                 <TableCell align="center" sx={{ fontWeight: 700, color: gradeColor(course?.grade) }}>
                                   {course.grade || 'IP'}
                                 </TableCell>
@@ -272,11 +275,16 @@ export const UnofficialTranscriptView = () => {
                                 Term Totals ({termData.term})
                               </TableCell>
                               <TableCell align="center" sx={{ fontWeight: 700, color: 'text.primary !important' }}>
-                                {termData.creditsAttempted}.00
+                                {formatCredits(termData.creditsAttempted)}
                               </TableCell>
                               <TableCell colSpan={2} align="right">
-                                Term GPA: <Box component="strong" sx={{ color: 'text.primary' }}>{termData.termGpa}</Box> • Cumulative GPA:{' '}
-                                <Box component="strong" sx={{ color: 'primary.main' }}>{termData.cumulativeGpa.toFixed(2)}</Box>
+                                Term GPA: <Box component="strong" sx={{ color: 'text.primary' }}>{termData.termGpa}</Box>
+                                {/* CampusCore reports term GPAs and one overall GPA, not a cumulative GPA as of each term. */}
+                                {termData.cumulativeGpa != null && (
+                                  <>
+                                    {' '}• Cumulative GPA: <Box component="strong" sx={{ color: 'primary.main' }}>{termData.cumulativeGpa}</Box>
+                                  </>
+                                )}
                               </TableCell>
                             </TableRow>
                           </TableFooter>

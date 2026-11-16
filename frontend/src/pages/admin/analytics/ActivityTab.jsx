@@ -5,6 +5,7 @@ import { BarChart, ChartTable } from '../../../components/charts/Charts';
 import { ENTITY_COLORS, Heatmap, SERIES, StackedBars, TrendChart } from '../../../components/analytics/charts';
 import { Grid2, NoData, Panel, RankTable } from '../../../components/analytics/parts';
 import { WEEKDAYS, WEEKDAYS_LONG, formatDay, formatDayLong, formatHour, formatNumber, formatPercent, formatRange } from '../../../components/analytics/format.js';
+import { InactiveUsersPanel } from './InactiveUsersPanel';
 import { ReportState, roleLabel, trendPoints, useReport } from './shared';
 
 const SIGN_IN_LABELS = { SSO: 'University sign-in (SSO)', PASSWORD: 'Portal password' };
@@ -81,6 +82,7 @@ export function ActivityTab({ filters, refreshKey, goTo }) {
                 </Panel>
               </Stack>
             </Grid2>
+            <InactiveUsersPanel timezone={meta.timezone} defaultRole={filters.role || 'STUDENT'} refreshKey={refreshKey} />
           </Stack>
         );
       }}

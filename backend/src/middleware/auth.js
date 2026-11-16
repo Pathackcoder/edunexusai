@@ -3,6 +3,10 @@ import { prisma } from '../db/prisma.js';
 import { env } from '../config/env.js';
 import { AppError, ErrorCode, forbidden, unauthenticated } from '../utils/errors.js';
 import { activeSsoSession } from '../modules/identity/ssoSessions.js';
+import { AUTH_USER_INCLUDE, authContextFor } from './authContext.js';
+import { VIEW_AS_HEADER } from '../modules/viewAs/viewAsPolicy.js';
+import { resolveViewAsRequest } from '../modules/viewAs/viewAsService.js';
+import { runWithViewAs } from '../modules/viewAs/viewAsContext.js';
 
 /**
  * Request context attached by `requireAuth`:
@@ -15,6 +19,12 @@ import { activeSsoSession } from '../modules/identity/ssoSessions.js';
  *
  * Every service takes tenantId from here. No handler reads a tenant id from the body,
  * the query string or a header, so a caller cannot ask for another tenant's rows.
+ *
+ * View-As (modules/viewAs): when the request also carries a valid View-As session header, the administrator is
+ * authenticated exactly as above and kept as `req.actor`; `req.auth` is then the subject's context (restricted to
+ * the one persona being viewed) so every portal service loads that person's data unchanged, and `req.viewAs`
+ * names the session. Such a request is read-only at three layers: the HTTP gate (viewAsRequestGate), the Prisma
+ * client and the integration clients (viewAsContext.js), so no service can write on the subject's behalf.
  */
 
 function extractBearer(req) {
@@ -46,16 +56,7 @@ export async function authenticateAccessToken(token, { allowPendingPasswordChang
 
   const payload = verifyAccessToken(token);
 
-  const user = await prisma.user.findUnique({
-    where: { id: payload.sub },
-    include: {
-      userRoles: { include: { role: true } },
-      studentProfile: { include: { tier: true } },
-      facultyProfile: true,
-      staffProfile: true,
-      tenant: { select: { id: true, slug: true, name: true, shortName: true, isActive: true, analyticsEnabled: true } },
-    },
-  });
+  const user = await prisma.user.findUnique({ where: { id: payload.sub }, include: AUTH_USER_INCLUDE });
 
   if (!user || user.status !== 'ACTIVE') throw unauthenticated('Account is not active.');
   if (!user.tenant?.isActive) throw forbidden('This institution is not active.');
@@ -80,34 +81,30 @@ export async function authenticateAccessToken(token, { allowPendingPasswordChang
     throw unauthenticated('Your institutional sign-in has ended. Please sign in again.');
   }
 
-  return {
-    userId: user.id,
-    tenantId: user.tenantId,
-    tenantSlug: user.tenant.slug,
-    tenantName: user.tenant.name,
-    email: user.email,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    roles: user.userRoles.map((link) => link.role.key),
-    tierKey: user.studentProfile?.tier?.key ?? null,
-    tierId: user.studentProfile?.tierId ?? null,
-    studentProfileId: user.studentProfile?.id ?? null,
-    facultyProfileId: user.facultyProfile?.id ?? null,
-    staffProfileId: user.staffProfile?.id ?? null,
-    // How this session started: PASSWORD, or SSO with the institution's provider key.
+  return authContextFor(user, {
     signIn: ssoSession ? { method: 'SSO', provider: payload.idp ?? null, sid: payload.sid } : { method: 'PASSWORD', provider: null },
-    // Portal analytics: has the institution switched collection on, and is this account excluded from it?
-    analytics: { tenantEnabled: user.tenant.analyticsEnabled, excluded: Boolean(user.analyticsExcludedAt) },
-    // Seconds since the epoch at which this access token stops being valid.
     tokenExpiresAt: payload.exp ?? null,
-  };
+  });
 }
 
 /** Reject the request unless it carries a valid access token for an active user. */
-export async function requireAuth(req, _res, next) {
+export async function requireAuth(req, res, next) {
+  // Already resolved as View-As earlier in this request's chain (a router and a route can both use requireAuth):
+  // resolving again would validate twice and log the read twice. We are still inside its View-As context.
+  if (req.viewAs) return next();
   try {
-    req.auth = await authenticateAccessToken(extractBearer(req), { allowPendingPasswordChange: String(req.baseUrl).endsWith('/auth') });
-    return next();
+    const actor = await authenticateAccessToken(extractBearer(req), { allowPendingPasswordChange: String(req.baseUrl).endsWith('/auth') });
+    const viewAsToken = req.get(VIEW_AS_HEADER);
+    if (!viewAsToken) {
+      req.auth = actor;
+      return next();
+    }
+    // A View-As tab: the administrator is the actor, the session's subject is whose portal this request reads.
+    const { auth, context } = await resolveViewAsRequest(actor, viewAsToken, req, res);
+    req.actor = actor;
+    req.auth = auth;
+    req.viewAs = context;
+    return runWithViewAs(context, next);
   } catch (error) {
     return next(error);
   }

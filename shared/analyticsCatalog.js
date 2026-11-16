@@ -32,6 +32,10 @@ const SF = ['STUDENT', 'FACULTY'];
 export const PAGES = [
   page('dashboard', '/dashboard', 'Dashboard', 'Dashboard'),
 
+  // Nexora (AI workspace). Recorded as a page key only: never a conversation id, prompt or answer.
+  page('nexora.workspace', '/nexora', 'Nexora', 'Nexora'),
+  page('nexora.conversation', '/nexora/:x', 'Nexora: Conversation', 'Nexora'),
+
   page('academics.overview', '/academics', 'Academic Overview', 'Academics', S),
   page('academics.schedule', '/academics/schedule', 'Course Schedule', 'Academics', S),
   page('academics.assignments', '/academics/assignments', 'Assignments & Deadlines', 'Academics', S),

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
 import Alert from '@mui/material/Alert';
 import Skeleton from '@mui/material/Skeleton';
 import Stack from '@mui/material/Stack';
@@ -20,10 +20,20 @@ export const reportParams = (filters, supports = { role: true, device: true }) =
   device: supports.device ? filters.device || undefined : undefined,
 });
 
+/**
+ * Where the open section's figures come from (meta.sources of its report: real, demo and shown counts, computed by
+ * the server). The page shows it in the demo banner; each report passes its own up when it loads.
+ */
+export const SourcesContext = createContext(() => {});
+
 /** Load one report section; reloads when the filters or the page's refresh counter change. */
 export function useReport(section, filters, refreshKey, supports) {
   const params = reportParams(filters, supports);
-  return useApiQuery(() => analyticsApi.report(section, params), [section, JSON.stringify(params), refreshKey]);
+  const query = useApiQuery(() => analyticsApi.report(section, params), [section, JSON.stringify(params), refreshKey]);
+  const publish = useContext(SourcesContext);
+  const sources = query.data?.meta?.sources;
+  useEffect(() => { if (sources) publish(sources); }, [sources, publish]);
+  return query;
 }
 
 const TabSkeleton = () => (

@@ -10,6 +10,7 @@ import { dashboardApi } from '../../services/api';
 import { useI18n } from '../../i18n';
 import { trackFeature } from '../../analytics/index.js';
 import { WidgetBeacon } from '../../analytics/WidgetBeacon';
+import { useReadOnly } from '../../viewAs/ReadOnly';
 
 /**
  * Drag-and-drop dashboard grid.
@@ -182,7 +183,10 @@ export function packLayout(keys, { widthOf, heightOf, columns = 12, lookAhead = 
   return placement;
 }
 
-export function SortableDashboard({ items, order, onOrderChange, ariaLabel = 'Dashboard widgets', disabled = false }) {
+export function SortableDashboard({ items, order, onOrderChange, ariaLabel = 'Dashboard widgets', disabled: disabledProp = false }) {
+  // A read-only View-As tab shows the person's own layout but cannot rearrange (and so save) it.
+  const readOnly = useReadOnly();
+  const disabled = disabledProp || readOnly;
   const { t } = useI18n();
   const byKey = useMemo(() => new Map(items.map((item) => [item.key, item])), [items]);
   const [localOrder, setLocalOrder] = useState(order);

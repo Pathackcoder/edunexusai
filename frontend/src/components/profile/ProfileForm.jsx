@@ -61,7 +61,7 @@ export const ProfileForm = ({ initialData, onSave, isSaving }) => {
             </Typography>
           </Box>
           {!isEditing ? (
-            <Button type="button" variant="outline" icon={EditOutlinedIcon} onClick={() => setIsEditing(true)}>
+            <Button type="button" variant="outline" icon={EditOutlinedIcon} onClick={() => setIsEditing(true)} mutates>
               Edit Profile
             </Button>
           ) : (
@@ -69,7 +69,7 @@ export const ProfileForm = ({ initialData, onSave, isSaving }) => {
               <Button type="button" variant="secondary" icon={CloseRoundedIcon} onClick={handleCancel} disabled={isSaving}>
                 Cancel
               </Button>
-              <Button type="submit" variant="primary" icon={SaveOutlinedIcon} loading={isSaving}>
+              <Button type="submit" variant="primary" icon={SaveOutlinedIcon} loading={isSaving} mutates>
                 Save Changes
               </Button>
             </Stack>

@@ -124,7 +124,7 @@ export const FormsPage = () => {
         title={active?.title}
         subtitle={active?.description}
         maxWidth="620px"
-        footer={<><Button variant="ghost" onClick={() => setActive(null)}>Cancel</Button><Button type="submit" form="portal-form" loading={saving}>Submit</Button></>}
+        footer={<><Button variant="ghost" onClick={() => setActive(null)}>Cancel</Button><Button type="submit" form="portal-form" loading={saving} mutates>Submit</Button></>}
       >
         {active && (
           <Stack component="form" id="portal-form" spacing={2.25} onSubmit={submit} noValidate>

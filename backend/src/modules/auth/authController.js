@@ -4,6 +4,7 @@ import * as authService from './authService.js';
 import { buildCurrentUser } from '../users/sessionService.js';
 import { endInstitutionalSession } from '../identity/ssoLogout.js';
 import { trackSignOut } from '../analytics/serverEvents.js';
+import { endPresence } from '../analytics/presenceService.js';
 
 export const login = asyncHandler(async (req, res) => {
   const session = await authService.login(req.body);
@@ -23,7 +24,7 @@ export const refresh = asyncHandler(async (req, res) => {
 });
 
 export const me = asyncHandler(async (req, res) => {
-  const user = await buildCurrentUser({ userId: req.auth.userId, signIn: req.auth.signIn });
+  const user = await buildCurrentUser({ userId: req.auth.userId, signIn: req.auth.signIn, viewAs: req.viewAs ?? null });
   return sendSuccess(res, { user });
 });
 
@@ -36,6 +37,8 @@ export const logout = asyncHandler(async (req, res) => {
   // ends at the provider (RP-initiated logout, which signs out the other apps too); the app follows this URL.
   const providerLogoutUrl = await endInstitutionalSession(req.auth, { everywhere: req.body?.everywhere !== false }).catch(() => null);
   void trackSignOut({ tenantId: req.auth.tenantId, userId: req.auth.userId, rolesHeld: req.auth.roles, reason: req.body?.everywhere === false ? 'PORTAL_LOCAL' : 'PORTAL' });
+  // Signed out: no longer counted among the people online now.
+  await endPresence({ tenantId: req.auth.tenantId, userId: req.auth.userId });
   return sendSuccess(res, { ...result, providerLogoutUrl });
 });
 

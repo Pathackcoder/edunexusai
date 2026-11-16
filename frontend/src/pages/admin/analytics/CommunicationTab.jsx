@@ -37,6 +37,7 @@ export function CommunicationTab({ filters, refreshKey }) {
           <Stack spacing={2}>
             <Alert severity="info" variant="outlined" sx={{ py: 0.25 }}>
               These figures come from the portal's own in-app notifications and their read state, and are available whether or not usage collection is on. The portal keeps no email or SMS delivery receipts and has no acknowledgement step, so neither is reported here.
+              {data.demoScope?.includes('notifications') && ' With demo data on, notification figures include the sample people’s notifications; the broadcasts list and course announcements are real records only.'}
             </Alert>
             {totals.sent === 0 ? (
               <Panel title="Communication"><Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>No notifications were sent between {formatRange(meta.from, meta.to)}{meta.role ? ` to ${roleLabel(meta.role).toLowerCase()}` : ''}.</Typography></Panel>

@@ -21,6 +21,7 @@ import { planningRoutes } from '../modules/planning/planningRoutes.js';
 import { careerRoutes } from '../modules/career/careerRoutes.js';
 import { calendarSyncRoutes } from '../modules/calendarSync/calendarSyncService.js';
 import { assistantRoutes } from '../modules/assistant/assistantRoutes.js';
+import { nexoraRoutes } from '../modules/nexora/nexoraRoutes.js';
 import { profileRoutes } from '../modules/profile/profileRoutes.js';
 import { supportRoutes } from '../modules/support/supportRoutes.js';
 import { facultyRoutes } from '../modules/faculty/facultyRoutes.js';
@@ -32,6 +33,7 @@ import { academicAliasRoutes } from '../modules/academics/academicsAliasRoutes.j
 import { publicRoutes } from '../modules/public/publicRoutes.js';
 import { chatRoutes } from '../modules/chat/chatRoutes.js';
 import { analyticsRoutes } from '../modules/analytics/analyticsRoutes.js';
+import { viewAsRoutes } from '../modules/viewAs/viewAsRoutes.js';
 
 /**
  * The v1 surface. One line per domain; each module owns its own routes, validation and
@@ -45,6 +47,8 @@ apiV1.use('/public', publicRoutes);
 // Institutional sign-in (OpenID Connect) first: its paths live under /auth/oidc.
 apiV1.use('/auth/oidc', ssoRoutes);
 apiV1.use('/auth', authRoutes);
+// View-As tab: its own session's details and End Impersonation (sessions are started under /admin/view-as).
+apiV1.use('/view-as', viewAsRoutes);
 apiV1.use('/appearance', appearanceRoutes);
 apiV1.use('/lms', lmsRoutes);
 apiV1.use('/sis', sisRoutes);
@@ -85,6 +89,8 @@ apiV1.use('/planning', planningRoutes);
 apiV1.use('/career', careerRoutes);
 apiV1.use('/calendar-sync', calendarSyncRoutes);
 apiV1.use('/assistant', assistantRoutes);
+// Nexora: the AI workspace (one shared tool layer for every persona; actions run only on the person's confirmation)
+apiV1.use('/nexora', nexoraRoutes);
 
 // Persona-specific
 apiV1.use('/faculty', facultyRoutes);

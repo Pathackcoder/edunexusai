@@ -42,6 +42,10 @@ await prisma.tenant.deleteMany({ where: { slug: { startsWith: 'mr-test-' } } });
 await prisma.tenant.updateMany({ data: { analyticsEnabled: false, analyticsStartedAt: null } });
 for (const table of ['analyticsEvent', 'analyticsPageView', 'analyticsVisit', 'analyticsUserDaily', 'analyticsRollup', 'analyticsRollupRun', 'userPermission']) await prisma[table].deleteMany({});
 await prisma.auditLog.deleteMany({ where: { action: { startsWith: 'ANALYTICS_' } } });
+// View-As fixtures (tests/view-as.test.js): sessions, their access log and audit rows (grants go with userPermission above).
+await prisma.viewAsSession.deleteMany({});
+await prisma.auditLog.deleteMany({ where: { action: { startsWith: 'VIEW_AS_' } } });
+await prisma.tenant.deleteMany({ where: { slug: { startsWith: 'mr-test-viewas' } } });
 // Institutional sign-in fixtures (tests/sso-flow.test.js): the test provider and everything linked to it.
 await prisma.identityProvider.deleteMany({ where: { key: 'test-sso' } });
 

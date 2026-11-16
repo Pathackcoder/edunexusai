@@ -8,6 +8,8 @@
  *   ANALYTICS_ALLOW_USER_IDS   comma-separated account ids that are measured even while their institution's own
  *                              switch is off (a named test account during rollout). Needs ANALYTICS_ENABLED.
  *   ANALYTICS_RAW_RETENTION_DAYS (90), ANALYTICS_ROLLUP_INTERVAL_SECONDS (900)
+ *   ANALYTICS_PRESENCE_TTL_SECONDS (120)      a person counts as online until this long after their last heartbeat
+ *   ANALYTICS_PRESENCE_SAMPLE_SECONDS (60)    how often the live count is sampled into the concurrency history
  *
  * Collection for one person = master switch AND (their institution switched it on, or they are on the allow list)
  * AND the account is not excluded (users.analyticsExcludedAt).
@@ -28,6 +30,8 @@ export function analyticsConfig() {
     // Aggregates hold no person ids.
     rollupRetentionDays: 1100,
     rollupIntervalMs: toInt(process.env.ANALYTICS_ROLLUP_INTERVAL_SECONDS, 900, 30, 86_400) * 1000,
+    presenceTtlMs: toInt(process.env.ANALYTICS_PRESENCE_TTL_SECONDS, 120, 45, 900) * 1000,
+    presenceSampleMs: toInt(process.env.ANALYTICS_PRESENCE_SAMPLE_SECONDS, 60, 10, 600) * 1000,
   };
 }
 
@@ -38,6 +42,10 @@ export const MAX_BATCH_EVENTS = 50;
 /** One page view never reports more visible time than this (a tab left open all day). */
 export const PAGE_VISIBLE_CAP_MS = 4 * 60 * 60 * 1000;
 export const VISIT_DURATION_CAP_MS = 12 * 60 * 60 * 1000;
+/** The concurrency history keeps the highest live count seen in each bucket of this length. */
+export const CONCURRENCY_BUCKET_MS = 5 * 60 * 1000;
+/** Exactly this many of the synthetic people are "online now" while demo data is included. */
+export const DEMO_ONLINE_PEOPLE = 150;
 
 /** Is this signed-in person's activity being measured? `auth` is the request context from requireAuth. */
 export function isCollecting(auth) {

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -12,6 +12,7 @@ import MuiButton from '@mui/material/Button';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
 import { useAuth } from '../../context/AuthContext';
 import { useApiQuery } from '../../hooks/useApiQuery';
 import { analyticsApi } from '../../services/api';
@@ -19,8 +20,9 @@ import { PageHeader } from '../../components/common/PageHeader';
 import { FilterChips } from '../../components/common/FilterChips';
 import { Button } from '../../components/common/Button';
 import { IconTile } from '../../components/common/IconTile';
-import { PRESETS, formatAgo, formatDay } from '../../components/analytics/format.js';
-import { DEVICE_OPTIONS, ROLE_OPTIONS, deviceLabel, roleLabel } from './analytics/shared';
+import { PRESETS, formatAgo, formatDay, formatNumber } from '../../components/analytics/format.js';
+import { DEVICE_OPTIONS, ROLE_OPTIONS, SourcesContext, deviceLabel, roleLabel } from './analytics/shared';
+import { LIVE_POLL_MS, usePolling } from './analytics/LivePanels';
 import { OverviewTab } from './analytics/OverviewTab';
 import { ActivityTab } from './analytics/ActivityTab';
 import { PagesTab } from './analytics/PagesTab';
@@ -90,6 +92,17 @@ export const AdminAnalyticsPage = () => {
   const legacyTab = params.get('tab');
   const filterQuery = new URLSearchParams(FILTER_KEYS.flatMap((key) => (params.get(key) ? [[key, params.get(key)]] : []))).toString();
   const health = useApiQuery(() => analyticsApi.report('health', { range: '7d' }), [refreshKey, allowed], { enabled: allowed });
+  // Live users, polled every few seconds on every section. Its demoState changes whenever demo data is switched,
+  // generated or reset (here, or from the command line): every figure on the page is then reloaded, no page reload.
+  const live = usePolling(() => (allowed ? analyticsApi.live() : Promise.resolve(null)), LIVE_POLL_MS, [allowed]);
+  const demoState = live.data?.demoState;
+  const seenDemoState = useRef(null);
+  useEffect(() => {
+    if (!demoState) return;
+    if (seenDemoState.current && seenDemoState.current !== demoState) setRefreshKey((key) => key + 1);
+    seenDemoState.current = demoState;
+  }, [demoState]);
+  const [sources, setSources] = useState(null);
   // Access withdrawn while this page was open: the server now refuses, so re-read the session and show the
   // no-access view instead of a page of errors.
   const revoked = health.error?.details?.reason === 'PERMISSION_REQUIRED';
@@ -190,6 +203,24 @@ export const AdminAnalyticsPage = () => {
         </Stack>
       </PageHeader>
       {notice && <Alert severity="warning" onClose={() => setNotice(null)} sx={{ mb: 2 }}>{notice}</Alert>}
+      {(live.data ? live.data.demoIncluded : state?.demo?.enabled) && (
+        <Alert severity="info" icon={<ScienceOutlinedIcon fontSize="inherit" />} sx={{ mb: 2 }}
+          action={tab.id !== 'health' ? <MuiButton color="inherit" size="small" onClick={() => goTo('health')}>Demo settings</MuiButton> : undefined}>
+          <strong>Demo data included.</strong>{' '}
+          {sources?.demoIncluded && tab.id !== 'health' && (
+            <Box component="span" sx={{ display: 'block', mb: 0.25 }} data-testid="analytics-sources">
+              Showing combined data · {formatNumber(sources.real.visits)} real + {formatNumber(sources.demo.visits)} demo = {formatNumber(sources.displayed.visits)} visits
+              {' · '}{formatNumber(sources.real.people)} real + {formatNumber(sources.demo.people)} demo active people
+              {' · '}{formatNumber(sources.real.logins)} real + {formatNumber(sources.demo.logins)} demo logins
+            </Box>
+          )}
+          {tab.id === 'health'
+            ? 'Usage reports add the synthetic sample dataset. This page reports the real data pipeline only.'
+            : tab.id === 'integrations'
+              ? 'Usage of connected services includes synthetic sample data; system status and synchronisation results are always real.'
+              : 'Figures in this section include synthetic sample people and activity. Turn it off under Data health to see real figures only.'}
+        </Alert>
+      )}
 
       {tab.dates !== false && (
         <Card sx={{ px: 1.5, py: 1.25, mb: 2 }}>
@@ -214,7 +245,11 @@ export const AdminAnalyticsPage = () => {
       <Box component="section" aria-label={tab.label}>
         {customInvalid
           ? <Alert severity="info">Choose a start and an end date (the start on or before the end) to see this period.</Alert>
-          : <Section filters={filters} refreshKey={refreshKey} goTo={goTo} onChanged={() => setRefreshKey((key) => key + 1)} />}
+          : (
+            <SourcesContext.Provider value={setSources}>
+              <Section filters={filters} refreshKey={refreshKey} live={live} goTo={goTo} onChanged={() => setRefreshKey((key) => key + 1)} />
+            </SourcesContext.Provider>
+          )}
       </Box>
     </Box>
   );

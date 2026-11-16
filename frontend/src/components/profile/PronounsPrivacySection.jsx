@@ -149,7 +149,7 @@ export const PronounsPrivacySection = ({ profile, onSave, isSaving: savingProp =
           </Stack>
 
           <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2.25 }}>
-            <Button type="submit" variant="primary" icon={SaveOutlinedIcon} loading={isSaving || savingProp}>
+            <Button type="submit" variant="primary" icon={SaveOutlinedIcon} loading={isSaving || savingProp} mutates>
               Save Preferences
             </Button>
           </Stack>

@@ -120,7 +120,7 @@ export const AddressChangeModal = ({ isOpen, onClose, currentAddress, onSubmitSu
               <Button variant="secondary" onClick={onClose}>
                 Cancel
               </Button>
-              <Button type="submit" variant="primary">
+              <Button type="submit" variant="primary" mutates>
                 Submit Address Change
               </Button>
             </Stack>

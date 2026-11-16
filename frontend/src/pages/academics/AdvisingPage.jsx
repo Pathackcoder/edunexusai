@@ -149,8 +149,8 @@ export const AdvisingPage = () => {
                         )}
                       </Box>
                       <Stack direction="row" spacing={1}>
-                        <Button size="sm" variant="outline" onClick={() => { setRescheduling(appt); setNewSlot(null); }}>Reschedule</Button>
-                        <Button size="sm" variant="ghost" onClick={() => cancel(appt)}>Cancel</Button>
+                        <Button size="sm" variant="outline" mutates onClick={() => { setRescheduling(appt); setNewSlot(null); }}>Reschedule</Button>
+                        <Button size="sm" variant="ghost" mutates onClick={() => cancel(appt)}>Cancel</Button>
                       </Stack>
                     </Stack>
                   ))}
@@ -186,7 +186,7 @@ export const AdvisingPage = () => {
               </DataState>
               <TextField label="Topic" required value={form.topic} onChange={(e) => setForm({ ...form, topic: e.target.value })} placeholder="e.g. Spring course plan, capstone topic" />
               <TextField label="Anything your advisor should know?" multiline minRows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-              <Box><Button onClick={book} loading={busy} disabled={!slotId}>Book appointment</Button></Box>
+              <Box><Button onClick={book} loading={busy} disabled={!slotId} mutates>Book appointment</Button></Box>
             </Stack>
           </WidgetCard>
         </Box>
@@ -204,7 +204,7 @@ export const AdvisingPage = () => {
           </WidgetCard>
         )}
       </Stack>
-      <Modal isOpen={Boolean(rescheduling)} onClose={() => setRescheduling(null)} title="Reschedule appointment" subtitle={rescheduling ? `${rescheduling.topic} · currently ${longDate(rescheduling.startsAt)} ${time(rescheduling.startsAt)}` : ''} footer={<Button onClick={reschedule} loading={busy} disabled={!newSlot}>Move appointment</Button>}>
+      <Modal isOpen={Boolean(rescheduling)} onClose={() => setRescheduling(null)} title="Reschedule appointment" subtitle={rescheduling ? `${rescheduling.topic} · currently ${longDate(rescheduling.startsAt)} ${time(rescheduling.startsAt)}` : ''} footer={<Button onClick={reschedule} loading={busy} disabled={!newSlot} mutates>Move appointment</Button>}>
         {rescheduling && <SlotPicker slots={(slots.data ?? []).filter((slot) => slot.advisorId === rescheduling.advisor.id)} value={newSlot} onChange={setNewSlot} />}
       </Modal>
     </Box>

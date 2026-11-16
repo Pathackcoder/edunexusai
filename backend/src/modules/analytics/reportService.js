@@ -6,18 +6,25 @@ import {
   CONTEXT_KEYS, DEVICE_CLASSES, FEATURES, NAV_EXTERNAL_TARGETS, NAV_SOURCES, PAGE_KEYS, ROLE_KEYS, WIDGETS,
   navTargetLabel, pageByKey,
 } from '../../../../shared/analyticsCatalog.js';
+import { BROWSERS, OPERATING_SYSTEMS } from '../../../../shared/analyticsAgent.js';
 import { analyticsConfig } from './config.js';
-import { VISIT_BUCKETS, addDays, localDateOf, localDateSql, safeTimezone, startOfLocalDate, utcTimestamp } from './rollupService.js';
+import { demoRecordCounts } from './demoService.js';
+import { TABLES, VISIT_BUCKETS, addDays, localDateOf, localDateSql, safeTimezone, startOfLocalDate, utcTimestamp } from './rollupService.js';
 
 /**
  * Admin Analytics reports. Every function takes a report context whose tenantId comes from the signed-in
  * administrator's session, and every query starts with that tenant. Nothing here returns a person (no ids, names
  * or emails): only exact aggregate counts, small ones included, for the institution's own administrators who hold
- * the analytics.view permission.
+ * the analytics.view permission. (The one person-level list, accounts that have not signed in recently, is
+ * inactiveUsersService.js, built from sign-in records rather than usage tracking.)
  *
  * Sources: person-day rows (active people over any range), daily facts (counts, durations) and, inside the raw
  * retention window, the raw rows (exact distinct people per page, feature or widget over the chosen range).
  * Days are the institution's local days.
+ *
+ * Demo data: while the institution includes it (tenants.analyticsDemoEnabled), every usage query reads the real
+ * table together with its analytics_demo_* twin (src() below). The synthetic people are disjoint from real accounts,
+ * so distinct counts simply add. Data health always reports the real pipeline only.
  */
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -36,9 +43,36 @@ const iso = (value) => (value instanceof Date ? value.toISOString().slice(0, 10)
 const ratio = (part, whole) => (whole > 0 && part !== null && part !== undefined ? part / whole : null);
 const num = (value) => Number(value ?? 0);
 
+const COLUMNS = {
+  visits: '"id", "tenantId", "userId", "rolesHeld", "authMethod", "deviceClass", "entryPageKey", "startedAt", "lastSeenAt", "browser", "os"',
+  pageViews: '"id", "tenantId", "userId", "visitId", "pageKey", "rolesHeld", "contextRole", "deviceClass", "startedAt", "lastSeenAt", "visibleMs"',
+  events: '"id", "tenantId", "userId", "visitId", "pageViewId", "name", "pageKey", "subjectKey", "action", "source", "rolesHeld", "deviceClass", "occurredAt", "receivedAt"',
+  userDaily: '"tenantId", "localDate", "userId", "rolesHeld", "devices", "visits", "pageViews", "visibleMs"',
+};
+/**
+ * The table a usage query reads: the real one, or (demo data included) the real and demo rows together under the
+ * real table's name, so the query itself is unchanged. Daily facts are summed per key, keeping one row per day and
+ * subject; `uniqueUsers` adds up exactly because no synthetic person is a real one.
+ */
+export function src(ctx, name, alias = TABLES.REAL[name]) {
+  const real = TABLES.REAL[name];
+  const named = alias === real ? '' : ` AS "${alias}"`;
+  const demo = TABLES.DEMO[name];
+  // One side only, for the real / demo breakdown (sourceBreakdown below).
+  if (ctx.only === 'DEMO') return Prisma.raw(`"${demo}" AS "${alias}"`);
+  if (ctx.only === 'REAL' || !ctx.demo) return Prisma.raw(`"${real}"${named}`);
+  if (name === 'rollups') {
+    const keys = '"tenantId", "localDate", "fact", "subjectKey", "role", "device"';
+    return Prisma.raw(`(SELECT ${keys}, sum("count")::int AS "count", sum("uniqueUsers")::int AS "uniqueUsers", sum("durationMs")::bigint AS "durationMs", sum("durationSamples")::int AS "durationSamples"
+      FROM (SELECT ${keys}, "count", "uniqueUsers", "durationMs", "durationSamples" FROM "${real}" UNION ALL SELECT ${keys}, "count", "uniqueUsers", "durationMs", "durationSamples" FROM "${demo}") u
+      GROUP BY ${keys}) AS "${alias}"`);
+  }
+  return Prisma.raw(`(SELECT ${COLUMNS[name]} FROM "${real}" UNION ALL SELECT ${COLUMNS[name]} FROM "${demo}") AS "${alias}"`);
+}
+
 /** Resolve dates, time zone and filters for one report request. */
 export async function reportContext(tenantId, query = {}, { now = new Date() } = {}) {
-  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { timezone: true, analyticsEnabled: true, analyticsStartedAt: true } });
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { timezone: true, analyticsEnabled: true, analyticsStartedAt: true, analyticsDemoEnabled: true } });
   const tz = safeTimezone(tenant.timezone);
   const today = localDateOf(now, tz);
   let to = query.to ?? today;
@@ -51,22 +85,38 @@ export async function reportContext(tenantId, query = {}, { now = new Date() } =
   const days = dayDiff(from, to) + 1;
   if (days > MAX_RANGE_DAYS) throw badRequest(`Choose a range of at most ${MAX_RANGE_DAYS} days.`);
   const config = analyticsConfig();
+  const demo = tenant.analyticsDemoEnabled ? await demoCoverage(tenantId) : null;
+  // Demo data counts from the start of its own history, as collection does from the day it began.
+  const realStart = tenant.analyticsStartedAt ? localDateOf(tenant.analyticsStartedAt, tz) : null;
+  const startedOn = demo ? [realStart, demo.coversFrom].filter(Boolean).sort()[0] : realStart;
   return {
-    tenantId, tz, today, from, to, days,
+    tenantId, tz, today, from, to, days, now,
+    demo: Boolean(demo), demoCoverage: demo,
     prevFrom: addDays(from, -days), prevTo: addDays(from, -1),
     role: query.role ?? null, device: query.device ?? null,
-    startedOn: tenant.analyticsStartedAt ? localDateOf(tenant.analyticsStartedAt, tz) : null,
+    startedOn,
+    realStartedOn: realStart,
     collecting: tenant.analyticsEnabled && config.enabled,
     // The oldest local day whose raw rows are certainly still held.
     rawFloor: addDays(today, -(config.rawRetentionDays - 1)),
   };
 }
 
-const meta = (ctx) => ({
+/** The demo dataset's span, or null when none has been generated. */
+async function demoCoverage(tenantId) {
+  const [row] = await prisma.$queryRaw`
+    SELECT to_char("coversFrom", 'YYYY-MM-DD') AS "coversFrom", to_char("coversTo", 'YYYY-MM-DD') AS "coversTo", "generatedAt", "people", "online"
+    FROM "analytics_demo_datasets" WHERE "tenantId" = ${tenantId}`;
+  return row ?? null;
+}
+
+export const meta = (ctx) => ({
   timezone: ctx.tz, from: ctx.from, to: ctx.to, days: ctx.days, previousFrom: ctx.prevFrom, previousTo: ctx.prevTo,
   role: ctx.role, device: ctx.device, today: ctx.today, includesToday: ctx.to === ctx.today,
   collectingSince: ctx.startedOn, collecting: ctx.collecting,
   uniquesExact: ctx.from >= ctx.rawFloor,
+  // Every section says when its figures include the synthetic dataset.
+  demo: ctx.demo ? { included: true, coversFrom: ctx.demoCoverage.coversFrom, coversTo: ctx.demoCoverage.coversTo, people: ctx.demoCoverage.people } : { included: false },
 });
 
 /* ----- filters ----- */
@@ -97,16 +147,16 @@ async function periodTotals(ctx, from, to) {
   const [row] = await prisma.$queryRaw`
     SELECT count(DISTINCT "userId")::int AS users, count(*)::int AS "personDays", COALESCE(sum("pageViews"), 0)::float8 AS "pageViews",
            count(DISTINCT "userId") FILTER (WHERE "pageViews" > 0)::int AS "pageVisitors"
-    FROM "analytics_user_daily" WHERE ${dailyFilter(ctx)} AND ${between(from, to)}`;
+    FROM ${src(ctx, 'userDaily')} WHERE ${dailyFilter(ctx)} AND ${between(from, to)}`;
   const [returning] = await prisma.$queryRaw`
     SELECT count(*)::int AS users FROM (
-      SELECT "userId" FROM "analytics_user_daily" WHERE ${dailyFilter(ctx)} AND ${between(from, to)} GROUP BY "userId" HAVING count(*) >= 2) r`;
+      SELECT "userId" FROM ${src(ctx, 'userDaily')} WHERE ${dailyFilter(ctx)} AND ${between(from, to)} GROUP BY "userId" HAVING count(*) >= 2) r`;
   const [visit] = await prisma.$queryRaw`
     SELECT COALESCE(sum("count"), 0)::float8 AS visits, COALESCE(sum("durationMs"), 0)::float8 AS ms, COALESCE(sum("durationSamples"), 0)::float8 AS samples
-    FROM "analytics_rollups" WHERE ${rollupFilter(ctx, 'VISIT')} AND ${between(from, to)}`;
+    FROM ${src(ctx, 'rollups')} WHERE ${rollupFilter(ctx, 'VISIT')} AND ${between(from, to)}`;
   const [page] = await prisma.$queryRaw`
     SELECT COALESCE(sum("durationMs"), 0)::float8 AS ms, COALESCE(sum("durationSamples"), 0)::float8 AS samples
-    FROM "analytics_rollups" WHERE ${rollupFilter(ctx, 'PAGE')} AND ${between(from, to)}`;
+    FROM ${src(ctx, 'rollups')} WHERE ${rollupFilter(ctx, 'PAGE')} AND ${between(from, to)}`;
   const days = measuredDays(ctx, from, to);
   return {
     users: row.users,
@@ -126,20 +176,14 @@ async function periodTotals(ctx, from, to) {
   };
 }
 
-async function trailingUsers(ctx, to, days) {
-  const [row] = await prisma.$queryRaw`
-    SELECT count(DISTINCT "userId")::int AS users FROM "analytics_user_daily" WHERE ${dailyFilter(ctx)} AND ${between(addDays(to, -(days - 1)), to)}`;
-  return row.users;
-}
-
 /** One point per local day (days with nobody are present with zeros). */
 async function dailySeries(ctx) {
   const rows = await prisma.$queryRaw`
     SELECT to_char(d, 'YYYY-MM-DD') AS date, COALESCE(u.users, 0)::int AS users, COALESCE(u.views, 0)::float8 AS "pageViews", COALESCE(v.visits, 0)::float8 AS visits
     FROM generate_series(${ctx.from}::date, ${ctx.to}::date, interval '1 day') d
-    LEFT JOIN (SELECT "localDate", count(*) AS users, sum("pageViews") AS views FROM "analytics_user_daily"
+    LEFT JOIN (SELECT "localDate", count(*) AS users, sum("pageViews") AS views FROM ${src(ctx, 'userDaily')}
                WHERE ${dailyFilter(ctx)} AND ${between(ctx.from, ctx.to)} GROUP BY "localDate") u ON u."localDate" = d::date
-    LEFT JOIN (SELECT "localDate", sum("count") AS visits FROM "analytics_rollups"
+    LEFT JOIN (SELECT "localDate", sum("count") AS visits FROM ${src(ctx, 'rollups')}
                WHERE ${rollupFilter(ctx, 'VISIT')} AND ${between(ctx.from, ctx.to)} GROUP BY "localDate") v ON v."localDate" = d::date
     ORDER BY d`;
   return rows.map((row) => ({ ...row, beforeCollection: !ctx.startedOn || row.date < ctx.startedOn, partial: row.date === ctx.today }));
@@ -150,7 +194,7 @@ async function factTotals(ctx, fact, from = ctx.from, to = ctx.to, filter = {}) 
   const rows = await prisma.$queryRaw`
     SELECT "subjectKey" AS key, sum("count")::float8 AS count, max("uniqueUsers")::int AS "peakDailyUsers",
            sum("durationMs")::float8 AS ms, sum("durationSamples")::float8 AS samples
-    FROM "analytics_rollups" WHERE ${rollupFilter(ctx, fact, filter)} AND ${between(from, to)} GROUP BY "subjectKey"`;
+    FROM ${src(ctx, 'rollups')} WHERE ${rollupFilter(ctx, fact, filter)} AND ${between(from, to)} GROUP BY "subjectKey"`;
   return new Map(rows.map((row) => [row.key, row]));
 }
 
@@ -161,8 +205,8 @@ async function factTotals(ctx, fact, from = ctx.from, to = ctx.to, filter = {}) 
 async function rangeUsers(ctx, kind, totals) {
   if (ctx.from < ctx.rawFloor) return new Map([...totals].map(([key, row]) => [key, row.peakDailyUsers]));
   const rows = kind === 'page'
-    ? await prisma.$queryRaw`SELECT "pageKey" AS key, count(DISTINCT "userId")::int AS users FROM "analytics_page_views" WHERE ${rawFilter(ctx, Prisma.sql`"startedAt"`)} GROUP BY "pageKey"`
-    : await prisma.$queryRaw`SELECT "subjectKey" AS key, count(DISTINCT "userId")::int AS users FROM "analytics_events" WHERE ${rawFilter(ctx, Prisma.sql`"occurredAt"`)} AND "name" = ${kind} AND "subjectKey" IS NOT NULL GROUP BY "subjectKey"`;
+    ? await prisma.$queryRaw`SELECT "pageKey" AS key, count(DISTINCT "userId")::int AS users FROM ${src(ctx, 'pageViews')} WHERE ${rawFilter(ctx, Prisma.sql`"startedAt"`)} GROUP BY "pageKey"`
+    : await prisma.$queryRaw`SELECT "subjectKey" AS key, count(DISTINCT "userId")::int AS users FROM ${src(ctx, 'events')} WHERE ${rawFilter(ctx, Prisma.sql`"occurredAt"`)} AND "name" = ${kind} AND "subjectKey" IS NOT NULL GROUP BY "subjectKey"`;
   return new Map(rows.map((row) => [row.key, row.users]));
 }
 
@@ -170,58 +214,140 @@ const withChange = (current, previous) => ({ value: current, previous, change: p
 
 /* ----- reports ----- */
 
-export async function overviewReport(ctx) {
-  const [current, previous, wau, mau, series] = await Promise.all([
-    periodTotals(ctx, ctx.from, ctx.to), periodTotals(ctx, ctx.prevFrom, ctx.prevTo), trailingUsers(ctx, ctx.to, 7), trailingUsers(ctx, ctx.to, 30), dailySeries(ctx),
-  ]);
-  const previousComparable = Boolean(ctx.startedOn) && ctx.prevFrom >= ctx.startedOn;
-  const kpi = (field) => withChange(current[field], previousComparable ? previous[field] : null);
-  const [pages, features, devices] = await Promise.all([pagesReport(ctx), featuresReport(ctx), devicesReport(ctx)]);
+/**
+ * Successful sign-ins between two local dates: one per portal session issued (password or institutional sign-in,
+ * authService.issueSession). Token refreshes and page visits never create one. Sign-ins carry no device, so only the
+ * role filter applies. Raw events while the range is inside the raw window (exact up to this moment); older ranges
+ * from the daily facts.
+ */
+export async function loginTotals(ctx, from = ctx.from, to = ctx.to) {
+  const role = ctx.role ? Prisma.sql`AND "rolesHeld" @> ARRAY[${ctx.role}]::"RoleKey"[]` : Prisma.empty;
+  const rows = from >= ctx.rawFloor
+    ? await prisma.$queryRaw`
+        SELECT "action" AS method, count(*)::float8 AS logins, count(DISTINCT "userId")::int AS users FROM ${src(ctx, 'events')}
+        WHERE "tenantId" = ${ctx.tenantId} AND "name" = 'auth.sign_in' ${role}
+          AND "occurredAt" >= ${startOfLocalDate(from, ctx.tz)} AND "occurredAt" < ${startOfLocalDate(addDays(to, 1), ctx.tz)}
+        GROUP BY 1`
+    : await prisma.$queryRaw`
+        SELECT "subjectKey" AS method, sum("count")::float8 AS logins, NULL::int AS users FROM ${src(ctx, 'rollups')}
+        WHERE ${rollupFilter(ctx, 'AUTH', { device: null })} AND ${between(from, to)} GROUP BY 1`;
+  const by = (method) => rows.find((row) => row.method === method)?.logins ?? 0;
   return {
-    meta: meta(ctx),
-    hasData: current.users > 0,
-    previousComparable,
-    // How the averages were formed, so the interface can say so: days measured in the range, and person-days.
-    basis: { measuredDays: current.measuredDays, personDays: current.personDays, rangeDays: ctx.days },
-    kpis: {
-      activeUsers: kpi('users'),
-      averageDailyUsers: kpi('averageDailyUsers'),
-      weeklyActiveUsers: { value: wau },
-      monthlyActiveUsers: { value: mau },
-      stickiness: { value: mau ? ratio(await averageDailyOver(ctx, 30), mau) : null },
-      pageViews: kpi('pageViews'),
-      pageVisitors: kpi('pageVisitors'),
-      visits: kpi('visits'),
-      averageVisibleMs: kpi('averageVisibleMs'),
-      averageVisitMs: kpi('averageVisitMs'),
-      pageViewsPerVisit: kpi('pageViewsPerVisit'),
-      returningUsers: kpi('returningUsers'),
-      returningRate: kpi('returningRate'),
-    },
-    series,
-    topPages: pages.pages.filter((row) => row.views > 0).slice(0, 6),
-    unusedPages: pages.pages.filter((row) => row.views === 0).length,
-    trackedPages: pages.pages.length,
-    topFeatures: features.features.filter((row) => row.uses > 0).slice(0, 6),
-    unusedFeatures: features.features.filter((row) => row.uses === 0).map((row) => row.label),
-    devices: devices.distribution,
+    total: rows.reduce((sum, row) => sum + row.logins, 0),
+    sso: by('SSO'),
+    password: by('PASSWORD'),
+    users: from >= ctx.rawFloor ? rows.reduce((sum, row) => sum + row.users, 0) : null,
   };
 }
 
-/** Average daily active people over the `days` ending at ctx.to (the numerator of stickiness). */
-async function averageDailyOver(ctx, days) {
+/**
+ * The highest number of people online at the same moment between two local dates, from the 5-minute concurrency
+ * samples (real and, when included, demo at the same moment). Null when nothing was measured in the range.
+ */
+export async function peakConcurrency(ctx, from = ctx.from, to = ctx.to) {
+  const window = (column) => Prisma.sql`"tenantId" = ${ctx.tenantId} AND ${column} >= ${startOfLocalDate(from, ctx.tz)} AND ${column} < ${startOfLocalDate(addDays(to, 1), ctx.tz)}`;
   const [row] = await prisma.$queryRaw`
-    SELECT count(*)::float8 AS "personDays" FROM "analytics_user_daily" WHERE ${dailyFilter(ctx)} AND ${between(addDays(ctx.to, -(days - 1)), ctx.to)}`;
-  const counted = measuredDays(ctx, addDays(ctx.to, -(days - 1)), ctx.to);
-  return counted ? row.personDays / counted : null;
+    SELECT "bucketStart" AS at, max(r)::int AS real, COALESCE(max(d), 0)::int AS demo, (COALESCE(max(r), 0) + COALESCE(max(d), 0))::int AS users FROM (
+      SELECT "bucketStart", "users" AS r, NULL::int AS d FROM "analytics_concurrency" WHERE ${window(Prisma.sql`"bucketStart"`)}
+      ${ctx.demo ? Prisma.sql`UNION ALL SELECT "bucketStart", NULL::int, "users" FROM "analytics_demo_concurrency" WHERE ${window(Prisma.sql`"bucketStart"`)}` : Prisma.empty}
+    ) s GROUP BY "bucketStart" ORDER BY users DESC, "bucketStart" DESC LIMIT 1`;
+  // `real` is null when real use was not being measured at that moment (only demo samples exist).
+  return row ? { users: row.users, real: row.real, demo: row.demo, at: row.at } : null;
+}
+
+/**
+ * Where the figures of a report come from: visits, active people and successful sign-ins over the report's range
+ * and filters, counted separately in the real and the demo tables, and the total shown (real + demo while demo data
+ * is included, else real). Synthetic people are disjoint from real accounts, so the parts add exactly.
+ */
+export async function sourceBreakdown(ctx) {
+  const side = async (only) => {
+    const scoped = { ...ctx, only };
+    const [[visit], [people], logins] = await Promise.all([
+      prisma.$queryRaw`SELECT COALESCE(sum("count"), 0)::float8 AS visits FROM ${src(scoped, 'rollups')} WHERE ${rollupFilter(scoped, 'VISIT')} AND ${between(ctx.from, ctx.to)}`,
+      prisma.$queryRaw`SELECT count(DISTINCT "userId")::int AS users FROM ${src(scoped, 'userDaily')} WHERE ${dailyFilter(scoped)} AND ${between(ctx.from, ctx.to)}`,
+      loginTotals(scoped),
+    ]);
+    return { visits: visit.visits, people: people.users, logins: logins.total };
+  };
+  const real = await side('REAL');
+  const demo = ctx.demo ? await side('DEMO') : { visits: 0, people: 0, logins: 0 };
+  const displayed = Object.fromEntries(Object.keys(real).map((key) => [key, real[key] + demo[key]]));
+  return { demoIncluded: ctx.demo, real, demo, displayed };
+}
+
+/**
+ * Visits split by one property of the visit (device class, browser or operating system). All three use the same
+ * total (visits that started in the range), so their shares are directly comparable; a visit recorded before browser
+ * and system were measured is counted as Unknown rather than left out.
+ */
+export async function visitDistribution(ctx, dimension) {
+  const scoped = { ...ctx, device: dimension === 'device' ? null : ctx.device };
+  const [total] = await prisma.$queryRaw`
+    SELECT COALESCE(sum("count"), 0)::float8 AS visits FROM ${src(ctx, 'rollups')} WHERE ${rollupFilter(scoped, 'VISIT')} AND ${between(ctx.from, ctx.to)}`;
+  let keys;
+  let rows;
+  if (dimension === 'device') {
+    keys = DEVICE_CLASSES;
+    rows = await prisma.$queryRaw`
+      SELECT "device" AS key, sum("count")::float8 AS visits FROM ${src(ctx, 'rollups')}
+      WHERE "tenantId" = ${ctx.tenantId} AND "fact" = 'VISIT' AND "role" = ${ctx.role ?? 'ALL'} AND "device" IN (${Prisma.join(DEVICE_CLASSES)}) AND ${between(ctx.from, ctx.to)}
+      GROUP BY 1`;
+  } else {
+    keys = dimension === 'browser' ? BROWSERS : OPERATING_SYSTEMS;
+    rows = await prisma.$queryRaw`
+      SELECT "subjectKey" AS key, sum("count")::float8 AS visits FROM ${src(ctx, 'rollups')}
+      WHERE ${rollupFilter(scoped, dimension === 'browser' ? 'BROWSER' : 'OS')} AND ${between(ctx.from, ctx.to)} GROUP BY 1`;
+  }
+  const counts = new Map(rows.map((row) => [row.key, row.visits]));
+  const recorded = [...counts.values()].reduce((sum, value) => sum + value, 0);
+  // Visits from before browser and system were measured have no category: they are shown under Unknown, so each
+  // chart still adds up to the visit total, and reported separately as `notRecorded`.
+  const notRecorded = dimension === 'device' ? 0 : Math.max(0, total.visits - recorded);
+  if (notRecorded) counts.set('UNKNOWN', (counts.get('UNKNOWN') ?? 0) + notRecorded);
+  return {
+    total: total.visits,
+    notRecorded,
+    rows: keys.map((key) => ({ key, visits: counts.get(key) ?? 0, share: ratio(counts.get(key) ?? 0, total.visits) })),
+  };
+}
+
+export async function overviewReport(ctx) {
+  const comparable = Boolean(ctx.startedOn) && ctx.prevFrom >= ctx.startedOn;
+  const [current, logins, previousLogins, peak, previousPeak, browsers, systems, devices] = await Promise.all([
+    periodTotals(ctx, ctx.from, ctx.to), loginTotals(ctx), comparable ? loginTotals(ctx, ctx.prevFrom, ctx.prevTo) : null,
+    peakConcurrency(ctx), comparable ? peakConcurrency(ctx, ctx.prevFrom, ctx.prevTo) : null,
+    visitDistribution(ctx, 'browser'), visitDistribution(ctx, 'os'), visitDistribution(ctx, 'device'),
+  ]);
+  const [pages, features] = await Promise.all([pagesReport(ctx), featuresReport(ctx)]);
+  return {
+    meta: meta(ctx),
+    hasData: current.users > 0 || logins.total > 0 || Boolean(peak),
+    previousComparable: comparable,
+    kpis: {
+      logins: { ...withChange(logins.total, previousLogins ? previousLogins.total : null), sso: logins.sso, password: logins.password, users: logins.users },
+      peakConcurrent: { ...withChange(peak?.users ?? null, previousPeak ? previousPeak.users : null), at: peak?.at ?? null, real: peak?.real ?? null, demo: peak?.demo ?? null },
+      activeUsers: { value: current.users },
+      returningRate: { value: current.returningRate },
+      visits: { value: current.visits },
+    },
+    browsers,
+    operatingSystems: systems,
+    devices,
+    topPages: pages.pages.filter((row) => row.views > 0).slice(0, 8),
+    unusedPages: pages.pages.filter((row) => row.views === 0).length,
+    trackedPages: pages.pages.length,
+    topFeatures: features.features.filter((row) => row.uses > 0).slice(0, 8),
+    unusedFeatures: features.features.filter((row) => row.uses === 0).map((row) => row.label),
+  };
 }
 
 export async function activityReport(ctx) {
   const series = await dailySeries(ctx);
   const rolling = await prisma.$queryRaw`
     SELECT to_char(d, 'YYYY-MM-DD') AS date,
-      (SELECT count(DISTINCT "userId") FROM "analytics_user_daily" WHERE ${dailyFilter(ctx)} AND "localDate" BETWEEN d::date - 6 AND d::date)::int AS wau,
-      (SELECT count(DISTINCT "userId") FROM "analytics_user_daily" WHERE ${dailyFilter(ctx)} AND "localDate" BETWEEN d::date - 29 AND d::date)::int AS mau
+      (SELECT count(DISTINCT "userId") FROM ${src(ctx, 'userDaily')} WHERE ${dailyFilter(ctx)} AND "localDate" BETWEEN d::date - 6 AND d::date)::int AS wau,
+      (SELECT count(DISTINCT "userId") FROM ${src(ctx, 'userDaily')} WHERE ${dailyFilter(ctx)} AND "localDate" BETWEEN d::date - 29 AND d::date)::int AS mau
     FROM generate_series(${ctx.from}::date, ${ctx.to}::date, interval '1 day') d ORDER BY d`;
 
   // By role held. A person with two roles is counted under both, so these rows do not add up to the total.
@@ -231,6 +357,13 @@ export async function activityReport(ctx) {
     FROM "users" u JOIN "user_roles" ur ON ur."userId" = u."id" JOIN "roles" r ON r."id" = ur."roleId"
     WHERE u."tenantId" = ${ctx.tenantId} AND u."status" = 'ACTIVE' AND u."analyticsExcludedAt" IS NULL GROUP BY r."key"`;
   const accountsByRole = new Map(accounts.map((row) => [row.role, row.accounts]));
+  if (ctx.demo) {
+    // The synthetic people count as accounts of their roles, so the active share stays a share of a real population.
+    const demoAccounts = await prisma.$queryRaw`
+      SELECT r::text AS role, count(*)::int AS accounts FROM "analytics_demo_people" CROSS JOIN LATERAL unnest("rolesHeld") r
+      WHERE "tenantId" = ${ctx.tenantId} AND "status" = 'ACTIVE' GROUP BY 1`;
+    for (const row of demoAccounts) accountsByRole.set(row.role, (accountsByRole.get(row.role) ?? 0) + row.accounts);
+  }
   const roles = [];
   for (const role of ctx.role ? [ctx.role] : ROLE_KEYS) {
     const totals = await periodTotals(roleCtx(role), ctx.from, ctx.to);
@@ -242,7 +375,7 @@ export async function activityReport(ctx) {
   // Where page views happened (additive: each page view belongs to exactly one workspace).
   const contextRows = await prisma.$queryRaw`
     SELECT to_char("localDate", 'YYYY-MM-DD') AS date, "subjectKey" AS context, "count"::float8 AS views, "uniqueUsers"::int AS users
-    FROM "analytics_rollups" WHERE ${rollupFilter(ctx, 'CONTEXT', { role: null })} AND ${between(ctx.from, ctx.to)}`;
+    FROM ${src(ctx, 'rollups')} WHERE ${rollupFilter(ctx, 'CONTEXT', { role: null })} AND ${between(ctx.from, ctx.to)}`;
   const contextTotals = new Map();
   const contextByDate = new Map();
   for (const row of contextRows) {
@@ -260,7 +393,7 @@ export async function activityReport(ctx) {
   // Peak hours: for each weekday and hour, the average number of distinct people active in that hour.
   const hourRows = await prisma.$queryRaw`
     SELECT EXTRACT(ISODOW FROM "localDate")::int AS weekday, "subjectKey" AS hour, sum("uniqueUsers")::float8 AS people, max("uniqueUsers")::int AS peak
-    FROM "analytics_rollups" WHERE ${rollupFilter(ctx, 'HOUR')} AND ${between(ctx.from, ctx.to)} GROUP BY 1, 2`;
+    FROM ${src(ctx, 'rollups')} WHERE ${rollupFilter(ctx, 'HOUR')} AND ${between(ctx.from, ctx.to)} GROUP BY 1, 2`;
   const measuredFrom = ctx.startedOn && ctx.startedOn > ctx.from ? ctx.startedOn : ctx.from;
   const weekdayDays = Array(8).fill(0);
   for (let date = measuredFrom; date <= ctx.to; date = addDays(date, 1)) weekdayDays[new Date(`${date}T00:00:00Z`).getUTCDay() || 7] += 1;
@@ -329,7 +462,7 @@ export async function pageDetailReport(ctx, pageKey) {
   const series = await prisma.$queryRaw`
     SELECT to_char(d, 'YYYY-MM-DD') AS date, COALESCE(r."count", 0)::float8 AS views, COALESCE(r."uniqueUsers", 0)::int AS users
     FROM generate_series(${ctx.from}::date, ${ctx.to}::date, interval '1 day') d
-    LEFT JOIN "analytics_rollups" r ON r."localDate" = d::date AND r."subjectKey" = ${pageKey} AND ${Prisma.sql`r."tenantId" = ${ctx.tenantId} AND r."fact" = 'PAGE' AND r."role" = ${ctx.role ?? 'ALL'} AND r."device" = ${ctx.device ?? 'ALL'}`}
+    LEFT JOIN ${src(ctx, 'rollups', 'r')} ON r."localDate" = d::date AND r."subjectKey" = ${pageKey} AND ${Prisma.sql`r."tenantId" = ${ctx.tenantId} AND r."fact" = 'PAGE' AND r."role" = ${ctx.role ?? 'ALL'} AND r."device" = ${ctx.device ?? 'ALL'}`}
     ORDER BY d`;
   const exact = ctx.from >= ctx.rawFloor;
   const split = async (dimension) => {
@@ -426,11 +559,11 @@ export async function devicesReport(ctx) {
   const scoped = { ...ctx, device: null };
   const visitRows = await prisma.$queryRaw`
     SELECT "device", sum("count")::float8 AS visits, sum("durationMs")::float8 AS ms, sum("durationSamples")::float8 AS samples
-    FROM "analytics_rollups" WHERE "tenantId" = ${ctx.tenantId} AND "fact" = 'VISIT' AND "role" = ${ctx.role ?? 'ALL'} AND "device" IN (${Prisma.join(DEVICE_CLASSES)})
+    FROM ${src(ctx, 'rollups')} WHERE "tenantId" = ${ctx.tenantId} AND "fact" = 'VISIT' AND "role" = ${ctx.role ?? 'ALL'} AND "device" IN (${Prisma.join(DEVICE_CLASSES)})
       AND ${between(ctx.from, ctx.to)} GROUP BY "device"`;
   const people = await prisma.$queryRaw`
     SELECT d::text AS device, count(DISTINCT "userId")::int AS users
-    FROM "analytics_user_daily" CROSS JOIN LATERAL unnest("devices") d WHERE ${dailyFilter(scoped)} AND ${between(ctx.from, ctx.to)} GROUP BY d`;
+    FROM ${src(ctx, 'userDaily')} CROSS JOIN LATERAL unnest("devices") d WHERE ${dailyFilter(scoped)} AND ${between(ctx.from, ctx.to)} GROUP BY d`;
   const peopleByDevice = new Map(people.map((row) => [row.device, row.users]));
   const totalVisits = visitRows.reduce((sum, row) => sum + row.visits, 0);
   const distribution = DEVICE_CLASSES.map((device) => {
@@ -440,7 +573,7 @@ export async function devicesReport(ctx) {
 
   const trendRows = await prisma.$queryRaw`
     SELECT to_char("localDate", 'YYYY-MM-DD') AS date, "device", "count"::float8 AS visits
-    FROM "analytics_rollups" WHERE "tenantId" = ${ctx.tenantId} AND "fact" = 'VISIT' AND "role" = ${ctx.role ?? 'ALL'} AND "device" IN (${Prisma.join(DEVICE_CLASSES)})
+    FROM ${src(ctx, 'rollups')} WHERE "tenantId" = ${ctx.tenantId} AND "fact" = 'VISIT' AND "role" = ${ctx.role ?? 'ALL'} AND "device" IN (${Prisma.join(DEVICE_CLASSES)})
       AND ${between(ctx.from, ctx.to)}`;
   const trend = new Map();
   for (const row of trendRows) {
@@ -454,7 +587,7 @@ export async function devicesReport(ctx) {
   if (ctx.from >= ctx.rawFloor) {
     const rows = await prisma.$queryRaw`
       SELECT r::text AS role, "deviceClass"::text AS device, count(*)::float8 AS visits, count(DISTINCT "userId")::int AS users
-      FROM "analytics_visits" CROSS JOIN LATERAL unnest("rolesHeld") r
+      FROM ${src(ctx, 'visits')} CROSS JOIN LATERAL unnest("rolesHeld") r
       WHERE ${rawFilter(scoped, Prisma.sql`"startedAt"`)} GROUP BY 1, 2`;
     byRole = (ctx.role ? [ctx.role] : ROLE_KEYS).map((role) => {
       const cells = DEVICE_CLASSES.map((device) => {
@@ -469,9 +602,9 @@ export async function devicesReport(ctx) {
   const buckets = await factTotals(ctx, 'VISIT_DURATION');
   const [visitTotals] = await prisma.$queryRaw`
     SELECT COALESCE(sum("count"), 0)::float8 AS visits, COALESCE(sum("durationMs"), 0)::float8 AS ms, COALESCE(sum("durationSamples"), 0)::float8 AS samples, COALESCE(max("uniqueUsers"), 0)::int AS peak
-    FROM "analytics_rollups" WHERE ${rollupFilter(ctx, 'VISIT')} AND ${between(ctx.from, ctx.to)}`;
+    FROM ${src(ctx, 'rollups')} WHERE ${rollupFilter(ctx, 'VISIT')} AND ${between(ctx.from, ctx.to)}`;
   const [pageTime] = await prisma.$queryRaw`
-    SELECT COALESCE(sum("durationMs"), 0)::float8 AS ms FROM "analytics_rollups" WHERE ${rollupFilter(ctx, 'PAGE')} AND ${between(ctx.from, ctx.to)}`;
+    SELECT COALESCE(sum("durationMs"), 0)::float8 AS ms FROM ${src(ctx, 'rollups')} WHERE ${rollupFilter(ctx, 'PAGE')} AND ${between(ctx.from, ctx.to)}`;
   const period = await periodTotals(ctx, ctx.from, ctx.to);
   return {
     meta: meta(ctx),
@@ -486,6 +619,8 @@ export async function devicesReport(ctx) {
       visitsPerUser: ratio(visitTotals.visits, period.users),
     },
     durations: VISIT_BUCKETS.map(([key]) => ({ bucket: key, visits: buckets.get(key)?.count ?? 0, share: ratio(buckets.get(key)?.count ?? 0, visitTotals.visits) })),
+    browsers: await visitDistribution(ctx, 'browser'),
+    operatingSystems: await visitDistribution(ctx, 'os'),
   };
 }
 
@@ -510,9 +645,25 @@ export async function dataHealthReport(ctx, { rejections = {} } = {}) {
   const [oldest] = await prisma.$queryRaw`
     SELECT to_char(min(${localDateSql(Prisma.sql`"startedAt"`, ctx.tz)}), 'YYYY-MM-DD') AS date FROM "analytics_page_views" WHERE "tenantId" = ${ctx.tenantId}`;
   const [excluded] = await prisma.$queryRaw`SELECT count(*)::int AS accounts FROM "users" WHERE "tenantId" = ${ctx.tenantId} AND "analyticsExcludedAt" IS NOT NULL`;
-  const tenant = await prisma.tenant.findUnique({ where: { id: ctx.tenantId }, select: { analyticsEnabled: true, analyticsStartedAt: true } });
+  const tenant = await prisma.tenant.findUnique({ where: { id: ctx.tenantId }, select: { analyticsEnabled: true, analyticsStartedAt: true, analyticsDemoEnabled: true } });
+  const [sample] = await prisma.$queryRaw`SELECT max("bucketStart") AS at FROM "analytics_concurrency" WHERE "tenantId" = ${ctx.tenantId}`;
+  const dataset = await demoCoverage(ctx.tenantId);
   return {
     meta: meta(ctx),
+    // "Include demo data": reporting only. The dataset lives in analytics_demo_* tables and is never a portal account.
+    demo: {
+      enabled: tenant.analyticsDemoEnabled,
+      dataset,
+      // Generated before today: the most recent days have no demo history until it is regenerated.
+      stale: Boolean(dataset && dataset.coversTo < ctx.today),
+      // Rows held per demo table (all zero after a reset).
+      records: await demoRecordCounts(ctx.tenantId),
+    },
+    live: {
+      presenceWindowSeconds: Math.round(config.presenceTtlMs / 1000),
+      sampleIntervalSeconds: Math.round(config.presenceSampleMs / 1000),
+      lastSampleAt: sample?.at ?? null,
+    },
     collection: {
       deploymentEnabled: config.enabled,
       institutionEnabled: tenant.analyticsEnabled,

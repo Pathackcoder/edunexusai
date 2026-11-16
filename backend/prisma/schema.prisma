@@ -120,6 +120,9 @@ model Tenant {
   analyticsEnabled    Boolean   @default(false)
   /// When collection was first switched on; reports never claim data from before this moment.
   analyticsStartedAt  DateTime?
+  /// "Include demo data" (Admin → Analytics → Data health): reports add the synthetic analytics_demo_* dataset.
+  /// Changes nothing outside Analytics reporting.
+  analyticsDemoEnabled Boolean   @default(false)
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
@@ -192,6 +195,15 @@ model Tenant {
   analyticsRollups        AnalyticsRollup[]
   analyticsRollupRuns     AnalyticsRollupRun[]
   userPermissions         UserPermission[]
+  analyticsPresence       AnalyticsPresence[]
+  analyticsConcurrency    AnalyticsConcurrency[]
+  analyticsDemoDataset    AnalyticsDemoDataset?
+  analyticsDemoPeople     AnalyticsDemoPerson[]
+  analyticsDemoRollups    AnalyticsDemoRollup[]
+  analyticsDemoConcurrency AnalyticsDemoConcurrency[]
+  nexoraConversations     NexoraConversation[]
+  nexoraActions           NexoraAction[]
+  viewAsSessions          ViewAsSession[]
 
   @@map("tenants")
 }
@@ -280,6 +292,11 @@ model User {
   analyticsEvents      AnalyticsEvent[]
   analyticsUserDays    AnalyticsUserDaily[]
   permissions          UserPermission[]
+  analyticsPresence    AnalyticsPresence[]
+  nexoraConversations  NexoraConversation[]
+  nexoraActions        NexoraAction[]
+  viewAsSessionsActed  ViewAsSession[]      @relation("ViewAsActor")
+  viewAsSessionsViewed ViewAsSession[]      @relation("ViewAsSubject")
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -982,6 +999,9 @@ model Notification {
   sourceRefId     String?
   sourceCourseId  String?
   createdByUserId String?
+  /// Urgent announcements: shown as a popup until the recipient acknowledges it (acknowledgedAt).
+  requiresAck     Boolean   @default(false)
+  acknowledgedAt  DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -991,6 +1011,7 @@ model Notification {
 
   @@index([tenantId])
   @@index([userId, isRead])
+  @@index([userId, requiresAck, acknowledgedAt])
   @@index([sourceType, sourceRefId])
   @@map("notifications")
 }
@@ -2442,6 +2463,9 @@ model AnalyticsVisit {
   entryPageKey String?         @db.VarChar(64)
   startedAt    DateTime
   lastSeenAt   DateTime
+  /// Normalised browser and operating system (shared/analyticsAgent.js); null on visits recorded before they were measured.
+  browser      String?         @db.VarChar(12)
+  os           String?         @db.VarChar(12)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -2570,6 +2594,217 @@ model AnalyticsRollupRun {
   @@map("analytics_rollup_runs")
 }
 
+/// LIVE. One row per signed-in person whose portal is open and in use right now (heartbeat from any of their tabs; the
+/// row is per person, so tabs and windows never count twice). Present = lastSeenAt within the presence window
+/// (ANALYTICS_PRESENCE_TTL_SECONDS). Deleted at sign-out; rows older than a day are removed by the sampler.
+model AnalyticsPresence {
+  tenantId    String
+  userId      String
+  firstSeenAt DateTime
+  lastSeenAt  DateTime
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, userId])
+  @@index([tenantId, lastSeenAt])
+  @@index([userId])
+  @@map("analytics_presence")
+}
+
+/// AGGREGATED. Distinct people present, sampled about once a minute; each 5-minute bucket keeps its highest sample.
+/// A bucket with no row was not measured (collection off, API down), which is not the same as a measured zero.
+model AnalyticsConcurrency {
+  tenantId    String
+  bucketStart DateTime
+  users       Int
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, bucketStart])
+  @@map("analytics_concurrency")
+}
+
+// ---------------------------------------------------------------------------
+// Demo analytics dataset (modules/analytics/demoService.js). Analytics-only storage, read by reports only while the
+// institution's "Include demo data" switch is on. Synthetic people live in analytics_demo_people (ids "demo-…",
+// addresses @example.invalid); nothing here references "users", and no other part of the portal reads these tables.
+// The raw tables mirror the real ones column for column, so the same aggregation code builds the demo rollups.
+// ---------------------------------------------------------------------------
+
+model AnalyticsDemoDataset {
+  tenantId    String   @id
+  seed        Int
+  generatedAt DateTime
+  coversFrom  DateTime @db.Date
+  coversTo    DateTime @db.Date
+  people      Int
+  online      Int
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("analytics_demo_datasets")
+}
+
+model AnalyticsDemoPerson {
+  id            String          @id
+  tenantId      String
+  firstName     String
+  lastName      String
+  email         String
+  /// Synthetic student or employee number ("DEMO-S-00042").
+  institutionId String          @db.VarChar(24)
+  rolesHeld     RoleKey[]
+  /// ACTIVE | SUSPENDED | INVITED
+  status        String          @db.VarChar(12)
+  /// One of the simulated currently-online people (exactly 150 per dataset).
+  online        Boolean         @default(false)
+  deviceClass   AnalyticsDevice
+  browser       String          @db.VarChar(12)
+  os            String          @db.VarChar(12)
+  lastLoginAt   DateTime?
+  createdAt     DateTime
+
+  tenant        Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  visits        AnalyticsDemoVisit[]
+  pageViews     AnalyticsDemoPageView[]
+  events        AnalyticsDemoEvent[]
+  days          AnalyticsDemoUserDaily[]
+  notifications AnalyticsDemoNotification[]
+
+  @@index([tenantId, lastLoginAt])
+  @@index([tenantId, online])
+  @@map("analytics_demo_people")
+}
+
+model AnalyticsDemoVisit {
+  id           String          @id @db.Uuid
+  tenantId     String
+  userId       String
+  rolesHeld    RoleKey[]
+  authMethod   String          @db.VarChar(12)
+  deviceClass  AnalyticsDevice
+  entryPageKey String?         @db.VarChar(64)
+  startedAt    DateTime
+  lastSeenAt   DateTime
+  browser      String?         @db.VarChar(12)
+  os           String?         @db.VarChar(12)
+
+  person AnalyticsDemoPerson @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, startedAt])
+  @@index([userId])
+  @@map("analytics_demo_visits")
+}
+
+model AnalyticsDemoPageView {
+  id          String          @id @db.Uuid
+  tenantId    String
+  userId      String
+  visitId     String          @db.Uuid
+  pageKey     String          @db.VarChar(64)
+  rolesHeld   RoleKey[]
+  contextRole String          @db.VarChar(12)
+  deviceClass AnalyticsDevice
+  startedAt   DateTime
+  lastSeenAt  DateTime
+  visibleMs   Int             @default(0)
+
+  person AnalyticsDemoPerson @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, startedAt])
+  @@index([userId])
+  @@map("analytics_demo_page_views")
+}
+
+model AnalyticsDemoEvent {
+  id          String           @id @db.Uuid
+  tenantId    String
+  userId      String
+  visitId     String?          @db.Uuid
+  pageViewId  String?          @db.Uuid
+  name        String           @db.VarChar(32)
+  pageKey     String?          @db.VarChar(64)
+  subjectKey  String?          @db.VarChar(64)
+  action      String?          @db.VarChar(32)
+  source      String?          @db.VarChar(24)
+  rolesHeld   RoleKey[]
+  deviceClass AnalyticsDevice?
+  occurredAt  DateTime
+  receivedAt  DateTime         @default(now())
+
+  person AnalyticsDemoPerson @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, occurredAt])
+  @@index([tenantId, name, occurredAt])
+  @@index([userId])
+  @@map("analytics_demo_events")
+}
+
+model AnalyticsDemoUserDaily {
+  tenantId  String
+  localDate DateTime          @db.Date
+  userId    String
+  rolesHeld RoleKey[]
+  devices   AnalyticsDevice[]
+  visits    Int               @default(0)
+  pageViews Int               @default(0)
+  visibleMs Int               @default(0)
+
+  person AnalyticsDemoPerson @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, localDate, userId])
+  @@index([userId])
+  @@map("analytics_demo_user_daily")
+}
+
+model AnalyticsDemoRollup {
+  tenantId        String
+  localDate       DateTime @db.Date
+  fact            String   @db.VarChar(24)
+  subjectKey      String   @db.VarChar(64)
+  role            String   @db.VarChar(12)
+  device          String   @db.VarChar(12)
+  count           Int
+  uniqueUsers     Int
+  durationMs      BigInt   @default(0)
+  durationSamples Int      @default(0)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, localDate, fact, subjectKey, role, device])
+  @@index([tenantId, fact, localDate])
+  @@map("analytics_demo_rollups")
+}
+
+model AnalyticsDemoConcurrency {
+  tenantId    String
+  bucketStart DateTime
+  users       Int
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, bucketStart])
+  @@map("analytics_demo_concurrency")
+}
+
+model AnalyticsDemoNotification {
+  id         String    @id @db.Uuid
+  tenantId   String
+  userId     String
+  category   String
+  sourceType String
+  isRead     Boolean   @default(false)
+  readAt     DateTime?
+  createdAt  DateTime
+
+  person AnalyticsDemoPerson @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([userId])
+  @@map("analytics_demo_notifications")
+}
+
 /// A named permission held by one account on top of its role (CHECK: known permissions only).
 /// `analytics.view`: may open Admin → Analytics; the account must also hold ADMIN.
 model UserPermission {
@@ -2586,4 +2821,153 @@ model UserPermission {
   @@unique([userId, permission])
   @@index([tenantId, permission])
   @@map("user_permissions")
+}
+
+// ===========================================================================
+// Nexora: the AI workspace (modules/nexora)
+// ===========================================================================
+//
+// A conversation belongs to exactly one user of one institution; every read and write is scoped by both, taken
+// from the authenticated session. Messages keep what the person saw: their own text, Nexora's reply text and
+// presentation blocks (action cards). Raw tool results (grades, rosters, records) are never stored here, and no
+// credential or token ever is. Actions are the only way Nexora changes anything: a tool proposes one (PENDING),
+// and only the person's own confirm request executes it, through the module's existing service.
+
+enum NexoraActionStatus {
+  PENDING
+  EXECUTED
+  FAILED
+  CANCELLED
+  EXPIRED
+}
+
+model NexoraConversation {
+  id            String    @id @default(uuid())
+  tenantId      String
+  userId        String
+  title         String    @default("New conversation")
+  lastMessageAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages NexoraMessage[]
+  actions  NexoraAction[]
+
+  @@index([tenantId, userId, updatedAt])
+  @@map("nexora_conversations")
+}
+
+model NexoraMessage {
+  id             String   @id @default(uuid())
+  conversationId String
+  /// user | assistant | event (the outcome of a confirmed or cancelled action)
+  role           String
+  content        String
+  /// Presentation blocks shown with the turn (action previews, slot pickers). Never raw academic records.
+  blocks         Json?
+  /// Which tools ran for this turn and how each ended (names and outcomes only: no arguments, no results).
+  toolActivity   Json?
+  /// COMPLETE | INTERRUPTED | ERROR
+  status         String   @default("COMPLETE")
+  createdAt      DateTime @default(now())
+
+  conversation NexoraConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("nexora_messages")
+}
+
+model NexoraAction {
+  id             String             @id @default(uuid())
+  tenantId       String
+  userId         String
+  conversationId String
+  /// Registered action tool (modules/nexora/tools).
+  tool           String
+  /// Server-resolved arguments the confirm step executes with (ids the server verified, never a role or user id).
+  payload        Json
+  /// What the person is shown before confirming.
+  preview        Json
+  status         NexoraActionStatus @default(PENDING)
+  /// What the existing service returned (reference numbers, recipient counts), or why it failed.
+  result         Json?
+  errorMessage   String?
+  expiresAt      DateTime
+  decidedAt      DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversation NexoraConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, status])
+  @@index([conversationId])
+  @@map("nexora_actions")
+}
+
+// ===========================================================================
+// View-As: read-only support access to a student's or faculty member's portal (modules/viewAs)
+// ===========================================================================
+//
+// The administrator stays the authenticated actor (their own access token); the session only names the subject
+// whose portal they may look at, as which persona, until when. The bearer secret handed to the View-As tab is never
+// stored: only its SHA-256. Every start, end, expiry and blocked action is also in audit_logs.
+
+enum ViewAsStatus {
+  ACTIVE
+  ENDED
+  EXPIRED
+  REVOKED
+}
+
+model ViewAsSession {
+  id            String       @id @default(uuid())
+  tenantId      String
+  actorUserId   String
+  subjectUserId String
+  /// STUDENT | FACULTY: the one portal persona this session shows.
+  persona       String
+  /// Always READ_ONLY (kept explicit so a later mode cannot be mistaken for this one).
+  mode          String       @default("READ_ONLY")
+  reason        String
+  tokenHash     String       @unique
+  status        ViewAsStatus @default(ACTIVE)
+  createdAt     DateTime     @default(now())
+  expiresAt     DateTime
+  lastSeenAt    DateTime     @default(now())
+  endedAt       DateTime?
+  /// ENDED_BY_ADMIN | ENDED_FROM_ADMIN_TAB | ABSOLUTE_TIMEOUT | IDLE_TIMEOUT | ACCESS_REVOKED | SUBJECT_INELIGIBLE
+  endReason     String?
+  requestCount  Int          @default(0)
+  blockedCount  Int          @default(0)
+
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actor        User                @relation("ViewAsActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+  subject      User                @relation("ViewAsSubject", fields: [subjectUserId], references: [id], onDelete: Cascade)
+  accessEvents ViewAsAccessEvent[]
+
+  @@index([tenantId, actorUserId, status])
+  @@index([subjectUserId, createdAt])
+  @@map("view_as_sessions")
+}
+
+/// What a View-As session looked at: one row per API read, with the route template (ids replaced), never a body.
+model ViewAsAccessEvent {
+  id        String   @id @default(uuid())
+  sessionId String
+  method    String
+  /// Route with identifiers replaced by :id, e.g. /api/v1/academics/courses/:id
+  route     String
+  /// First path segment after /api/v1 (academics, finance, lms, ...)
+  area      String
+  status    Int
+  createdAt DateTime @default(now())
+
+  session ViewAsSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@map("view_as_access_events")
 }

@@ -53,7 +53,7 @@ export const NotificationsPage = () => {
         description={`Centralized stream of academic deadlines, bursar billing notices, and department updates for ${user?.fullName ?? 'your account'}.`}
         actions={
           unreadCount > 0 && (
-            <Button variant="outline" size="sm" icon={DoneAllRoundedIcon} onClick={handleMarkAllRead}>
+            <Button variant="outline" size="sm" icon={DoneAllRoundedIcon} onClick={handleMarkAllRead} mutates>
               Mark all as read
             </Button>
           )

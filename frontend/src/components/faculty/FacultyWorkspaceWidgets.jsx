@@ -17,6 +17,7 @@ import { statusTone } from '../workflows/status';
 import { CardFootnote } from '../common/Section';
 import { FitList, Spotlight, WidgetEmpty } from '../common/FitList';
 import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
+import { ReadOnlyGate } from '../../viewAs/ReadOnly';
 
 /**
  * Faculty dashboard widgets. Each is self-contained so the dashboard can render them as
@@ -171,7 +172,7 @@ export function FollowUpDialog({ open, onClose, onSaved, courses = [] }) {
     }
   };
   return (
-    <Modal isOpen={open} onClose={onClose} title="Add task or student follow-up" footer={<Button type="submit" form="faculty-followup" variant="contained" disabled={saving}>Save follow-up</Button>}>
+    <Modal isOpen={open} onClose={onClose} title="Add task or student follow-up" footer={<ReadOnlyGate><Button type="submit" form="faculty-followup" variant="contained" disabled={saving}>Save follow-up</Button></ReadOnlyGate>}>
       <Stack component="form" id="faculty-followup" onSubmit={save} spacing={2}>
         {error && <Alert severity="error">{error}</Alert>}
         <TextField select label="Type" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>

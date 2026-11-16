@@ -28,7 +28,7 @@ export const SPOOL_TTL_MS = 24 * 60 * 60 * 1000;
 const VISIT_KEY = 'edunexus.analytics.visit';
 const spoolKey = (userId) => `edunexus.analytics.spool.${userId}`;
 
-/** Device class from two facts only (pointer type and the shorter screen side). The user agent is never read. */
+/** Device class from two facts only (pointer type and the shorter screen side). */
 export function classifyDevice({ coarsePointer, shortSide }) {
   if (coarsePointer && shortSide < 600) return 'MOBILE';
   if (coarsePointer) return 'TABLET';
@@ -60,7 +60,11 @@ export function resolveVisit(storage, userId, now, uuid, memory = null) {
   return visit;
 }
 
-export function createTracker({ userId, now, uuid, storage, send, isVisible, deviceClass }) {
+/**
+ * `agent()` returns { browser, os }: category keys only (shared/analyticsAgent.js). The user-agent string is read in
+ * the browser to work them out and is never sent.
+ */
+export function createTracker({ userId, now, uuid, storage, send, isVisible, deviceClass, agent = () => ({}) }) {
   let enabled = true;
   let queue = [];
   let page = null;
@@ -137,7 +141,7 @@ export function createTracker({ userId, now, uuid, storage, send, isVisible, dev
     try {
       outcome = await send({
         schemaVersion: ANALYTICS_SCHEMA_VERSION, sentAt: iso(now()), visitId: first.visitId, visitStartedAt: first.visitStartedAt,
-        deviceClass: deviceClass(), events: batch.map((item) => item.event),
+        deviceClass: deviceClass(), ...agent(), events: batch.map((item) => item.event),
       });
     } catch {
       outcome = 'error';

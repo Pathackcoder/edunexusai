@@ -27,6 +27,7 @@ import { DataState } from '../../components/common/DataState';
 import { useToast } from '../../components/common/Toast';
 import { useApiQuery } from '../../hooks/useApiQuery';
 import { careerApi } from '../../services/api';
+import { ReadOnlyGate } from '../../viewAs/ReadOnly';
 
 const SECTIONS = [
   { key: 'skills', kind: 'SKILL', title: 'Skills', icon: PsychologyOutlinedIcon, tone: 'primary' },
@@ -111,7 +112,7 @@ export const PortfolioPage = () => {
                             </Box>
                             <Stack direction="row" className="row-actions" sx={{ opacity: { xs: 1, md: 0 }, transition: 'opacity 160ms ease' }}>
                               <IconButton size="small" aria-label={`Edit ${item.title}`} onClick={() => open('SKILL', item)}><EditOutlinedIcon fontSize="small" /></IconButton>
-                              <IconButton size="small" aria-label={`Remove ${item.title}`} onClick={() => remove(item)}><DeleteOutlineRoundedIcon fontSize="small" /></IconButton>
+                              <ReadOnlyGate><IconButton size="small" aria-label={`Remove ${item.title}`} onClick={() => remove(item)}><DeleteOutlineRoundedIcon fontSize="small" /></IconButton></ReadOnlyGate>
                             </Stack>
                           </Stack>
                         ))}
@@ -126,7 +127,7 @@ export const PortfolioPage = () => {
                             </Box>
                             <Stack direction="row" className="row-actions" sx={{ opacity: { xs: 1, md: 0 }, transition: 'opacity 160ms ease' }}>
                               <IconButton size="small" aria-label={`Edit ${item.title}`} onClick={() => open(section.kind, item)}><EditOutlinedIcon fontSize="small" /></IconButton>
-                              <IconButton size="small" aria-label={`Remove ${item.title}`} onClick={() => remove(item)}><DeleteOutlineRoundedIcon fontSize="small" /></IconButton>
+                              <ReadOnlyGate><IconButton size="small" aria-label={`Remove ${item.title}`} onClick={() => remove(item)}><DeleteOutlineRoundedIcon fontSize="small" /></IconButton></ReadOnlyGate>
                             </Stack>
                           </Stack>
                           {item.description && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{item.description}</Typography>}
@@ -144,7 +145,7 @@ export const PortfolioPage = () => {
           </Stack>
         )}
       </DataState>
-      <Modal isOpen={Boolean(editing)} onClose={() => setEditing(null)} title={`${editing?.id ? 'Edit' : 'Add'} ${SECTIONS.find((s) => s.kind === editing?.kind)?.title.toLowerCase().replace(/s$/, '') ?? 'item'}`} footer={<Button onClick={save} loading={saving}>Save</Button>}>
+      <Modal isOpen={Boolean(editing)} onClose={() => setEditing(null)} title={`${editing?.id ? 'Edit' : 'Add'} ${SECTIONS.find((s) => s.kind === editing?.kind)?.title.toLowerCase().replace(/s$/, '') ?? 'item'}`} footer={<Button mutates onClick={save} loading={saving}>Save</Button>}>
         <Stack spacing={2}>
           <TextField label={editing?.kind === 'SKILL' ? 'Skill' : 'Title'} required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           {editing?.kind === 'SKILL' ? (

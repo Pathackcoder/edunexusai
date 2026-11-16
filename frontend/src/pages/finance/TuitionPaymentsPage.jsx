@@ -83,11 +83,11 @@ export const TuitionPaymentsPage = () => {
             </Button>
 
             {financeData.currentBalance === 0 ? (
-              <Button variant="outline" size="sm" icon={RestartAltRoundedIcon} onClick={handleResetBalance}>
+              <Button variant="outline" size="sm" icon={RestartAltRoundedIcon} onClick={handleResetBalance} mutates>
                 Reset Demo ($4,280)
               </Button>
             ) : (
-              <Button variant="primary" size="sm" icon={CreditCardRoundedIcon} onClick={() => setIsPaymentModalOpen(true)}>
+              <Button variant="primary" size="sm" icon={CreditCardRoundedIcon} onClick={() => setIsPaymentModalOpen(true)} mutates>
                 Make Payment
               </Button>
             )}

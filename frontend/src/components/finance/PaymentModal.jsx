@@ -287,7 +287,7 @@ export const PaymentModal = ({ isOpen, onClose, currentBalance, onPaymentSuccess
               <Button variant="secondary" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button type="submit" variant="primary" disabled={selectedAmount <= 0}>
+              <Button type="submit" variant="primary" disabled={selectedAmount <= 0} mutates>
                 Pay ${selectedAmount.toFixed(2)} Now
               </Button>
             </Stack>

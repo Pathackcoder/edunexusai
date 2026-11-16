@@ -130,7 +130,7 @@ export const CommunicationPreferencesSection = ({ preferences: initialPreference
         </TableContainer>
 
         <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2.25 }}>
-          <Button type="submit" variant="primary" icon={SaveOutlinedIcon} loading={isSaving}>
+          <Button type="submit" variant="primary" icon={SaveOutlinedIcon} loading={isSaving} mutates>
             Save Preferences
           </Button>
         </Stack>

@@ -3,13 +3,22 @@ import { formatTimeAgo } from '../../utils/format.js';
 import { badRequest, notFound } from '../../utils/errors.js';
 import { notifyUsers } from '../notifications/notificationService.js';
 import { recordAudit } from '../audit/auditService.js';
+import { publishToUsers } from '../chat/chatSocket.js';
+import { logger } from '../../utils/logger.js';
 
 /**
  * Communication Center broadcasts. Sending one resolves the audience against real
  * users and writes in-app notifications through the shared notification table, so
  * "open rate" is the share of those notifications that were read. Email / SMS / push
  * channels are recorded as requested but not delivered (no providers are connected).
+ *
+ * Urgent broadcasts (priority "urgent") must be acknowledged: each recipient's notification is marked
+ * requiresAck, the portal shows it as a popup until they press OK, and signed-in recipients are signalled
+ * over the realtime socket right after delivery (others see it at their next sign-in or page load).
  */
+
+/** INDIVIDUAL audiences: one or more emails or student numbers, separated by commas, semicolons or new lines. */
+export const parseIndividuals = (value) => [...new Set(String(value ?? '').split(/[,;\n]/).map((part) => part.trim()).filter(Boolean))];
 
 export async function resolveAudience(tenantId, { audienceType, audienceValue }, client = prisma) {
   const active = { tenantId, status: 'ACTIVE' };
@@ -39,9 +48,16 @@ export async function resolveAudience(tenantId, { audienceType, audienceValue },
     case 'COURSE':
       where = { ...active, studentProfile: { enrollments: { some: { course: { code: audienceValue ?? '' } } } } };
       break;
-    case 'INDIVIDUAL':
-      where = { ...active, OR: [{ email: { equals: audienceValue ?? '', mode: 'insensitive' } }, { studentProfile: { studentNumber: audienceValue ?? '' } }] };
+    case 'INDIVIDUAL': {
+      const people = parseIndividuals(audienceValue);
+      where = {
+        ...active,
+        OR: people.length
+          ? people.flatMap((person) => [{ email: { equals: person, mode: 'insensitive' } }, { studentProfile: { studentNumber: person } }])
+          : [{ id: { in: [] } }],
+      };
       break;
+    }
     case 'STATUS':
       where = !audienceValue || /follow-up/i.test(audienceValue)
         ? { ...active, studentProfile: { interventions: { some: { status: { not: 'RESOLVED' } } } } }
@@ -60,6 +76,14 @@ async function presentAll(tenantId, rows) {
     ? await prisma.notification.groupBy({
         by: ['sourceRefId', 'isRead'],
         where: { tenantId, sourceType: 'BROADCAST', sourceRefId: { in: ids } },
+        _count: { _all: true },
+      })
+    : [];
+  // Urgent broadcasts: how many recipients had to acknowledge (sent before acknowledgements existed: none) and how many did.
+  const acknowledgements = ids.length
+    ? await prisma.notification.groupBy({
+        by: ['sourceRefId', 'acknowledgedAt'],
+        where: { tenantId, sourceType: 'BROADCAST', sourceRefId: { in: ids }, requiresAck: true },
         _count: { _all: true },
       })
     : [];
@@ -87,6 +111,12 @@ async function presentAll(tenantId, rows) {
       recipientsEst: row.recipientCount,
       readCount: read,
       openRate: total ? `${Math.round((read / total) * 100)}%` : '0%',
+      ...(() => {
+        const acks = acknowledgements.filter((ack) => ack.sourceRefId === row.id);
+        const required = acks.reduce((sum, ack) => sum + ack._count._all, 0);
+        const acknowledged = acks.filter((ack) => ack.acknowledgedAt).reduce((sum, ack) => sum + ack._count._all, 0);
+        return { acknowledgementsRequired: required || null, acknowledgedCount: required ? acknowledged : null };
+      })(),
     };
   });
 }
@@ -116,9 +146,11 @@ export async function previewAudience(auth, audience) {
 }
 
 async function deliver(auth, id) {
-  return prisma.$transaction(async (tx) => {
+  const { userIds, mustAcknowledge } = await prisma.$transaction(async (tx) => {
     const broadcast = await tx.communicationBroadcast.findUnique({ where: { id } });
     const userIds = await resolveAudience(auth.tenantId, broadcast, tx);
+    // The sender is not asked to acknowledge their own announcement.
+    const mustAcknowledge = broadcast.priority === 'urgent' ? userIds.filter((userId) => userId !== broadcast.createdByUserId) : [];
     await notifyUsers(
       {
         tenantId: auth.tenantId,
@@ -131,6 +163,7 @@ async function deliver(auth, id) {
         sourceType: 'BROADCAST',
         sourceRefId: broadcast.id,
         createdByUserId: broadcast.createdByUserId,
+        requiresAckUserIds: mustAcknowledge,
       },
       tx,
     );
@@ -142,8 +175,16 @@ async function deliver(auth, id) {
       { tenantId: auth.tenantId, actorUserId: auth.userId, action: 'BROADCAST_SENT', entityType: 'CommunicationBroadcast', entityId: id, summary: `Broadcast sent to ${userIds.length} recipient(s): ${broadcast.title}` },
       tx,
     );
-    return userIds.length;
+    return { userIds, mustAcknowledge };
   });
+  // After the commit, so a recipient's client that fetches straight away finds the announcement. Delivery is
+  // already stored: anyone not signed in (or if this signal fails) sees it at their next page load.
+  try {
+    publishToUsers(mustAcknowledge, 'notifications:urgent');
+  } catch (error) {
+    logger.warn('[broadcast] urgent announcement signal failed', { code: error?.code });
+  }
+  return userIds.length;
 }
 
 /** action: DRAFT (save), SEND (now) or SCHEDULE (scheduledFor). */

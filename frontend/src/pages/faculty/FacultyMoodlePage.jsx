@@ -24,6 +24,7 @@ import { MoodleUnavailablePart } from '../../components/lms/MoodleNotice';
 import { useApiQuery } from '../../hooks/useApiQuery';
 import { facultyMoodleApi } from '../../services/api';
 import { trackFeature } from '../../analytics/index.js';
+import { useReadOnly } from '../../viewAs/ReadOnly';
 
 const when = (iso) => (iso ? new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—');
 const SUBMISSION = { submitted: 'Submitted', draft: 'Draft', new: 'Not submitted', reopened: 'Reopened' };
@@ -106,6 +107,8 @@ function GradeRow({ row, assignment, canSave, onSave }) {
 function AssignmentGrading({ courseId, assignmentId }) {
   const { showToast } = useToast();
   const { data, loading, error, refetch } = useApiQuery(() => facultyMoodleApi.submissions(courseId, assignmentId), [courseId, assignmentId]);
+  // Read-only View-As: grades are shown but cannot be saved to Moodle.
+  const readOnly = useReadOnly();
   const save = async (row, body) => {
     try {
       const result = await facultyMoodleApi.saveGrade(courseId, assignmentId, row.moodleUserId, body);
@@ -138,7 +141,7 @@ function AssignmentGrading({ courseId, assignmentId }) {
                 </TableHead>
                 <TableBody>
                   {data.students.map((row) => (
-                    <GradeRow key={row.moodleUserId} row={row} assignment={data.assignment} canSave={data.capabilities.saveGrade.available} onSave={save} />
+                    <GradeRow key={row.moodleUserId} row={row} assignment={data.assignment} canSave={data.capabilities.saveGrade.available && !readOnly} onSave={save} />
                   ))}
                 </TableBody>
               </Table>

@@ -22,6 +22,7 @@ import { DataState } from '../../components/common/DataState';
 import { useToast } from '../../components/common/Toast';
 import { useApiQuery } from '../../hooks/useApiQuery';
 import { planningApi } from '../../services/api';
+import { useReadOnly } from '../../viewAs/ReadOnly';
 
 const KIND = { COURSE: { icon: MenuBookOutlinedIcon, label: 'Course' }, RESOURCE: { icon: LinkRoundedIcon, label: 'Resource' }, SKILL: { icon: BuildCircleOutlinedIcon, label: 'Skill' }, MILESTONE: { icon: FlagOutlinedIcon, label: 'Milestone' } };
 const NEXT = { NOT_STARTED: 'IN_PROGRESS', IN_PROGRESS: 'COMPLETED', COMPLETED: 'NOT_STARTED' };
@@ -42,6 +43,7 @@ export const LearningPathPage = () => {
       showToast(caught.message, 'error');
     }
   };
+  const readOnly = useReadOnly();
   const cycle = async (step) => {
     if (step.autoTracked) return;
     try {
@@ -88,7 +90,7 @@ export const LearningPathPage = () => {
                           return (
                             <Stack key={step.id} direction="row" spacing={1.5} alignItems="flex-start" sx={{ p: 1.5, borderRadius: 3, border: 1, borderColor: step.status === 'IN_PROGRESS' ? 'info.light' : 'divider', bgcolor: step.status === 'COMPLETED' ? 'success.lighter' : 'background.subtle' }}>
                               <Tooltip title={step.autoTracked ? 'Tracked from your transcript' : 'Click to update status'}>
-                                <ButtonBase onClick={() => cycle(step)} sx={{ borderRadius: '50%', mt: 0.25 }} aria-label={`Status: ${step.status}`}>
+                                <ButtonBase onClick={() => cycle(step)} disabled={readOnly} sx={{ borderRadius: '50%', mt: 0.25 }} aria-label={`Status: ${step.status}`}>
                                   <StatusIcon sx={{ color: step.status === 'COMPLETED' ? 'success.main' : step.status === 'IN_PROGRESS' ? 'info.main' : 'grey.400' }} />
                                 </ButtonBase>
                               </Tooltip>

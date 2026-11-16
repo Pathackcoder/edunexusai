@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import Tooltip from '@mui/material/Tooltip';
 import { useTheme } from '@mui/material/styles';
 import { WEEKDAYS, WEEKDAYS_LONG, formatHour, formatNumber, niceMax, tickIndexes } from './format.js';
 
@@ -22,6 +23,15 @@ export const ENTITY_COLORS = {
   DESKTOP: '#4651DE', MOBILE: '#eb6834', TABLET: '#0D9488',
 };
 export const SERIES = ['#4651DE', '#eb6834', '#0D9488'];
+/**
+ * Browser and operating-system slices: the validated categorical order (blue, orange, teal, yellow, pink, green),
+ * assigned to each category once so a filter never repaints it; Other and Unknown are neutral greys, not hues.
+ */
+export const CATEGORY_COLORS = {
+  CHROME: '#4651DE', SAFARI: '#eb6834', EDGE: '#0D9488', FIREFOX: '#eda100', OPERA: '#e87ba4',
+  WINDOWS: '#4651DE', MACOS: '#eb6834', IOS: '#0D9488', ANDROID: '#eda100', CHROMEOS: '#e87ba4', LINUX: '#008300',
+  OTHER: '#8a919c', UNKNOWN: '#c3c8d0',
+};
 /** One hue, light to dark, for magnitude (the peak-hours grid). */
 const SEQUENTIAL = ['#cde2fb', '#9ec5f4', '#6da7ec', '#3987e5', '#256abf', '#184f95', '#0d366b'];
 
@@ -76,7 +86,7 @@ function useMeasuredWidth(fallback) {
  * hollow, because the day is not over.
  */
 // `width` is only the starting width; the chart then draws at its container's measured width.
-export function TrendChart({ data, series, height = 220, width: initialWidth = 720, format = formatNumber, ariaLabel }) {
+export function TrendChart({ data, series, height = 220, width: initialWidth = 720, format = formatNumber, ariaLabel, area = false, tipExtra, maxLabels = 7 }) {
   const theme = useTheme();
   const ref = useRef(null);
   const [box, width] = useMeasuredWidth(initialWidth);
@@ -89,7 +99,7 @@ export function TrendChart({ data, series, height = 220, width: initialWidth = 7
   const y = (value) => pad.t + (1 - value / max) * (height - pad.t - pad.b);
   // Quarter steps only when they are whole numbers (people are not shown as 12.5).
   const ticks = Number.isInteger(max / 4) ? [0, max / 4, max / 2, (3 * max) / 4, max] : [0, max / 2, max];
-  const labels = useMemo(() => tickIndexes(data.length, width < 520 ? 4 : 7), [data.length, width]);
+  const labels = useMemo(() => tickIndexes(data.length, width < 520 ? 4 : maxLabels), [data.length, width, maxLabels]);
   const dense = data.length > 45;
 
   const onMove = (event) => {
@@ -127,6 +137,9 @@ export function TrendChart({ data, series, height = 220, width: initialWidth = 7
           <g key={item.key}>
             {runs(item.key).map((run) => (
               <React.Fragment key={run[0][2]}>
+                {area && run.length > 1 && (
+                  <polygon points={`${run[0][0]},${y(0)} ${run.map(([px, py]) => `${px},${py}`).join(' ')} ${run.at(-1)[0]},${y(0)}`} fill={item.color} opacity={0.12} />
+                )}
                 {run.length > 1 && <polyline points={run.map(([px, py]) => `${px},${py}`).join(' ')} fill="none" stroke={item.color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
                 {run.map(([px, py, index]) => {
                   const partial = data[index].partial;
@@ -148,7 +161,8 @@ export function TrendChart({ data, series, height = 220, width: initialWidth = 7
               {item.label}: {data[hover][item.key] == null ? (data[hover].note ?? '—') : format(data[hover][item.key])}
             </Box>
           ))}
-          {data[hover].partial && <Box sx={{ opacity: 0.75 }}>Today so far</Box>}
+          {tipExtra?.(data[hover])}
+          {data[hover].partial && <Box sx={{ opacity: 0.75 }}>{data[hover].partialLabel ?? 'Today so far'}</Box>}
         </Tip>
       )}
     </Box>
@@ -290,21 +304,82 @@ export function ShareBars({ rows, format = formatNumber }) {
   return (
     <Stack spacing={1.25}>
       {rows.map((row) => (
-        <Box key={row.label}>
-          <Stack direction="row" justifyContent="space-between" alignItems="baseline" spacing={1} sx={{ mb: 0.5 }}>
-            <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
-              {row.color && <Box aria-hidden sx={{ width: 10, height: 10, borderRadius: 0.75, bgcolor: row.color, flexShrink: 0 }} />}
-              <Typography variant="body2" fontWeight={600} noWrap>{row.label}</Typography>
+        <Tooltip key={row.label} title={row.tip ?? ''} arrow placement="top-start" enterTouchDelay={0}>
+          <Box tabIndex={row.tip ? 0 : undefined} aria-label={row.tip} sx={{ borderRadius: 1, outline: 'none', '&:focus-visible': { boxShadow: (theme) => `0 0 0 2px ${theme.palette.primary.main}` } }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="baseline" spacing={1} sx={{ mb: 0.5 }}>
+              <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
+                {row.color && <Box aria-hidden sx={{ width: 10, height: 10, borderRadius: 0.75, bgcolor: row.color, flexShrink: 0 }} />}
+                <Typography variant="body2" fontWeight={600} noWrap>{row.label}</Typography>
+              </Stack>
+              <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                {`${format(row.value)}${row.suffix ? ` · ${row.suffix}` : ''}`}
+              </Typography>
             </Stack>
-            <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-              {`${format(row.value)}${row.suffix ? ` · ${row.suffix}` : ''}`}
-            </Typography>
-          </Stack>
-          <Box sx={{ height: 8, borderRadius: 4, bgcolor: 'grey.100', overflow: 'hidden' }}>
-            <Box sx={{ height: '100%', width: `${max > 0 && row.value ? Math.max(2, (row.value / max) * 100) : 0}%`, bgcolor: row.color ?? SERIES[0], borderRadius: 4 }} />
+            <Box sx={{ height: 8, borderRadius: 4, bgcolor: 'grey.100', overflow: 'hidden' }}>
+              <Box sx={{ height: '100%', width: `${max > 0 && row.value ? Math.max(2, (row.value / max) * 100) : 0}%`, bgcolor: row.color ?? SERIES[0], borderRadius: 4 }} />
+            </Box>
           </Box>
-        </Box>
+        </Tooltip>
       ))}
     </Stack>
+  );
+}
+
+/**
+ * Part-to-whole donut with its legend. rows: [{ key, label, value, share, color }]; only non-zero rows are drawn.
+ * Each slice is separated by a 2px surface gap; hovering a slice or its legend row shows the count and share. The
+ * legend always carries the label, count and percentage, so nothing depends on colour alone (and the hosting panel
+ * offers a table view).
+ */
+export function DonutChart({ rows, total, ariaLabel, centerLabel = 'visits', format = formatNumber, formatShare }) {
+  const theme = useTheme();
+  const [hover, setHover] = useState(null);
+  const size = 168;
+  const outer = size / 2;
+  const inner = outer * 0.62;
+  const visible = rows.filter((row) => row.value > 0);
+  let angle = -Math.PI / 2;
+  const point = (radius, theta) => `${outer + radius * Math.cos(theta)} ${outer + radius * Math.sin(theta)}`;
+  const slices = visible.map((row) => {
+    const sweep = (row.value / total) * Math.PI * 2;
+    const start = angle;
+    angle += sweep;
+    const end = angle;
+    const large = sweep > Math.PI ? 1 : 0;
+    const path = sweep >= Math.PI * 2 - 1e-6
+      ? null
+      : `M ${point(outer, start)} A ${outer} ${outer} 0 ${large} 1 ${point(outer, end)} L ${point(inner, end)} A ${inner} ${inner} 0 ${large} 0 ${point(inner, start)} Z`;
+    return { ...row, path };
+  });
+  const active = hover ? visible.find((row) => row.key === hover) : null;
+  return (
+    // Side by side when the card is wide enough, stacked when it is not (decided by the card's width, not the screen's).
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 2.5, minWidth: 0 }}>
+      <Box sx={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+        <Box component="svg" viewBox={`0 0 ${size} ${size}`} role="img" aria-label={ariaLabel} sx={{ width: size, height: size, display: 'block', overflow: 'visible' }} onPointerLeave={() => setHover(null)}>
+          {slices.map((slice) => (slice.path
+            ? <path key={slice.key} d={slice.path} fill={slice.color} stroke={theme.palette.background.paper} strokeWidth={2} strokeLinejoin="round"
+                opacity={hover && hover !== slice.key ? 0.4 : 1} style={{ transition: 'opacity 150ms ease', cursor: 'default' }} onPointerEnter={() => setHover(slice.key)} />
+            : <circle key={slice.key} cx={outer} cy={outer} r={(outer + inner) / 2} fill="none" stroke={slice.color} strokeWidth={outer - inner} onPointerEnter={() => setHover(slice.key)} />))}
+        </Box>
+        <Stack alignItems="center" justifyContent="center" sx={{ position: 'absolute', inset: 0, pointerEvents: 'none', textAlign: 'center', px: 3 }}>
+          <Typography sx={{ fontWeight: 700, fontSize: '1.25rem', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{active ? formatShare(active.share) : format(total)}</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }} noWrap>{active ? active.label : centerLabel}</Typography>
+        </Stack>
+      </Box>
+      <Stack component="ul" spacing={0.25} sx={{ listStyle: 'none', p: 0, m: 0, flex: '1 1 210px', minWidth: 0 }}>
+        {visible.map((row) => (
+          <Stack component="li" key={row.key} direction="row" alignItems="center" spacing={1} tabIndex={0}
+            onPointerEnter={() => setHover(row.key)} onPointerLeave={() => setHover(null)} onFocus={() => setHover(row.key)} onBlur={() => setHover(null)}
+            aria-label={`${row.label}: ${format(row.value)} (${formatShare(row.share)})`}
+            sx={{ px: 0.75, py: 0.5, borderRadius: 1.5, bgcolor: hover === row.key ? 'action.hover' : 'transparent', outline: 'none', '&:focus-visible': { boxShadow: `0 0 0 2px ${theme.palette.primary.main}` } }}>
+            <Box aria-hidden sx={{ width: 10, height: 10, borderRadius: 0.75, bgcolor: row.color, flexShrink: 0 }} />
+            <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 0, flex: 1 }} noWrap>{row.label}</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{format(row.value)}</Typography>
+            <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600, minWidth: 46, textAlign: 'right' }}>{formatShare(row.share)}</Typography>
+          </Stack>
+        ))}
+      </Stack>
+    </Box>
   );
 }

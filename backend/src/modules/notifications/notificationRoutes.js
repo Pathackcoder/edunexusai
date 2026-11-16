@@ -50,3 +50,21 @@ notificationRoutes.patch(
     return sendSuccess(res, result);
   }),
 );
+
+/** Urgent announcements waiting for the signed-in person's acknowledgement (shown as a popup until OK). */
+notificationRoutes.get(
+  '/urgent/pending',
+  asyncHandler(async (req, res) => {
+    const pending = await service.listPendingUrgent(req.auth.tenantId, req.auth.userId);
+    return sendSuccess(res, pending, { count: pending.length });
+  }),
+);
+
+notificationRoutes.post(
+  '/urgent/:id/acknowledge',
+  validate({ params: idParamSchema }),
+  asyncHandler(async (req, res) => {
+    const result = await service.acknowledgeUrgent(req.auth.tenantId, req.auth.userId, req.params.id);
+    return sendSuccess(res, result);
+  }),
+);
