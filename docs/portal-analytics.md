@@ -210,3 +210,21 @@ production builds do not.
 The raw tables, catalogue and permission table are role-neutral, so Faculty, Student and platform (Superadmin)
 analytics can be added as new reports and new permissions. None of them exists, and no cross-tenant access exists:
 every query in this module starts from the signed-in administrator's own institution.
+
+## Overview redesign (branch `feature/analytics-overview-v2`, local, 2026-11-12)
+
+The Overview now leads with **Concurrent active users (live)**, **Total logins** and **Peak concurrent users**, then
+an **Active users by time** chart (24 h / 7 d / 30 d), **Usage by Browser**, **Usage by Operating System** and
+**Usage by Device**, the most used features and pages, and **Users who haven't logged in** (5 / 15 / 30 days, never).
+The DAU/WAU/MAU, Page views and Unique page visitors cards were removed from the Overview.
+
+Live users come from a heartbeat (`POST /api/v1/analytics/presence`, one row per person, cleared at sign-out,
+expires 2 minutes after the last signal). Browser and operating system are detected in the browser and only the
+category is stored. **Include demo data** (Data health) adds an isolated synthetic dataset (520 people, 150 online,
+90 days) to Analytics reports only. Full reference: `docs/ANALYTICS_DOCUMENTATION.md` §13.
+
+Demo data has one switch (`tenants.analyticsDemoEnabled`). `node scripts/analytics-demo.mjs generate --tenant <slug> --apply`
+builds the dataset and switches it on; `reset --tenant <slug> --apply` switches it off and deletes every demo row (never
+real analytics or accounts); the Data health switch hides or shows a kept dataset. Every report returns
+`meta.sources` (real, demo and displayed visits, people and logins), and open Analytics pages reload by themselves
+when the demo state changes.

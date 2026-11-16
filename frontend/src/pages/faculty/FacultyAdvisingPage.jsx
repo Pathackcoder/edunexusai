@@ -17,6 +17,7 @@ import { DataState } from '../../components/common/DataState';
 import { useToast } from '../../components/common/Toast';
 import { useApiQuery } from '../../hooks/useApiQuery';
 import { advisingApi } from '../../services/api';
+import { ReadOnlyGate } from '../../viewAs/ReadOnly';
 
 const when = (iso) => new Date(iso).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
@@ -79,8 +80,8 @@ export const FacultyAdvisingPage = () => {
                     {appt.notes && <Typography variant="body2" color="text.secondary">“{appt.notes}”</Typography>}
                     {appt.meetingUrl && <Link href={appt.meetingUrl} target="_blank" rel="noopener noreferrer" variant="caption">{appt.meetingUrl}</Link>}
                     <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                      <Button size="sm" onClick={() => setStatus(appt, 'COMPLETED')}>Mark complete</Button>
-                      <Button size="sm" variant="ghost" onClick={() => setStatus(appt, 'CANCELLED')}>Cancel</Button>
+                      <Button size="sm" onClick={() => setStatus(appt, 'COMPLETED')} mutates>Mark complete</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setStatus(appt, 'CANCELLED')} mutates>Cancel</Button>
                     </Stack>
                   </Box>
                 ))}
@@ -98,7 +99,7 @@ export const FacultyAdvisingPage = () => {
               </Stack>
               <TextField select label="Format" value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value })}><MenuItem value="VIRTUAL">Virtual</MenuItem><MenuItem value="IN_PERSON">In person</MenuItem></TextField>
               {form.mode === 'IN_PERSON' && <TextField label="Location" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />}
-              <Button onClick={publish} loading={busy}>Publish slots</Button>
+              <Button onClick={publish} loading={busy} mutates>Publish slots</Button>
             </Stack>
           </WidgetCard>
           <WidgetCard title="Your upcoming availability" icon={EventAvailableOutlinedIcon} tone="neutral" hoverable={false}>
@@ -109,7 +110,7 @@ export const FacultyAdvisingPage = () => {
                     <Stack key={slot.id} direction="row" alignItems="center" spacing={1} sx={{ px: 1.25, py: 0.75, borderRadius: 2, border: 1, borderColor: 'divider' }}>
                       <Typography variant="body2" sx={{ flex: 1 }}>{when(slot.startsAt)}</Typography>
                       {slot.bookedBy ? <Badge variant="success">{slot.bookedBy}</Badge> : <Badge variant="neutral">Open</Badge>}
-                      {!slot.bookedBy && <IconButton size="small" aria-label="Remove slot" onClick={() => remove(slot)}><DeleteOutlineRoundedIcon fontSize="small" /></IconButton>}
+                      {!slot.bookedBy && <ReadOnlyGate><IconButton size="small" aria-label="Remove slot" onClick={() => remove(slot)}><DeleteOutlineRoundedIcon fontSize="small" /></IconButton></ReadOnlyGate>}
                     </Stack>
                   ))}
                 </Stack>

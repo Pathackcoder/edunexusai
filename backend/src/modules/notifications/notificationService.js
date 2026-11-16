@@ -1,6 +1,7 @@
 import { prisma } from '../../db/prisma.js';
 import { formatTimeAgo, formatTimestamp } from '../../utils/format.js';
 import { notFound } from '../../utils/errors.js';
+import { recordAudit } from '../audit/auditService.js';
 
 /** Notifications are Edunexus-owned rows, scoped to one recipient. */
 
@@ -94,7 +95,10 @@ export async function notifyUsers({
   sourceType = 'SYSTEM',
   sourceRefId = null,
   createdByUserId = null,
+  // Recipients who must acknowledge it (urgent announcements); a subset of userIds.
+  requiresAckUserIds = [],
 }, client = prisma) {
+  const mustAcknowledge = new Set(requiresAckUserIds);
   const recipients = [...new Set((userIds ?? []).filter(Boolean))];
   if (recipients.length === 0) return { created: 0 };
   const result = await client.notification.createMany({
@@ -109,9 +113,63 @@ export async function notifyUsers({
       sourceType,
       sourceRefId,
       createdByUserId,
+      requiresAck: mustAcknowledge.has(userId),
     })),
   });
   return { created: result.count };
+}
+
+/**
+ * The signed-in person's urgent announcements that still wait for their acknowledgement, oldest first.
+ * An announcement whose broadcast has expired is no longer shown.
+ */
+export async function listPendingUrgent(tenantId, userId) {
+  const rows = await prisma.notification.findMany({
+    where: { tenantId, userId, requiresAck: true, acknowledgedAt: null },
+    orderBy: { createdAt: 'asc' },
+  });
+  const broadcastIds = [...new Set(rows.filter((row) => row.sourceType === 'BROADCAST' && row.sourceRefId).map((row) => row.sourceRefId))];
+  const broadcasts = broadcastIds.length
+    ? await prisma.communicationBroadcast.findMany({ where: { tenantId, id: { in: broadcastIds } }, select: { id: true, expiresAt: true, sentAt: true } })
+    : [];
+  const byId = new Map(broadcasts.map((broadcast) => [broadcast.id, broadcast]));
+  const now = new Date();
+  return rows
+    .filter((row) => {
+      const expiresAt = byId.get(row.sourceRefId)?.expiresAt;
+      return !expiresAt || expiresAt > now;
+    })
+    .map((row) => ({
+      id: row.id,
+      title: row.title,
+      message: row.message,
+      category: row.category,
+      sentAt: (byId.get(row.sourceRefId)?.sentAt ?? row.createdAt).toISOString(),
+      timestamp: formatTimestamp(row.createdAt),
+    }));
+}
+
+/** OK on an urgent announcement: recorded once (repeat calls change nothing) and marks the notification read. */
+export async function acknowledgeUrgent(tenantId, userId, id) {
+  const existing = await prisma.notification.findFirst({ where: { tenantId, userId, id, requiresAck: true } });
+  if (!existing) throw notFound('Announcement not found.');
+  if (existing.acknowledgedAt) return { id, acknowledgedAt: existing.acknowledgedAt.toISOString(), alreadyAcknowledged: true };
+  const now = new Date();
+  const { count } = await prisma.notification.updateMany({
+    where: { id, acknowledgedAt: null },
+    data: { acknowledgedAt: now, isRead: true, readAt: existing.readAt ?? now },
+  });
+  if (count) {
+    await recordAudit({
+      tenantId,
+      actorUserId: userId,
+      action: 'URGENT_ANNOUNCEMENT_ACKNOWLEDGED',
+      entityType: 'CommunicationBroadcast',
+      entityId: existing.sourceRefId,
+      summary: `Urgent announcement acknowledged: ${existing.title}`,
+    });
+  }
+  return { id, acknowledgedAt: now.toISOString(), alreadyAcknowledged: count === 0 };
 }
 
 /** Every active administrator of the tenant. */

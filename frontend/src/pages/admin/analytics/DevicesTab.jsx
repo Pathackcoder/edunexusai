@@ -10,6 +10,7 @@ import { ENTITY_COLORS, ShareBars, StackedBars } from '../../../components/analy
 import { Grid2, Kpi, KpiGrid, NoData, Panel, RankTable } from '../../../components/analytics/parts';
 import { formatDay, formatDayLong, formatDuration, formatNumber, formatPercent } from '../../../components/analytics/format.js';
 import { DEVICE_OPTIONS, ReportState, deviceLabel, roleLabel, useReport } from './shared';
+import { BROWSER_INFO, OS_INFO, UsageSplitPanel } from './UsageSplitPanel';
 
 const BUCKET_LABELS = { 'under-1m': '< 1 min', '1-5m': '1–5 min', '5-15m': '5–15 min', '15-30m': '15–30 min', '30-60m': '30–60 min', 'over-60m': '> 1 hour' };
 
@@ -34,9 +35,14 @@ export function DevicesTab({ filters, refreshKey, goTo }) {
                 <Kpi title="Visits per person" kpi={value(visits.visitsPerUser)} format={formatNumber} icon={RepeatOutlinedIcon} tone="teal" info="Visits ÷ distinct active people in the period." />
               </KpiGrid>
 
+            <Grid2>
+              <UsageSplitPanel kind="browser" split={data.browsers} info={BROWSER_INFO} />
+              <UsageSplitPanel kind="os" split={data.operatingSystems} info={OS_INFO} />
+            </Grid2>
+
             <Grid2 ratio="2fr 3fr" align="start">
               <Stack spacing={2}>
-              <Panel title="Visits by device" subtitle="Share of visits" info="Phone, tablet or computer, judged only from the screen size and whether the main pointer is a finger. No browser or model details are collected. People can use more than one device, so the People figures can overlap."
+              <Panel title="Visits by device" subtitle="Share of visits" info="Phone, tablet or computer, judged only from the screen size and whether the main pointer is a finger (no device model is collected). People can use more than one device, so the People figures can overlap."
                 table={<ChartTable columns={[{ key: 'label', label: 'Device' }, { key: 'share', label: 'Share of visits' }, { key: 'visits', label: 'Visits' }, { key: 'users', label: 'People' }, { key: 'time', label: 'Visit length' }]} rows={data.distribution.map((row) => ({ label: deviceLabel(row.device), share: formatPercent(row.share), visits: formatNumber(row.visits), users: formatNumber(row.users), time: formatDuration(row.averageVisitMs) }))} />}>
                 <ShareBars rows={data.distribution.map((row) => ({ label: deviceLabel(row.device), value: row.share, color: ENTITY_COLORS[row.device], suffix: `${formatNumber(row.visits)} ${row.visits === 1 ? 'visit' : 'visits'} · ${formatNumber(row.users)} ${row.users === 1 ? 'person' : 'people'}${row.averageVisitMs != null ? ` · ${formatDuration(row.averageVisitMs)} a visit` : ''}` }))} format={formatPercent} />
               </Panel>

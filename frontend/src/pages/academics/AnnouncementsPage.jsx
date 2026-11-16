@@ -61,7 +61,7 @@ export const AnnouncementsPage = () => {
             description="Important updates, lecture rescheduling notices, and exam logistics from your instructors."
             actions={
               unreadCount > 0 && (
-                <Button variant="secondary" size="sm" icon={DoneAllRoundedIcon} onClick={handleMarkAllRead}>
+                <Button variant="secondary" size="sm" icon={DoneAllRoundedIcon} onClick={handleMarkAllRead} mutates>
                   Mark All as Read ({unreadCount})
                 </Button>
               )

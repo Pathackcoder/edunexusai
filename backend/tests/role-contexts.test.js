@@ -41,9 +41,18 @@ before(async () => {
   tokens.rahul = await loginFixture(rahul.email);
   tokens.unlinked = await loginFixture(unlinked.email);
   tokens.adminFaculty = await loginFixture(adminFaculty.email);
+  // One published resource for each of Rahul's audiences. The seed has no published FACULTY resource, so the test
+  // brings its own instead of depending on what another test file happened to leave behind.
+  await prisma.portalResource.deleteMany({ where: { slug: { startsWith: 'rc-test-' } } });
+  for (const audience of ['STUDENT', 'FACULTY']) {
+    await prisma.portalResource.create({
+      data: { tenantId: rahul.tenantId, slug: `rc-test-${audience.toLowerCase()}`, title: `Role contexts test (${audience})`, category: 'Test', audience, status: 'PUBLISHED', publishedAt: new Date() },
+    });
+  }
 });
 
 after(async () => {
+  await prisma.portalResource.deleteMany({ where: { slug: { startsWith: 'rc-test-' } } });
   await removeMultiRoleUsers();
   await closeTestServer();
 });

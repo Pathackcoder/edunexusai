@@ -16,11 +16,16 @@ import { brand, layout, motion } from '../theme/theme';
 import { AssistantLauncher } from '../components/assistant/AssistantLauncher';
 import { FloatingDock } from '../components/floating/FloatingDock';
 import { InstallPrompt } from '../components/floating/InstallPrompt';
+import { UrgentAnnouncementDialog } from '../components/notifications/UrgentAnnouncementDialog';
 import { useAuth } from '../context/AuthContext';
 import { STUDIO_RAIL_WIDTH, StudioRail } from './StudioRail';
 import { rememberReturnPath } from '../pages/studio/studioSession';
 import { StudioModeProvider, editableTarget, useStudioMode } from '../pages/studio/studioMode';
 import { AnalyticsProvider } from '../analytics/AnalyticsProvider';
+import { NEXORA_EXIT_MS, NexoraSessionProvider, useNexoraSession } from '../components/nexora/NexoraSession';
+import { nexora } from '../components/nexora/nexoraStyle';
+import { ViewAsBanner } from '../components/viewAs/ViewAsBanner';
+import { topOffset } from '../viewAs/viewAsStyle';
 
 const InPlaceEditor = lazy(() => import('../pages/studio/InPlaceEditor'));
 
@@ -47,17 +52,23 @@ const readPreference = () => {
  * page or the Admin/Faculty dashboard) the route's normal view is replaced in place by the
  * editor for that same page; the URL does not change. While an editor is shown the shell is
  * bounded to the viewport, so the canvas and the side panels scroll independently.
+ *
+ * Nexora: while it opens and while it is shown, the sidebar folds to its icon rail without touching the saved
+ * preference (expanding it inside Nexora lasts only until Nexora closes), so closing Nexora returns the sidebar to
+ * exactly its previous state. The outgoing view fades out first; see NexoraSession for the route side.
  */
 export const AppLayout = () => (
   <StudioModeProvider>
-    <AppShellInner />
+    <NexoraSessionProvider>
+      <AppShellInner />
+    </NexoraSessionProvider>
   </StudioModeProvider>
 );
 
 const AppShellInner = () => {
-  const { isAdmin, isStudent, can } = useAuth();
-  // Students get the assistant when their tier includes it; faculty always.
-  const showAssistant = !isAdmin && (!isStudent || can('feature.assistant'));
+  const { isAdmin, isStudent, can, isViewAs } = useAuth();
+  // Students get the assistant when their tier includes it; faculty always. Not in a read-only View-As tab (it acts).
+  const showAssistant = !isAdmin && !isViewAs && (!isStudent || can('feature.assistant'));
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'), { noSsr: true });
   const isDesktop = useMediaQuery(theme.breakpoints.up('lg'), { noSsr: true });
@@ -67,14 +78,25 @@ const AppShellInner = () => {
   const showRail = isAdmin && (inStudio || editing);
   const target = editing && !inStudio ? editableTarget(pathname) : null;
   const notEditable = editing && !inStudio && !target;
-  const fullBleed = Boolean(target) || (inStudio && /^\/studio\/dashboards\/[^/]+\/edit$/.test(pathname));
+  const { inNexora, phase: nexoraPhase } = useNexoraSession();
+  const fullBleed = Boolean(target) || inNexora || (inStudio && /^\/studio\/dashboards\/[^/]+\/edit$/.test(pathname));
   useEffect(() => {
     if (!pathname.startsWith('/studio')) rememberReturnPath(`${pathname}${search}`);
   }, [pathname, search]);
 
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [preference, setPreference] = useState(readPreference);
-  const collapsed = preference ?? !isDesktop;
+  // The Studio rail opens on the left, so the portal navigation folds to its icon rail while Studio is
+  // open. The saved preference is untouched, so the sidebar returns to its previous state afterwards;
+  // expanding it again inside Studio still works.
+  const [studioFold, setStudioFold] = useState(showRail);
+  useEffect(() => setStudioFold(showRail), [showRail]);
+  const nexoraFold = !isMobile && ((inNexora && nexoraPhase !== 'closing') || nexoraPhase === 'opening');
+  const [nexoraExpanded, setNexoraExpanded] = useState(false);
+  useEffect(() => {
+    if (!nexoraFold) setNexoraExpanded(false);
+  }, [nexoraFold]);
+  const collapsed = nexoraFold ? !nexoraExpanded : (studioFold && !isMobile) || (preference ?? !isDesktop);
 
   // Width changes are animated only after the first paint, so a reload never "springs".
   const [animate, setAnimate] = useState(false);
@@ -84,6 +106,10 @@ const AppShellInner = () => {
   }, []);
 
   const toggleCollapsed = useCallback(() => {
+    if (nexoraFold) {
+      setNexoraExpanded((expanded) => !expanded);
+      return;
+    }
     setPreference(() => {
       const next = !collapsed;
       try {
@@ -93,7 +119,8 @@ const AppShellInner = () => {
       }
       return next;
     });
-  }, [collapsed]);
+    setStudioFold(false);
+  }, [collapsed, nexoraFold]);
 
   // Leaving the mobile layout closes the drawer.
   useEffect(() => {
@@ -104,7 +131,10 @@ const AppShellInner = () => {
   const spring = collapsed ? motion.sidebarClose : motion.sidebarOpen;
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', ...(fullBleed ? { height: '100vh', overflow: 'hidden' } : {}), width: '100%', bgcolor: 'background.default', position: 'relative', isolation: 'isolate' }}>
+    // View-As: the band is fixed above everything; the shell starts below it (the offset is 0px outside View-As).
+    <Box sx={{ display: 'flex', minHeight: '100vh', pt: topOffset, ...(fullBleed ? { height: '100vh', overflow: 'hidden' } : {}), width: '100%', bgcolor: 'background.default', position: 'relative', isolation: 'isolate', boxSizing: 'border-box' }}>
+      {/* Read-only View-As band (renders nothing outside a View-As tab). */}
+      <ViewAsBanner />
       {/* Portal usage analytics (renders nothing; silent unless collection is on for this person). */}
       <AnalyticsProvider />
       {/* Portal atmosphere: soft brand light and a faint dot grid behind the content. */}
@@ -129,7 +159,7 @@ const AppShellInner = () => {
       />
       {/* Studio CMS rail (tablet & desktop), left of the portal sidebar */}
       {showRail && !isMobile && (
-        <Box component="aside" aria-label="Studio tools" sx={{ width: STUDIO_RAIL_WIDTH, flexShrink: 0, position: 'sticky', top: 0, height: '100vh', zIndex: theme.zIndex.appBar + 2 }}>
+        <Box component="aside" aria-label="Studio tools" sx={{ width: STUDIO_RAIL_WIDTH, flexShrink: 0, position: 'sticky', top: topOffset, height: `calc(100vh - ${topOffset})`, zIndex: theme.zIndex.appBar + 2 }}>
           <StudioRail />
         </Box>
       )}
@@ -142,13 +172,14 @@ const AppShellInner = () => {
             width,
             flexShrink: 0,
             position: 'sticky',
-            top: 0,
-            height: '100vh',
+            top: topOffset,
+            height: `calc(100vh - ${topOffset})`,
             zIndex: theme.zIndex.appBar + 1,
             bgcolor: brand.navyDeep,
             boxShadow: '1px 0 0 rgba(20, 24, 80, 0.08), 8px 0 30px -18px rgba(20, 24, 80, 0.35)',
             transition: animate ? `width ${spring.duration}ms ${spring.easing}` : 'none',
             willChange: 'width',
+            '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
           }}
         >
           <Sidebar collapsed={collapsed} onToggle={toggleCollapsed} />
@@ -162,7 +193,7 @@ const AppShellInner = () => {
           open={isMobileOpen}
           onClose={() => setIsMobileOpen(false)}
           ModalProps={{ keepMounted: true }}
-          PaperProps={{ sx: { width: 288, maxWidth: '86vw', border: 0, bgcolor: brand.navyDeep } }}
+          PaperProps={{ sx: { width: 288, maxWidth: '86vw', border: 0, bgcolor: brand.navyDeep, top: topOffset, height: `calc(100% - ${topOffset})` } }}
         >
           <Sidebar isMobile onCloseMobile={() => setIsMobileOpen(false)} />
         </Drawer>
@@ -208,6 +239,12 @@ const AppShellInner = () => {
                 ...(fullBleed ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } : {}),
                 '@keyframes enxPageEnter': { from: { opacity: 0, transform: 'translateY(6px)' }, to: { opacity: 1, transform: 'none' } },
                 '& > *': fullBleed ? { flex: 1, minHeight: 0 } : { animation: `enxPageEnter 280ms ${motion.standard} both` },
+                // Leaving for Nexora, or leaving Nexora: the outgoing view fades before the route changes.
+                '@keyframes enxNexoraPageOut': { to: { opacity: 0, transform: 'scale(0.985)' } },
+                '@keyframes enxNexoraOut': { to: { opacity: 0, transform: 'translateY(8px) scale(0.99)', filter: 'blur(2px)' } },
+                ...(nexoraPhase === 'opening' && !inNexora ? { animation: `enxNexoraPageOut ${NEXORA_EXIT_MS.opening}ms ${motion.standard} forwards`, pointerEvents: 'none' } : {}),
+                ...(nexoraPhase === 'closing' && inNexora ? { animation: `enxNexoraOut ${NEXORA_EXIT_MS.closing}ms ${nexora.ease} forwards`, pointerEvents: 'none' } : {}),
+                '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
               }}
             >
               {target ? (
@@ -219,11 +256,14 @@ const AppShellInner = () => {
           </ErrorBoundary>
         </Box>
       </Box>
+      {/* Urgent announcements: a centred popup on any page until the person presses OK. */}
+      <UrgentAnnouncementDialog />
       {/* Bottom-right floating system: install prompt + assistant move as one. */}
-      {!showRail && (
+      {/* Not inside Nexora, which is itself the assistant workspace. */}
+      {!showRail && !inNexora && (
         <FloatingDock>
           {showAssistant && <AssistantLauncher />}
-          <InstallPrompt />
+          {!isViewAs && <InstallPrompt />}
         </FloatingDock>
       )}
     </Box>

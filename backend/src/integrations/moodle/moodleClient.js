@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { AppError, ErrorCode } from '../../utils/errors.js';
 import { logger } from '../../utils/logger.js';
+import { assertNotViewAs } from '../../modules/viewAs/viewAsContext.js';
 
 /**
  * Moodle REST web-service client: transport only.
@@ -202,6 +203,9 @@ export function createMoodleClient({ baseUrl, token, timeoutMs = 10000, maxRetri
     if (!baseUrl || !token) {
       throw moodleError(MoodleErrorKind.NOT_CONFIGURED, 'Moodle is not configured on the server.', { wsfunction, correlationId });
     }
+    // Read-only View-As: only reads may reach Moodle. Writes are never idempotent, and every read this integration
+    // uses is a *_get_* function; anything else (including mod_*_view_* calls, which log a view in Moodle) is refused.
+    if (!idempotent || !/_get_/.test(wsfunction)) assertNotViewAs(`Moodle ${wsfunction}`);
     const attempts = idempotent ? maxRetries + 1 : 1;
     let lastError;
     for (let attempt = 1; attempt <= attempts; attempt += 1) {

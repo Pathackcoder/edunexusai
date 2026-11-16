@@ -45,7 +45,7 @@ export const TranscriptsPage = () => {
         title="Transcripts & Academic Records"
         description={`Certified official electronic/paper transcripts and term-by-term unofficial academic history for ${user?.fullName ?? 'your record'}.`}
         actions={
-          <Button variant="primary" size="sm" icon={SendRoundedIcon} onClick={() => setIsOfficialModalOpen(true)}>
+          <Button variant="primary" size="sm" icon={SendRoundedIcon} onClick={() => setIsOfficialModalOpen(true)} mutates>
             Request Official Transcript
           </Button>
         }

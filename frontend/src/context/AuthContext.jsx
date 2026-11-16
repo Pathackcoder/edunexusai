@@ -1,8 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { authApi, onSessionExpired, ssoApi, tokenStore } from '../services/api';
+import { authApi, onSessionExpired, onViewAsEvent, ssoApi, tokenStore, viewAsApi, viewAsStore } from '../services/api';
 import { clearSisProfile } from '../hooks/useSisProfile';
 import { activeContextsOf, canIn, hasActiveContext, isMultiRole, unlinkedContextsOf, workspacesOf } from './roleContexts';
-import { flushAnalytics } from '../analytics/index.js';
+import { flushAnalytics, stopPresence } from '../analytics/index.js';
 
 // Roles and record links can change while a tab is open (an administrator adds a role, a record is
 // linked). The API applies such changes on the next request; the UI re-reads the session when the
@@ -66,9 +66,18 @@ export const AuthProvider = ({ children }) => {
   // The API client tells us when a refresh failed, so the UI can drop to the login page.
   useEffect(() => onSessionExpired(() => { clearSisProfile(); setUser(null); }), []);
 
+  // View-As tab: when the server says the session has ended (expired, ended elsewhere, access withdrawn), the tab
+  // leaves the viewed portal for the "View-As ended" page. The administrator's own sign-in is untouched.
+  useEffect(() => onViewAsEvent('ended', ({ reason }) => {
+    viewAsStore.clear();
+    clearSisProfile();
+    window.location.replace(`/view-as/ended?reason=${encodeURIComponent(reason ?? 'ENDED')}`);
+  }), []);
+
   const login = useCallback(async (email, password) => {
     setError(null);
     clearSisProfile();
+    viewAsStore.clear();
     try {
       const authenticated = await authApi.login(email, password);
       setUser(authenticated);
@@ -95,15 +104,31 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  /** End Impersonation: closes this tab's View-As session; the administrator stays signed in everywhere. */
+  const endViewAs = useCallback(async () => {
+    try {
+      await viewAsApi.end();
+    } catch {
+      /* already ended or expired: the result is the same */
+    }
+    viewAsStore.clear();
+    clearSisProfile();
+    window.location.replace('/view-as/ended?reason=ENDED_BY_ADMIN');
+  }, []);
+
   const logout = useCallback(async ({ everywhere = true } = {}) => {
+    // In a View-As tab "sign out" ends the View-As session only: the tokens belong to the administrator's own session.
+    if (viewAsStore.active()) return endViewAs();
     // Send any queued usage events while the session token still works.
     await flushAnalytics();
+    // The server takes the person off the live-users count at sign-out; no heartbeat may follow it.
+    stopPresence();
     const providerLogoutUrl = await authApi.logout({ everywhere });
     clearSisProfile();
     setUser(null);
     // Unless the person chose "EdunexusAI only", a university sign-in also ends there (and in the other apps).
     if (providerLogoutUrl) window.location.assign(providerLogoutUrl);
-  }, []);
+  }, [endViewAs]);
 
   const value = useMemo(() => {
     const roles = user?.roles ?? [];
@@ -117,6 +142,10 @@ export const AuthProvider = ({ children }) => {
       completeSsoSignIn,
       logout,
       refreshUser: loadCurrentUser,
+      // View-As (read-only administrator support access): the session this tab shows, or null in a normal tab.
+      viewAs: user?.viewAs ?? null,
+      isViewAs: Boolean(user?.viewAs),
+      endViewAs,
 
       // Persona and entitlement helpers. Components ask these questions instead of
       // inspecting an email address or hardcoding a name.
@@ -141,10 +170,13 @@ export const AuthProvider = ({ children }) => {
       /** Is this widget offered in that context? Only the context's own entitlements count. */
       canIn: (contextKey, widgetKey) => canIn(user, contextKey, widgetKey),
     };
-  }, [user, initialising, error, login, completeSsoSignIn, logout, loadCurrentUser]);
+  }, [user, initialising, error, login, completeSsoSignIn, logout, loadCurrentUser, endViewAs]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+
+/** Is this a read-only View-As tab? Safe outside the provider (false), for shared components such as Button. */
+export const useIsViewAs = () => Boolean(useContext(AuthContext)?.isViewAs);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);

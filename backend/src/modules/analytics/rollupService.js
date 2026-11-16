@@ -2,6 +2,8 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../db/prisma.js';
 import { logger } from '../../utils/logger.js';
 import { PAGE_VISIBLE_CAP_MS, VISIT_DURATION_CAP_MS, analyticsConfig } from './config.js';
+// (presenceService imports utcTimestamp from this module; the cycle is safe because both are used only at run time.)
+import { startPresenceSampler } from './presenceService.js';
 
 /**
  * Aggregation: raw visits, page views and events → person-day rows and daily facts.
@@ -23,6 +25,17 @@ import { PAGE_VISIBLE_CAP_MS, VISIT_DURATION_CAP_MS, analyticsConfig } from './c
  *  - `uniqueUsers` is distinct people within that one day. Distinct people over a longer range are never the sum
  *    of days: reports count them from person-day rows or from the raw rows.
  */
+
+/**
+ * The two table sets. DEMO is the synthetic dataset (demoService.js): the same columns in analytics_demo_* tables, so
+ * one aggregation builds both and a demo figure is computed exactly like a real one. Nothing ever mixes the two
+ * when writing; reports combine them only when the institution includes demo data.
+ */
+export const TABLES = {
+  REAL: { visits: 'analytics_visits', pageViews: 'analytics_page_views', events: 'analytics_events', userDaily: 'analytics_user_daily', rollups: 'analytics_rollups' },
+  DEMO: { visits: 'analytics_demo_visits', pageViews: 'analytics_demo_page_views', events: 'analytics_demo_events', userDaily: 'analytics_demo_user_daily', rollups: 'analytics_demo_rollups' },
+};
+const table = (source, name) => Prisma.raw(`"${TABLES[source][name]}"`);
 
 export const QUALIFYING_EVENTS = ['nav.click', 'widget.interact', 'feature.use'];
 export const VISIT_BUCKETS = [
@@ -71,25 +84,29 @@ export const startOfLocalDate = (date, timezone) => Prisma.sql`(((${date}::date)
 /** Local date of a stored (UTC) timestamp column. */
 export const localDateSql = (column, timezone) => Prisma.sql`((${column} AT TIME ZONE 'UTC') AT TIME ZONE ${timezone})::date`;
 
-async function insertFact(tx, { tenantId, date, fact, source }) {
+async function insertFact(tx, { tenantId, date, fact, source, target }) {
   const columns = Prisma.sql`"tenantId", "localDate", "fact", "subjectKey", "role", "device", "count", "uniqueUsers", "durationMs", "durationSamples"`;
   const measures = Prisma.sql`count(*)::int, count(DISTINCT s."userId")::int, COALESCE(sum(s.dur), 0)::bigint, COALESCE(sum(s.sample), 0)::int`;
   // Everyone, once.
   await tx.$executeRaw`
-    INSERT INTO "analytics_rollups" (${columns})
+    INSERT INTO ${target} (${columns})
     SELECT ${tenantId}, ${date}::date, ${fact}, s.subject, 'ALL', COALESCE(s.device, 'ALL'), ${measures}
     FROM (${source}) s
     GROUP BY GROUPING SETS ((s.subject, s.device), (s.subject))`;
   // Per role held.
   await tx.$executeRaw`
-    INSERT INTO "analytics_rollups" (${columns})
+    INSERT INTO ${target} (${columns})
     SELECT ${tenantId}, ${date}::date, ${fact}, s.subject, r.role::text, COALESCE(s.device, 'ALL'), ${measures}
     FROM (${source}) s CROSS JOIN LATERAL unnest(s."rolesHeld") AS r(role)
     GROUP BY GROUPING SETS ((s.subject, r.role, s.device), (s.subject, r.role))`;
 }
 
-/** Rebuild one local day for one institution. Returns FINAL, PARTIAL or BUSY (another process is doing it). */
-export async function rebuildDay({ tenantId, timezone, date, final }) {
+/**
+ * Rebuild one local day for one institution. Returns FINAL, PARTIAL or BUSY (another process is doing it).
+ * `source` DEMO rebuilds the demo dataset's day from the demo tables (no run is recorded for it).
+ */
+export async function rebuildDay({ tenantId, timezone, date, final, source = 'REAL' }) {
+  const t = (name) => table(source, name);
   const tz = safeTimezone(timezone);
   const startedAt = new Date();
   const from = startOfLocalDate(date, tz);
@@ -98,41 +115,43 @@ export async function rebuildDay({ tenantId, timezone, date, final }) {
   const eventWindow = Prisma.sql`"tenantId" = ${tenantId} AND "occurredAt" >= ${from} AND "occurredAt" < ${to}`;
   const eventSource = (name, subject) => Prisma.sql`
     SELECT "userId", ${subject} AS subject, "rolesHeld", COALESCE("deviceClass"::text, 'NONE') AS device, 0::bigint AS dur, 0 AS sample
-    FROM "analytics_events" WHERE ${eventWindow} AND "name" = ${name} AND ${subject} IS NOT NULL`;
+    FROM ${t('events')} WHERE ${eventWindow} AND "name" = ${name} AND ${subject} IS NOT NULL`;
   const localHour = (column) => Prisma.sql`to_char((${column} AT TIME ZONE 'UTC') AT TIME ZONE ${tz}, 'HH24')`;
   const visitMs = Prisma.sql`LEAST((EXTRACT(EPOCH FROM ("lastSeenAt" - "startedAt")) * 1000)::bigint, ${VISIT_DURATION_CAP_MS}::bigint)`;
   const bucket = Prisma.sql`CASE ${Prisma.join(VISIT_BUCKETS.filter(([, limit]) => limit).map(([key, limit]) => Prisma.sql`WHEN ${visitMs} < ${limit} THEN ${key}`), ' ')} ELSE 'over-60m' END`;
 
   try {
     const outcome = await prisma.$transaction(async (tx) => {
-      const [{ locked }] = await tx.$queryRaw`SELECT pg_try_advisory_xact_lock(hashtext(${`analytics-rollup:${tenantId}:${date}`})) AS locked`;
+      const [{ locked }] = await tx.$queryRaw`SELECT pg_try_advisory_xact_lock(hashtext(${`analytics-rollup:${source}:${tenantId}:${date}`})) AS locked`;
       if (!locked) return 'BUSY';
 
-      await tx.$executeRaw`DELETE FROM "analytics_rollups" WHERE "tenantId" = ${tenantId} AND "localDate" = ${date}::date`;
-      await tx.$executeRaw`DELETE FROM "analytics_user_daily" WHERE "tenantId" = ${tenantId} AND "localDate" = ${date}::date`;
+      await tx.$executeRaw`DELETE FROM ${t('rollups')} WHERE "tenantId" = ${tenantId} AND "localDate" = ${date}::date`;
+      await tx.$executeRaw`DELETE FROM ${t('userDaily')} WHERE "tenantId" = ${tenantId} AND "localDate" = ${date}::date`;
 
       // Person-day rows.
       await tx.$executeRaw`
-        WITH pv AS (SELECT "userId", "rolesHeld", "deviceClass", "visitId", "visibleMs" FROM "analytics_page_views" WHERE ${pageWindow}),
+        WITH pv AS (SELECT "userId", "rolesHeld", "deviceClass", "visitId", "visibleMs" FROM ${t('pageViews')} WHERE ${pageWindow}),
         act AS (
           SELECT "userId", "rolesHeld", "deviceClass", "visitId" FROM pv
           UNION ALL
-          SELECT "userId", "rolesHeld", "deviceClass", "visitId" FROM "analytics_events" WHERE ${eventWindow} AND "name" IN (${Prisma.join(QUALIFYING_EVENTS)})
-        )
-        INSERT INTO "analytics_user_daily" ("tenantId", "localDate", "userId", "rolesHeld", "devices", "visits", "pageViews", "visibleMs")
+          SELECT "userId", "rolesHeld", "deviceClass", "visitId" FROM ${t('events')} WHERE ${eventWindow} AND "name" IN (${Prisma.join(QUALIFYING_EVENTS)})
+        ), held AS (SELECT x."userId", array_agg(DISTINCT r) AS roles FROM act x CROSS JOIN LATERAL unnest(x."rolesHeld") r GROUP BY x."userId"),
+        viewed AS (SELECT "userId", count(*) AS views, sum(LEAST("visibleMs", ${PAGE_VISIBLE_CAP_MS})) AS ms FROM pv GROUP BY "userId")
+        INSERT INTO ${t('userDaily')} ("tenantId", "localDate", "userId", "rolesHeld", "devices", "visits", "pageViews", "visibleMs")
         SELECT ${tenantId}, ${date}::date, a."userId",
-          COALESCE((SELECT array_agg(DISTINCT r) FROM act x CROSS JOIN LATERAL unnest(x."rolesHeld") r WHERE x."userId" = a."userId"), '{}'),
+          COALESCE(min(held.roles), '{}'),
           COALESCE(array_agg(DISTINCT a."deviceClass") FILTER (WHERE a."deviceClass" IS NOT NULL), '{}'),
           count(DISTINCT a."visitId")::int,
-          COALESCE((SELECT count(*) FROM pv WHERE pv."userId" = a."userId"), 0)::int,
-          LEAST(COALESCE((SELECT sum(LEAST(pv."visibleMs", ${PAGE_VISIBLE_CAP_MS})) FROM pv WHERE pv."userId" = a."userId"), 0), 86400000)::int
-        FROM act a GROUP BY a."userId"`;
+          COALESCE(min(viewed.views), 0)::int,
+          LEAST(COALESCE(min(viewed.ms), 0), 86400000)::int
+        FROM act a LEFT JOIN held ON held."userId" = a."userId" LEFT JOIN viewed ON viewed."userId" = a."userId"
+        GROUP BY a."userId"`;
 
       const pageSource = (subject) => Prisma.sql`
         SELECT "userId", ${subject} AS subject, "rolesHeld", "deviceClass"::text AS device,
                (CASE WHEN "visibleMs" >= 1000 THEN LEAST("visibleMs", ${PAGE_VISIBLE_CAP_MS}) ELSE 0 END)::bigint AS dur,
                ("visibleMs" >= 1000)::int AS sample
-        FROM "analytics_page_views" WHERE ${pageWindow}`;
+        FROM ${t('pageViews')} WHERE ${pageWindow}`;
       const facts = [
         ['PAGE', pageSource(Prisma.sql`"pageKey"`)],
         ['CONTEXT', pageSource(Prisma.sql`"contextRole"`)],
@@ -141,29 +160,37 @@ export async function rebuildDay({ tenantId, timezone, date, final }) {
         // A widget seen in one page view counts once, however often the browser reported it.
         ['WIDGET_IMPRESSION', Prisma.sql`
           SELECT DISTINCT ON ("pageViewId", "subjectKey") "userId", "subjectKey" AS subject, "rolesHeld", COALESCE("deviceClass"::text, 'NONE') AS device, 0::bigint AS dur, 0 AS sample
-          FROM "analytics_events" WHERE ${eventWindow} AND "name" = 'widget.impression' AND "subjectKey" IS NOT NULL`],
+          FROM ${t('events')} WHERE ${eventWindow} AND "name" = 'widget.impression' AND "subjectKey" IS NOT NULL`],
         ['WIDGET_INTERACTION', eventSource('widget.interact', Prisma.sql`"subjectKey"`)],
         ['FEATURE', eventSource('feature.use', Prisma.sql`"subjectKey"`)],
         ['AUTH', eventSource('auth.sign_in', Prisma.sql`"action"`)],
         ['HOUR', Prisma.sql`
           SELECT "userId", ${localHour(Prisma.sql`"startedAt"`)} AS subject, "rolesHeld", "deviceClass"::text AS device, 0::bigint AS dur, 0 AS sample
-          FROM "analytics_page_views" WHERE ${pageWindow}
+          FROM ${t('pageViews')} WHERE ${pageWindow}
           UNION ALL
           SELECT "userId", ${localHour(Prisma.sql`"occurredAt"`)}, "rolesHeld", COALESCE("deviceClass"::text, 'NONE'), 0::bigint, 0
-          FROM "analytics_events" WHERE ${eventWindow} AND "name" IN (${Prisma.join(QUALIFYING_EVENTS)})`],
+          FROM ${t('events')} WHERE ${eventWindow} AND "name" IN (${Prisma.join(QUALIFYING_EVENTS)})`],
         // A visit belongs to the day it started.
         ['VISIT', Prisma.sql`
           SELECT "userId", 'all' AS subject, "rolesHeld", "deviceClass"::text AS device, ${visitMs} AS dur, 1 AS sample
-          FROM "analytics_visits" WHERE ${pageWindow}`],
+          FROM ${t('visits')} WHERE ${pageWindow}`],
         ['VISIT_DURATION', Prisma.sql`
           SELECT "userId", ${bucket} AS subject, "rolesHeld", "deviceClass"::text AS device, 0::bigint AS dur, 0 AS sample
-          FROM "analytics_visits" WHERE ${pageWindow}`],
+          FROM ${t('visits')} WHERE ${pageWindow}`],
+        // Browser and operating system of each visit. A visit recorded before they were measured has none and gets no
+        // row: reports count it as "not recorded" (VISIT total minus these), distinct from a browser that could not tell.
+        ['BROWSER', Prisma.sql`
+          SELECT "userId", "browser" AS subject, "rolesHeld", "deviceClass"::text AS device, 0::bigint AS dur, 0 AS sample
+          FROM ${t('visits')} WHERE ${pageWindow} AND "browser" IS NOT NULL`],
+        ['OS', Prisma.sql`
+          SELECT "userId", "os" AS subject, "rolesHeld", "deviceClass"::text AS device, 0::bigint AS dur, 0 AS sample
+          FROM ${t('visits')} WHERE ${pageWindow} AND "os" IS NOT NULL`],
       ];
-      for (const [fact, source] of facts) await insertFact(tx, { tenantId, date, fact, source });
+      for (const [fact, query] of facts) await insertFact(tx, { tenantId, date, fact, source: query, target: t('rollups') });
       return final ? 'FINAL' : 'PARTIAL';
     }, { timeout: 120_000, maxWait: 10_000 });
 
-    if (outcome !== 'BUSY') {
+    if (outcome !== 'BUSY' && source === 'REAL') {
       const finishedAt = new Date();
       const run = { status: outcome, startedAt, finishedAt, durationMs: finishedAt - startedAt, errorCode: null };
       await prisma.$executeRaw`
@@ -173,6 +200,7 @@ export async function rebuildDay({ tenantId, timezone, date, final }) {
     }
     return outcome;
   } catch (error) {
+    if (source !== 'REAL') throw error;
     const code = String(error.code ?? error.name ?? 'ERROR').slice(0, 60);
     await prisma.$executeRaw`
       INSERT INTO "analytics_rollup_runs" ("tenantId", "localDate", "status", "startedAt", "finishedAt", "errorCode")
@@ -235,6 +263,8 @@ export async function purgeTenant({ tenantId, timezone }, { now = new Date() } =
     userDays: await prisma.$executeRaw`DELETE FROM "analytics_user_daily" WHERE "tenantId" = ${tenantId} AND "localDate" < ${addDays(today, -config.userDailyRetentionDays)}::date`,
     rollups: await prisma.$executeRaw`DELETE FROM "analytics_rollups" WHERE "tenantId" = ${tenantId} AND "localDate" < ${addDays(today, -config.rollupRetentionDays)}::date`,
     runs: await prisma.$executeRaw`DELETE FROM "analytics_rollup_runs" WHERE "tenantId" = ${tenantId} AND "localDate" < ${addDays(today, -config.rollupRetentionDays)}::date`,
+    // Concurrency samples hold no person ids; kept as long as person-day rows.
+    concurrency: await prisma.$executeRaw`DELETE FROM "analytics_concurrency" WHERE "tenantId" = ${tenantId} AND "bucketStart" < ${utcTimestamp(new Date(now.getTime() - config.userDailyRetentionDays * 86_400_000))}`,
   };
 }
 
@@ -272,6 +302,7 @@ export function startAnalyticsWorker({ log = logger } = {}) {
     if (!stopped) timer = setTimeout(tick, config.rollupIntervalMs);
   };
   timer = setTimeout(tick, 10_000);
-  log.info(`Analytics aggregation started (every ${Math.round(config.rollupIntervalMs / 1000)}s)`);
-  return { stop: () => { stopped = true; clearTimeout(timer); } };
+  const sampler = startPresenceSampler({ log });
+  log.info(`Analytics aggregation started (every ${Math.round(config.rollupIntervalMs / 1000)}s; live users sampled every ${Math.round(config.presenceSampleMs / 1000)}s)`);
+  return { stop: () => { stopped = true; clearTimeout(timer); sampler?.stop(); } };
 }

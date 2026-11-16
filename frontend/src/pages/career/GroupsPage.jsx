@@ -81,11 +81,11 @@ export const GroupsPage = () => {
         footer={
           selected &&
           (selected.membership ? (
-            <Button variant="outline" onClick={() => act(() => careerApi.leaveGroup(selected.id), selected.membership.status === 'PENDING' ? 'Request withdrawn.' : `You left ${selected.name}.`)}>
+            <Button mutates variant="outline" onClick={() => act(() => careerApi.leaveGroup(selected.id), selected.membership.status === 'PENDING' ? 'Request withdrawn.' : `You left ${selected.name}.`)}>
               {selected.membership.status === 'PENDING' ? 'Withdraw request' : 'Leave group'}
             </Button>
           ) : (
-            <Button icon={PersonAddAltRoundedIcon} onClick={() => act(() => careerApi.joinGroup(selected.id), selected.isOpen ? `Welcome to ${selected.name}!` : 'Request sent to the group officers.')}>
+            <Button mutates icon={PersonAddAltRoundedIcon} onClick={() => act(() => careerApi.joinGroup(selected.id), selected.isOpen ? `Welcome to ${selected.name}!` : 'Request sent to the group officers.')}>
               {selected.isOpen ? 'Join group' : 'Request to join'}
             </Button>
           ))
@@ -115,8 +115,8 @@ export const GroupsPage = () => {
                 {selected.pendingMembers.map((pending) => (
                   <Stack key={pending.membershipId} direction="row" spacing={1} alignItems="center">
                     <Typography variant="body2" sx={{ flex: 1 }}>{pending.name} wants to join</Typography>
-                    <Button size="sm" variant="ghost" onClick={() => act(() => careerApi.decideMembership(selected.id, pending.membershipId, false), 'Request declined.')}>Decline</Button>
-                    <Button size="sm" onClick={() => act(() => careerApi.decideMembership(selected.id, pending.membershipId, true), 'Member approved.')}>Approve</Button>
+                    <Button mutates size="sm" variant="ghost" onClick={() => act(() => careerApi.decideMembership(selected.id, pending.membershipId, false), 'Request declined.')}>Decline</Button>
+                    <Button mutates size="sm" onClick={() => act(() => careerApi.decideMembership(selected.id, pending.membershipId, true), 'Member approved.')}>Approve</Button>
                   </Stack>
                 ))}
                 <Stack spacing={1.25} sx={{ p: 1.5, borderRadius: 3, bgcolor: 'background.subtle' }}>
@@ -127,7 +127,7 @@ export const GroupsPage = () => {
                     <TextField size="small" fullWidth label="Location" value={eventForm.location} onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })} />
                   </Stack>
                   <Box>
-                    <Button size="sm" onClick={() => act(async () => { await careerApi.createGroupEvent(selected.id, { ...eventForm, startsAt: eventForm.startsAt ? new Date(eventForm.startsAt).toISOString() : '' }); setEventForm({ title: '', startsAt: '', location: '', description: '' }); }, 'Event posted.')}>Post event</Button>
+                    <Button mutates size="sm" onClick={() => act(async () => { await careerApi.createGroupEvent(selected.id, { ...eventForm, startsAt: eventForm.startsAt ? new Date(eventForm.startsAt).toISOString() : '' }); setEventForm({ title: '', startsAt: '', location: '', description: '' }); }, 'Event posted.')}>Post event</Button>
                   </Box>
                 </Stack>
               </>

@@ -6,7 +6,9 @@ import { featureByKey, isNavTarget, pageKeyForPath, widgetByKey } from '../../..
  * of it. Only catalogue keys pass through: an unknown key is dropped here, before anything is queued.
  */
 let tracker = null;
+let presence = null;
 export const setTracker = (next) => { tracker = next; };
+export const setPresence = (next) => { presence = next; };
 export const getTracker = () => tracker;
 
 const safely = (run) => {
@@ -44,4 +46,13 @@ export function flushAnalytics() {
   if (!tracker?.enabled) return Promise.resolve();
   tracker.tick(true);
   return Promise.race([Promise.resolve(tracker.flush()).catch(() => {}), new Promise((resolve) => setTimeout(resolve, 1500))]);
+}
+
+/** Stop the live-users heartbeat (signing out), so no late heartbeat can mark the person online again. */
+export function stopPresence() {
+  try {
+    presence?.stop();
+  } catch {
+    /* analytics must never break sign-out */
+  }
 }

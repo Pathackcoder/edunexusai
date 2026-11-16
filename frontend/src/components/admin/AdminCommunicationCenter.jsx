@@ -35,6 +35,7 @@ import { Button } from '../common/Button';
 import { Badge } from '../common/Badge';
 import { Modal } from '../common/Modal';
 import { useToast } from '../common/Toast';
+import { StudentRecipientPicker, splitRecipients } from './StudentRecipientPicker';
 
 const TEMPLATES = [
   {
@@ -184,7 +185,7 @@ export const AdminCommunicationCenter = ({ initialAudience = null }) => {
 
   const handleDispatchCommunication = async () => {
     if (!form.channels.inApp) { showToast('In-app delivery must be selected; other channels are recorded only.'); return; }
-    if (form.audienceType === 'INDIVIDUAL' && !form.individual.trim()) { showToast('Enter an individual recipient.'); return; }
+    if (form.audienceType === 'INDIVIDUAL' && !form.individual.trim()) { showToast('Choose at least one student.'); return; }
     if (form.scheduledDate && new Date(form.scheduledDate) <= new Date()) { showToast('Choose a future scheduled time.'); return; }
     if (form.expiryDate && new Date(`${form.expiryDate}T23:59:59`) <= (form.scheduledDate ? new Date(form.scheduledDate) : new Date())) { showToast('Expiry must follow the send time.'); return; }
     if (!form.title.trim() || !form.message.trim()) {
@@ -249,7 +250,10 @@ export const AdminCommunicationCenter = ({ initialAudience = null }) => {
         return `Batch: ${f.batch || 'Class of 2026'}`;
       case 'COURSE':
         return `Course: ${f.course || 'CS 501'}`;
-      case 'INDIVIDUAL': return `Individual: ${f.individual}`;
+      case 'INDIVIDUAL': {
+        const people = splitRecipients(f.individual);
+        return people.length === 1 ? `Individual: ${people[0]}` : `Selected people (${people.length})`;
+      }
       case 'ROLE': return `Role: ${f.role}`;
       case 'STATUS': return `Academic status: ${f.academicStatus}`;
       default: return 'Targeted Segment';
@@ -335,9 +339,14 @@ export const AdminCommunicationCenter = ({ initialAudience = null }) => {
                     <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ sm: 'center' }} justifyContent="space-between" spacing={1.25}>
                       <Box sx={{ minWidth: 0, flex: 1 }}>
                         <Stack direction="row" alignItems="center" spacing={1} useFlexGap flexWrap="wrap">
-                          <Badge variant={bc.priority === 'high' ? 'warning' : 'neutral'}>
+                          <Badge variant={bc.priority === 'urgent' ? 'danger' : bc.priority === 'high' ? 'warning' : 'neutral'}>
                             {bc.priority.toUpperCase()}
                           </Badge>
+                          {bc.acknowledgedCount != null && (
+                            <Badge variant={bc.acknowledgedCount >= bc.acknowledgementsRequired ? 'success' : 'warning'}>
+                              {bc.acknowledgedCount}/{bc.acknowledgementsRequired} acknowledged
+                            </Badge>
+                          )}
                           <Badge variant="purple">{bc.category}</Badge>
                           <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                             {bc.sentAt}{bc.expiryDate ? ` · Expires ${bc.expiryDate}` : ''}
@@ -577,7 +586,7 @@ export const AdminCommunicationCenter = ({ initialAudience = null }) => {
                 <MenuItem value="ALL_STUDENTS">All Students</MenuItem>
                 <MenuItem value="ALL_FACULTY">All Faculty & Instructors</MenuItem>
                 <MenuItem value="ALL_CAMPUS">Entire Campus Population</MenuItem>
-                <MenuItem value="INDIVIDUAL">Individual user</MenuItem>
+                <MenuItem value="INDIVIDUAL">Selected students</MenuItem>
                 <MenuItem value="ROLE">Specific role</MenuItem>
                 <MenuItem value="STATUS">Academic status</MenuItem>
                 <MenuItem value="DEPARTMENT">Specific Department</MenuItem>
@@ -585,7 +594,7 @@ export const AdminCommunicationCenter = ({ initialAudience = null }) => {
                 <MenuItem value="COURSE">Enrolled Course Section</MenuItem>
               </TextField>
 
-              {form.audienceType === 'INDIVIDUAL' && <TextField label="Recipient name or email" value={form.individual} onChange={(e) => setForm({ ...form, individual: e.target.value })} />}
+              {form.audienceType === 'INDIVIDUAL' && <StudentRecipientPicker value={form.individual} onChange={(individual) => setForm((prev) => ({ ...prev, individual }))} />}
               {form.audienceType === 'ROLE' && <TextField select label="Role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>{['STUDENT', 'FACULTY', 'ADMIN'].map((role) => <MenuItem key={role} value={role}>{role}</MenuItem>)}</TextField>}
               {form.audienceType === 'STATUS' && <TextField select label="Academic status" value={form.academicStatus} onChange={(e) => setForm({ ...form, academicStatus: e.target.value })}>{['Follow-up required', 'Good standing'].map((status) => <MenuItem key={status} value={status}>{status}</MenuItem>)}</TextField>}
               {form.audienceType === 'PROGRAM' && <TextField select label="Program" value={form.program} onChange={(e) => setForm({ ...form, program: e.target.value })}>{['Computer Science', 'Data Science', 'Cybersecurity', 'Software Engineering', 'Distributed Systems', 'Embedded Systems'].map((program) => <MenuItem key={program} value={program}>{program}</MenuItem>)}</TextField>}
@@ -667,7 +676,7 @@ export const AdminCommunicationCenter = ({ initialAudience = null }) => {
                   <MenuItem value="low">Low (General Information)</MenuItem>
                   <MenuItem value="normal">Normal (Standard Stream)</MenuItem>
                   <MenuItem value="high">High (Action Required)</MenuItem>
-                  <MenuItem value="urgent">Urgent (Immediate Banner)</MenuItem>
+                  <MenuItem value="urgent">Urgent (popup until acknowledged)</MenuItem>
                 </TextField>
               </Box>
 
@@ -780,7 +789,7 @@ export const AdminCommunicationCenter = ({ initialAudience = null }) => {
         }
       >
         <Stack spacing={2.5}>
-          <Alert severity={form.priority === 'urgent' ? 'warning' : 'info'}>{formatAudienceLabel(form)} · {form.scheduledDate || 'Immediate simulation'} · Expires: {form.expiryDate || 'No expiry'} · No live delivery</Alert>
+          <Alert severity={form.priority === 'urgent' ? 'warning' : 'info'}>{formatAudienceLabel(form)} · {form.scheduledDate || 'Immediate simulation'} · Expires: {form.expiryDate || 'No expiry'} · {form.priority === 'urgent' ? 'Shown to each recipient as a popup until they press OK' : 'No live delivery'}</Alert>
           {/* Portal Card Preview */}
           <Box>
             <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>

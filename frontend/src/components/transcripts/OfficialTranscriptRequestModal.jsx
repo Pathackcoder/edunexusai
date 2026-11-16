@@ -313,7 +313,7 @@ export const OfficialTranscriptRequestModal = ({ isOpen, onClose, onSubmitSucces
                 Next Step
               </Button>
             ) : (
-              <Button type="submit" variant="primary" size="sm" disabled={!consentChecked || !recipientName}>
+              <Button type="submit" variant="primary" size="sm" disabled={!consentChecked || !recipientName} mutates>
                 Submit Official Order
               </Button>
             )}

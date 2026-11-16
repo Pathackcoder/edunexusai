@@ -25,6 +25,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { useToast } from '../../components/common/Toast';
 import { useApiQuery } from '../../hooks/useApiQuery';
 import { careerApi } from '../../services/api';
+import { ReadOnlyGate } from '../../viewAs/ReadOnly';
 
 /** Internship & job board, fed by the career-services adapter and ranked against the portfolio. */
 export const OpportunitiesPage = () => {
@@ -62,9 +63,11 @@ export const OpportunitiesPage = () => {
           <Typography variant="body2" color="text.secondary">{item.company}</Typography>
         </Box>
         <Tooltip title={item.saveStatus ? 'Remove from saved' : 'Save'}>
+          <ReadOnlyGate>
           <IconButton onClick={(e) => { e.stopPropagation(); setStatus(item, item.saveStatus ? 'NONE' : 'SAVED'); }} aria-label="Save opportunity">
             {item.saveStatus ? <BookmarkRoundedIcon color="primary" /> : <BookmarkBorderRoundedIcon />}
           </IconButton>
+          </ReadOnlyGate>
         </Tooltip>
       </Stack>
       <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: 'text.secondary' }}>
@@ -119,8 +122,8 @@ export const OpportunitiesPage = () => {
         footer={
           detail && (
             <>
-              <Button variant="ghost" onClick={() => setStatus(detail, detail.saveStatus ? 'NONE' : 'SAVED')}>{detail.saveStatus ? 'Unsave' : 'Save'}</Button>
-              <Button variant="outline" onClick={() => setStatus(detail, 'APPLIED')} disabled={detail.saveStatus === 'APPLIED'}>I applied</Button>
+              <Button variant="ghost" mutates onClick={() => setStatus(detail, detail.saveStatus ? 'NONE' : 'SAVED')}>{detail.saveStatus ? 'Unsave' : 'Save'}</Button>
+              <Button variant="outline" mutates onClick={() => setStatus(detail, 'APPLIED')} disabled={detail.saveStatus === 'APPLIED'}>I applied</Button>
               <Button icon={OpenInNewRoundedIcon} component="a" href={detail.applyUrl} target="_blank" rel="noopener noreferrer">Apply on employer site</Button>
             </>
           )

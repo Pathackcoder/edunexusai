@@ -11,6 +11,7 @@ import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import { useNotifications } from '../../context/NotificationContext';
 import { NotificationItem } from './NotificationItem';
 import { EmptyState } from '../common/EmptyState';
+import { ReadOnlyGate } from '../../viewAs/ReadOnly';
 
 /**
  * Header notification panel. Shows the four most recent notifications with the same
@@ -40,9 +41,11 @@ export const NotificationDropdown = ({ isOpen = true, onClose, anchorEl }) => {
         </Stack>
 
         {unreadCount > 0 && (
-          <Button size="small" onClick={markAllAsRead} startIcon={<DoneAllRoundedIcon />} sx={{ color: 'primary.main' }}>
-            Mark all read
-          </Button>
+          <ReadOnlyGate>
+            <Button size="small" onClick={markAllAsRead} startIcon={<DoneAllRoundedIcon />} sx={{ color: 'primary.main' }}>
+              Mark all read
+            </Button>
+          </ReadOnlyGate>
         )}
       </Stack>
 

@@ -58,7 +58,7 @@ export const RecommendationsPage = () => {
               <Stack spacing={2}>
                 <Autocomplete multiple freeSolo options={data.options.interests} value={prefs.interests} onChange={(_, value) => setPrefs({ ...prefs, interests: value })} renderInput={(params) => <TextField {...params} label="Interests" placeholder="Add a topic" />} />
                 <Autocomplete multiple freeSolo options={data.options.careerGoals} value={prefs.careerGoals} onChange={(_, value) => setPrefs({ ...prefs, careerGoals: value })} renderInput={(params) => <TextField {...params} label="Career goals" placeholder="Add a role" />} />
-                <Button onClick={save} loading={saving}>Update recommendations</Button>
+                <Button onClick={save} loading={saving} mutates>Update recommendations</Button>
                 <Box sx={{ p: 1.5, borderRadius: 2.5, bgcolor: 'background.subtle', border: 1, borderColor: 'divider' }}>
                   <Typography variant="caption" color="text.secondary" display="block">Signals used</Typography>
                   <Typography variant="body2">{data.signals.completedCourses} completed courses · strengths in {data.signals.strongTopics.slice(0, 3).join(', ') || '—'}</Typography>

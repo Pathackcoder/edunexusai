@@ -47,8 +47,14 @@ function collectingFor(user) {
   return user.tenant.analyticsEnabled || config.allowUserIds.includes(user.id);
 }
 
-export async function buildCurrentUser({ userId, signIn = null }) {
-  const user = await prisma.user.findUnique({
+/**
+ * `viewAs` (an administrator's read-only View-As session, req.viewAs): the payload is the subject's, restricted to
+ * the one persona being viewed (roles, contexts, entitlements and profile fields), with no university app links
+ * (those would sign the administrator in elsewhere as themselves), no named permissions, analytics off, and a
+ * `viewAs` block naming the session for the banner.
+ */
+export async function buildCurrentUser({ userId, signIn = null, viewAs = null }) {
+  const loaded = await prisma.user.findUnique({
     where: { id: userId },
     include: {
       tenant: true,
@@ -63,9 +69,12 @@ export async function buildCurrentUser({ userId, signIn = null }) {
       staffProfile: true,
     },
   });
-  if (!user) throw notFound('User not found.');
+  if (!loaded) throw notFound('User not found.');
+  const user = viewAs
+    ? { ...loaded, studentProfile: viewAs.persona === 'STUDENT' ? loaded.studentProfile : null, facultyProfile: viewAs.persona === 'FACULTY' ? loaded.facultyProfile : null, staffProfile: null }
+    : loaded;
 
-  const roles = user.userRoles.map((link) => link.role.key);
+  const roles = viewAs ? [viewAs.persona] : user.userRoles.map((link) => link.role.key);
   const entitlements = await resolveEntitlements({
     tenantId: user.tenantId,
     roles,
@@ -115,12 +124,18 @@ export async function buildCurrentUser({ userId, signIn = null }) {
     contexts: roleContexts.contexts,
     workspaces: roleContexts.workspaces,
     defaultContext: roleContexts.defaultContext,
-    apps: await universityApps(user, roles),
+    apps: viewAs ? [] : await universityApps(user, roles),
     lastLoginAt: user.lastLoginAt,
     // Named permissions on top of the roles (e.g. analytics.view), and whether this person's portal use is
     // being measured right now. The browser tracker stays silent unless `collecting` is true.
-    permissions: (await prisma.userPermission.findMany({ where: { tenantId: user.tenantId, userId: user.id }, select: { permission: true } })).map((row) => row.permission),
-    analytics: { collecting: collectingFor(user) },
+    permissions: viewAs ? [] : (await prisma.userPermission.findMany({ where: { tenantId: user.tenantId, userId: user.id }, select: { permission: true } })).map((row) => row.permission),
+    analytics: { collecting: viewAs ? false : collectingFor(user) },
+    ...(viewAs ? {
+      passwordChangeRequired: false,
+      signInMethod: 'VIEW_AS',
+      hasPassword: false,
+      viewAs: { sessionId: viewAs.sessionId, mode: viewAs.mode, persona: viewAs.persona, actor: { id: viewAs.actorUserId, fullName: viewAs.actorName }, expiresAt: viewAs.expiresAt, idleMinutes: viewAs.idleMs / 60000 },
+    } : {}),
   };
 
   if (user.studentProfile) {

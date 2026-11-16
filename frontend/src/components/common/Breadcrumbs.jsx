@@ -11,6 +11,7 @@ import { ANALYTICS_SECTIONS } from '../../pages/admin/analytics/sections.js';
 const routeLabels = {
   // Top-level
   dashboard: 'Dashboard',
+  nexora: 'Nexora',
   academics: 'Academics',
   finance: 'Finance',
   campus: 'Campus',

@@ -10,7 +10,7 @@ import { Badge } from '../../../components/common/Badge';
 import { IntegrationStatusBadge } from '../../../components/admin/IntegrationStatusBadge';
 import { ChartTable } from '../../../components/charts/Charts';
 import { StackedBars } from '../../../components/analytics/charts';
-import { Fact, FactGrid, Grid2, Panel } from '../../../components/analytics/parts';
+import { Fact, FactGrid, Grid2, Panel, RankTable } from '../../../components/analytics/parts';
 import { formatAgo, formatDay, formatDayLong, formatDuration, formatInstant, formatNumber, formatPercent, formatRange } from '../../../components/analytics/format.js';
 import { ReportState, useReport } from './shared';
 
@@ -66,8 +66,21 @@ export function IntegrationsTab({ filters, refreshKey }) {
         ];
         const daily = data.daily.map((row) => ({ ...row, label: formatDay(row.date), tip: formatDayLong(row.date) }));
         const anyRuns = data.daily.some((row) => row.succeeded + row.failed + row.partial > 0);
+        const { usage } = data;
         return (
           <Stack spacing={2}>
+            <Panel title="How people use the connected services" subtitle={`${formatRange(meta.from, meta.to)}${meta.demo?.included ? ' · includes demo data' : ''}`}
+              info="Usage, not system health: how often people opened Moodle and CampusCore from the portal, and how many sign-ins used your university sign-in. These come from usage measurement (and include demo data while it is on). Everything below this panel is the systems' own recorded status, which demo data never changes.">
+              <RankTable ariaLabel="Use of connected services" rows={usage.services} pageSize={8}
+                columns={[
+                  { key: 'label', label: 'What people did', primary: true, sortable: false, render: (row) => <><Box component="span" sx={{ color: 'text.secondary', fontWeight: 500 }}>{row.group} · </Box>{row.label}</> },
+                  { key: 'users', label: 'People', align: 'right', format: formatNumber, sortable: false },
+                  { key: 'uses', label: 'Times', align: 'right', format: formatNumber, bar: true, sortable: false },
+                ]} emptyText="Not measured in this period." />
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1.25 }}>
+                {usage.signIns.total ? `${formatNumber(usage.signIns.total)} sign-ins in the period: ${formatPercent(usage.signIns.sso / usage.signIns.total)} through university sign-in, ${formatPercent(usage.signIns.password / usage.signIns.total)} with a portal password.` : 'No sign-ins measured in this period.'}
+              </Typography>
+            </Panel>
             <Alert severity="info" variant="outlined" sx={{ py: 0.25 }}>
               This shows what the connected services actually recorded: the outcome of each synchronisation and operation. It is separate from usage analytics, and it is not an uptime monitor: a service that nobody tried to reach shows no failures.
             </Alert>

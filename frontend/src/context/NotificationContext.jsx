@@ -10,7 +10,7 @@ const NotificationContext = createContext(null);
  * is visible to the institution.
  */
 export const NotificationProvider = ({ children }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isViewAs } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -42,15 +42,18 @@ export const NotificationProvider = ({ children }) => {
   // Cross-persona workflows (an admin approving a request, support replying to a
   // ticket) create notifications for someone else. A light poll keeps the bell current
   // without a websocket; it pauses while the tab is hidden.
+  // Not in a View-As tab: the poll would count as activity and keep an unattended session from timing out.
   useEffect(() => {
-    if (!isAuthenticated) return undefined;
+    if (!isAuthenticated || isViewAs) return undefined;
     const timer = setInterval(() => {
       if (document.visibilityState === 'visible') load();
     }, 30000);
     return () => clearInterval(timer);
-  }, [isAuthenticated, load]);
+  }, [isAuthenticated, isViewAs, load]);
 
+  // Read-only View-As: reading a notification there does not mark it read for the person (no local change either).
   const markAsRead = useCallback(async (id) => {
+    if (isViewAs) return;
     // Optimistic: the badge updates immediately, then the server confirms.
     setNotifications((current) =>
       current.map((item) => (item.id === id ? { ...item, isRead: true } : item)),
@@ -61,9 +64,10 @@ export const NotificationProvider = ({ children }) => {
     } catch {
       load();
     }
-  }, [load]);
+  }, [load, isViewAs]);
 
   const markAllAsRead = useCallback(async () => {
+    if (isViewAs) return;
     setNotifications((current) => current.map((item) => ({ ...item, isRead: true })));
     setUnreadCount(0);
     try {
@@ -71,7 +75,7 @@ export const NotificationProvider = ({ children }) => {
     } catch {
       load();
     }
-  }, [load]);
+  }, [load, isViewAs]);
 
   const value = useMemo(
     () => ({

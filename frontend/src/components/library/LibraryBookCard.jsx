@@ -74,6 +74,7 @@ export const LibraryBookCard = ({ book, onRenew }) => {
           size="sm"
           variant={book.status === 'Due Soon' ? 'primary' : 'outline'}
           icon={AutorenewRoundedIcon}
+          mutates
           onClick={() => onRenew(book.id)}
         >
           Renew Loan

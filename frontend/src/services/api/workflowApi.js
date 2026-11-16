@@ -1,4 +1,4 @@
-import { apiClient, tokenStore } from './client.js';
+import { apiClient, authHeaders } from './client.js';
 
 /** Requests, help desk tickets, forms, resources and attachments (requester side). */
 export const workflowApi = {
@@ -27,7 +27,7 @@ export const workflowApi = {
   /** Authenticated download: fetch as a blob and hand it to the browser. */
   async downloadAttachment(file) {
     const response = await fetch(`${apiClient.baseUrl}/attachments/${file.id}`, {
-      headers: { Authorization: `Bearer ${tokenStore.getAccessToken()}` },
+      headers: authHeaders(),
     });
     if (!response.ok) throw new Error('Could not download the attachment.');
     const url = URL.createObjectURL(await response.blob());

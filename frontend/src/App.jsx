@@ -22,6 +22,8 @@ import { I18nProvider } from './i18n';
 import { AppLayout } from './layouts/AppLayout';
 import { LoginPage } from './pages/LoginPage';
 import { SsoCompletePage } from './pages/SsoCompletePage';
+import { ViewAsStartPage } from './pages/viewAs/ViewAsStartPage';
+import { ViewAsEndedPage } from './pages/viewAs/ViewAsEndedPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { HelpSupportPage } from './pages/HelpSupportPage';
@@ -78,6 +80,7 @@ import { AdminMoodlePage } from './pages/admin/AdminMoodlePage';
 import { AdminSisPage } from './pages/admin/AdminSisPage';
 
 const AdminAnalyticsPage = lazy(() => import('./pages/admin/AdminAnalyticsPage'));
+const NexoraPage = lazy(lazyNexoraPage);
 
 // Help & Support (requester side of the cross-persona workflows)
 import { MyRequestsPage } from './pages/help/MyRequestsPage';
@@ -102,6 +105,7 @@ import { FacultyInterventionsPage } from './pages/faculty/FacultyInterventionsPa
 
 import { AccessDeniedPage } from './pages/AccessDeniedPage';
 import { FullPageLoader } from './components/common/FullPageLoader';
+import { lazyNexoraPage } from './components/nexora/NexoraSession';
 
 /**
  * Route guards.
@@ -153,6 +157,11 @@ function AppRoutes() {
       {/* End of an institutional (SSO) sign-in: exchanges the single-use code for the session. */}
       <Route path="/auth/sso/complete" element={<SsoCompletePage />} />
 
+      {/* View-As (read-only administrator support access): the new tab receives its session here, and lands on the
+          ended page when the session is over. Neither is inside the portal shell. */}
+      <Route path="/view-as/start" element={<ViewAsStartPage />} />
+      <Route path="/view-as/ended" element={<ViewAsEndedPage />} />
+
       <Route
         path="/"
         element={
@@ -165,6 +174,10 @@ function AppRoutes() {
 
         {/* Persona-aware: DashboardPage renders the student, faculty or admin view */}
         <Route path="dashboard" element={<DashboardPage />} />
+
+        {/* Nexora, the AI workspace: every persona (its tools are decided per session by the API). One route with an
+            optional conversation id, so starting a conversation does not remount the page while it streams. */}
+        <Route path="nexora/:conversationId?" element={<Suspense fallback={<FullPageLoader label="Opening Nexora…" />}><NexoraPage /></Suspense>} />
 
         {/* Academics (student) */}
         <Route path="academics" element={<RoleRoute allow={['STUDENT']}><AcademicsPage /></RoleRoute>} />

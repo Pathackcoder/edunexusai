@@ -1318,6 +1318,31 @@ async function localIdentityResolver(tenantId) {
 }
 
 /**
+ * When each student last opened a Moodle course, for administrators (Nexora's inactive-LMS report). Read-only and
+ * live: Moodle's enrolled-users call reports lastcourseaccess (or lastaccess); a site that hides those fields from
+ * the integration account yields `accessReported: false` rather than invented values.
+ */
+export async function studentCourseAccess(tenantId) {
+  const { connector } = await connect(tenantId);
+  const localOf = await localIdentityResolver(tenantId);
+  const people = new Map();
+  let accessReported = false;
+  for (const course of await connector.listCourses()) {
+    for (const u of await connector.getEnrolledUsers(course.id)) {
+      if (!(u.roles ?? []).some((r) => r.shortname === 'student')) continue;
+      const seconds = u.lastcourseaccess ?? u.lastaccess;
+      if (seconds !== undefined) accessReported = true;
+      const at = seconds ? new Date(seconds * 1000).toISOString() : null;
+      const row = people.get(Number(u.id)) ?? { moodleUserId: Number(u.id), fullName: u.fullname, localIdentity: localOf(u.id), lastAccess: null, courses: [] };
+      row.courses.push(course.shortname);
+      if (at && (!row.lastAccess || at > row.lastAccess)) row.lastAccess = at;
+      people.set(Number(u.id), row);
+    }
+  }
+  return { accessReported, students: [...people.values()] };
+}
+
+/**
  * The LMS counterpart of an SIS "sync": reads every Moodle course and its participants
  * (core_enrol_get_enrolled_users) into canonical enrolment DTOs. Read-only: it writes
  * nothing to the academic tables, and only a sync-log row and health reading locally.

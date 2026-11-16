@@ -1,4 +1,5 @@
 import { AppError, ErrorCode, integrationError } from '../../utils/errors.js';
+import { assertNotViewAs } from '../../modules/viewAs/viewAsContext.js';
 
 /**
  * Connector contract.
@@ -54,6 +55,7 @@ export class BaseConnector {
   /** HTTP with a hard timeout, uniform error translation and a response-time reading. */
   async request(path, { method = 'GET', headers = {}, body, query, allowNotFound = false } = {}) {
     this.assertConfigured();
+    if (method !== 'GET' && method !== 'HEAD') assertNotViewAs(`${this.constructor.name} ${method} ${path}`);
     const url = new URL(`${this.baseUrl}${path}`);
     for (const [key, value] of Object.entries(query ?? {})) {
       if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));

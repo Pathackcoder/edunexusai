@@ -132,6 +132,9 @@ describe('forms, resources and broadcasts', () => {
     assert.ok(!studentView.body.data.resources.some((row) => row.id === created.body.data.id));
     const facultyView = await api('/resources', { token: await login('faculty') });
     assert.ok(facultyView.body.data.resources.some((row) => row.id === created.body.data.id));
+    // Leave the seeded resources as they were for the suites that follow.
+    const { prisma } = await import('../src/db/prisma.js');
+    await prisma.portalResource.delete({ where: { id: created.body.data.id } });
   });
 
   it('a broadcast is delivered as in-app notifications to the resolved audience', async () => {

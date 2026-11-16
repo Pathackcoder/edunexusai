@@ -41,6 +41,7 @@ import { useI18n } from '../../i18n';
 import { SubmitModal } from '../../components/assignments/SubmitModal';
 import { AnnouncementModal } from '../../components/announcements/AnnouncementModal';
 import { PaymentModal } from '../../components/finance/PaymentModal';
+import { ReadOnlyGate, useReadOnly } from '../../viewAs/ReadOnly';
 import { TuitionAccountSummary } from '../../components/finance/TuitionAccountSummary';
 import { useToast } from '../../components/common/Toast';
 import { FitList, Spotlight, WidgetEmpty } from '../../components/common/FitList';
@@ -118,6 +119,7 @@ export const StudentDashboard = () => {
   const cmsLayout = useCmsDashboardLayout('student');
   const availableKeys = applyCmsLayout((data?.widgets ?? []).filter((key) => has(key)).map((key) => ({ key })), cmsLayout).map((item) => item.key);
   const layout = useDashboardLayout('student', data?.layout, availableKeys);
+  const readOnly = useReadOnly();
 
   // Class times come from CampusCore SIS (the official schedule), never from local records.
   const sisOverview = useApiQuery(() => sisApi.myOverview());
@@ -243,7 +245,7 @@ export const StudentDashboard = () => {
                     sx={{ ...heroChipSx, maxWidth: '100%' }}
                   />
                 )}
-                {layout.isCustomised && (
+                {layout.isCustomised && !readOnly && (
                   <Chip icon={<RestartAltRoundedIcon />} label={t('Reset layout')} onClick={layout.reset} sx={heroChipSx} />
                 )}
               </>
@@ -417,7 +419,7 @@ export const StudentDashboard = () => {
                             View account
                           </Button>
                         ) : financeData.currentBalance > 0 ? (
-                          <Button size="md" fullWidth onClick={() => setIsPaymentModalOpen(true)}>
+                          <Button size="md" fullWidth onClick={() => setIsPaymentModalOpen(true)} mutates>
                             Pay balance
                           </Button>
                         ) : (
@@ -660,9 +662,11 @@ export const StudentDashboard = () => {
                           </Typography>
                         </Box>
                         {!notification.isRead && (
-                          <MuiButton size="small" onClick={() => markAsRead(notification.id)} sx={{ color: 'primary.main', flexShrink: 0 }}>
-                            Mark read
-                          </MuiButton>
+                          <ReadOnlyGate>
+                            <MuiButton size="small" onClick={() => markAsRead(notification.id)} sx={{ color: 'primary.main', flexShrink: 0 }}>
+                              Mark read
+                            </MuiButton>
+                          </ReadOnlyGate>
                         )}
                       </Stack>
                     )}

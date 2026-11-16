@@ -13,7 +13,6 @@ import ListItemText from '@mui/material/ListItemText';
 import ListSubheader from '@mui/material/ListSubheader';
 import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
 import Badge from '@mui/material/Badge';
 import Avatar from '@mui/material/Avatar';
 import Menu from '@mui/material/Menu';
@@ -26,7 +25,6 @@ import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import NotificationsNoneRoundedIcon from '@mui/icons-material/NotificationsNoneRounded';
 import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
-import CreditCardRoundedIcon from '@mui/icons-material/CreditCardRounded';
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded';
 import HelpOutlineRoundedIcon from '@mui/icons-material/HelpOutlineRounded';
@@ -48,16 +46,17 @@ import { useApiQuery } from '../hooks/useApiQuery';
 import { directoryApi, academicApi } from '../services/api';
 import { usePWA } from '../context/PWAContext';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
-import { LanguageSelector } from '../i18n/LanguageSelector';
 import { InstitutionLogo } from '../components/brand/Brand';
 import { useStudioMode } from '../pages/studio/studioMode';
 import { layout } from '../theme/theme';
 import { trackFeature, trackNav } from '../analytics/index.js';
+import { NexoraMark } from '../components/nexora/NexoraMark';
+import { loadNexoraPage, useNexoraSession } from '../components/nexora/NexoraSession';
 
 const PERSONA_LABEL = { STUDENT: 'Student', FACULTY: 'Faculty', STAFF: 'Staff', ALUMNI: 'Alumni', ADMIN: 'Administrator' };
 
 export const Header = ({ onOpenMobile, showMenuButton = false }) => {
-  const { user, logout, isStudent, persona, contexts, workspaces, isMultiRole } = useAuth();
+  const { user, logout, isStudent, persona, contexts, workspaces, isMultiRole, isViewAs, endViewAs } = useAuth();
   // A person with several roles is described by all of them (e.g. "Faculty · Student").
   const roleLabel = isMultiRole
     ? [...contexts.map((c) => PERSONA_LABEL[c.role] ?? c.role), ...workspaces.map((w) => (w === 'admin' ? PERSONA_LABEL.ADMIN : w))].join(' · ')
@@ -71,7 +70,7 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
   const { unreadCount } = useNotifications();
   const chat = useChat();
   const chatUnread = chat?.unreadTotal ?? 0;
-  const { resetFinanceBalance, financeData } = useFinance();
+  const { resetFinanceBalance } = useFinance();
   const { showToast } = useToast();
   const [notifAnchor, setNotifAnchor] = useState(null);
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);
@@ -79,6 +78,9 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
   const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false);
   const searchContainerRef = useRef(null);
   const navigate = useNavigate();
+  const { inNexora, phase: nexoraPhase, toggle: toggleNexora } = useNexoraSession();
+  // The pill switches as soon as the toggle is pressed, ahead of the route change.
+  const nexoraOn = (inNexora && nexoraPhase !== 'closing') || nexoraPhase === 'opening';
 
   const isNotifOpen = Boolean(notifAnchor);
   const isUserMenuOpen = Boolean(userMenuAnchor);
@@ -191,7 +193,8 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
       color="inherit"
       elevation={0}
       sx={(theme) => ({
-        top: 0,
+        // Below the View-As band when there is one (0px otherwise).
+        top: 'var(--enx-top-offset, 0px)',
         bgcolor: alpha('#FFFFFF', 0.72),
         backdropFilter: 'saturate(180%) blur(16px)',
         borderBottom: 1,
@@ -381,22 +384,71 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
 
         {/* Right: quick payment, language, notifications, account. Install lives in the floating prompt. */}
         <Stack direction="row" alignItems="center" spacing={{ xs: 0.5, sm: 1 }} sx={{ flexShrink: 0 }}>
-          {/* Quick Payment Shortcut */}
-          {isStudent && (
-            <Button
+          {/* Nexora, the AI workspace (every persona), as a toggle: pressed again it closes and returns to the page
+              the person came from. Tuition & Accounts stays in the sidebar under Finance. */}
+          <Tooltip title={inNexora ? 'Close Nexora and return to where you were' : 'Open Nexora, your AI workspace'}>
+            <Box
               component={RouterLink}
-              to="/finance/tuition"
-              variant="contained"
-              size="small"
-              startIcon={<CreditCardRoundedIcon />}
-              sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
+              to="/nexora"
+              aria-label={inNexora ? 'Close Nexora' : 'Open Nexora'}
+              aria-current={inNexora ? 'page' : undefined}
+              onPointerEnter={() => loadNexoraPage().catch(() => {})}
+              onFocus={() => loadNexoraPage().catch(() => {})}
+              onClick={(event) => {
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+                event.preventDefault();
+                toggleNexora();
+              }}
+              sx={{
+                position: 'relative',
+                display: 'inline-flex',
+                alignItems: 'center',
+                height: 34,
+                borderRadius: 999,
+                p: '1.5px',
+                textDecoration: 'none',
+                background: 'linear-gradient(125deg, var(--enx-primary, #4651DE) 0%, #8B5CF6 52%, #22D3EE 100%)',
+                boxShadow: nexoraOn ? '0 8px 22px -10px rgba(91, 75, 227, 0.75)' : '0 6px 18px -12px rgba(91, 75, 227, 0.7)',
+                transition: 'transform 220ms cubic-bezier(0.22, 1.18, 0.36, 1), box-shadow 220ms ease',
+                '&:hover': { transform: 'translateY(-1px)', boxShadow: '0 12px 26px -12px rgba(91, 75, 227, 0.85)' },
+                '&:hover .enx-nexora-mark': { transform: 'rotate(18deg) scale(1.08)' },
+                '&:active': { transform: 'scale(0.97)' },
+                '&:focus-visible': { outline: (theme) => `2px solid ${theme.palette.primary.main}`, outlineOffset: 3 },
+                '@media (prefers-reduced-motion: reduce)': { transition: 'none', '&:hover': { transform: 'none' }, '& .enx-nexora-mark': { transition: 'none' } },
+              }}
             >
-              {financeData?.paymentsEnabled === false ? 'Tuition & Accounts' : 'Pay Tuition'}
-            </Button>
-          )}
+              <Box
+                component="span"
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.75,
+                  height: '100%',
+                  pl: { xs: 0.85, sm: 1.1 },
+                  pr: { xs: 0.85, sm: 1.5 },
+                  borderRadius: 999,
+                  bgcolor: nexoraOn ? 'transparent' : 'rgba(255, 255, 255, 0.94)',
+                  color: nexoraOn ? '#fff' : 'text.primary',
+                  transition: 'background-color 200ms ease, color 200ms ease',
+                }}
+              >
+                <NexoraMark size={18} mono={nexoraOn} sx={{ transition: 'transform 320ms cubic-bezier(0.22, 1.18, 0.36, 1)' }} className="enx-nexora-mark" />
+                <Box
+                  component="span"
+                  sx={{
+                    display: { xs: 'none', sm: 'inline' },
+                    fontSize: '0.8125rem',
+                    fontWeight: 700,
+                    letterSpacing: '0.01em',
+                    ...(nexoraOn ? {} : { background: 'linear-gradient(125deg, var(--enx-primary, #4651DE) 0%, #7A4FD8 100%)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }),
+                  }}
+                >
+                  Nexora
+                </Box>
+              </Box>
+            </Box>
+          </Tooltip>
 
-          {/* Notifications Popover Trigger */}
-          <LanguageSelector />
           {/* Messages: the inbox panel; the count is the signed-in person's unread chat messages. */}
           {chat && (
             <Tooltip title="Messages">
@@ -491,7 +543,7 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
               <ListItemIcon><PersonOutlineRoundedIcon fontSize="small" /></ListItemIcon>
               My Profile
             </MenuItem>
-            {user?.hasPassword !== false && (
+            {user?.hasPassword !== false && !isViewAs && (
               <MenuItem component={RouterLink} to="/profile/password" onClick={() => { trackNav('/profile/password', 'HEADER_MENU'); setIsUserMenuOpen(false); }}>
                 <ListItemIcon><KeyRoundedIcon fontSize="small" /></ListItemIcon>
                 Change password
@@ -511,8 +563,8 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
               Emergency Hotline (911)
             </MenuItem>
 
-            {/* Demo-only control; only a student has a tuition balance to reset. */}
-            {isStudent && (
+            {/* Demo-only control; only a student has a tuition balance to reset (never in a read-only View-As tab). */}
+            {isStudent && !isViewAs && (
               <MenuItem onClick={handleResetDemo} sx={{ color: 'primary.main' }}>
                 <ListItemIcon sx={{ color: 'primary.main' }}><RestartAltRoundedIcon fontSize="small" /></ListItemIcon>
                 Reset demo tuition balance
@@ -520,7 +572,7 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
             )}
 
             {/* Always reachable here, including after "Don't show again" on the floating prompt. */}
-            {!isInstalled && (
+            {!isInstalled && !isViewAs && (
               <MenuItem onClick={() => { trackFeature('pwa.install_prompted'); setIsUserMenuOpen(false); promptInstall(); }}>
                 <ListItemIcon><FileDownloadOutlinedIcon fontSize="small" /></ListItemIcon>
                 Install Portal App
@@ -535,16 +587,25 @@ export const Header = ({ onOpenMobile, showMenuButton = false }) => {
                 {studio.editing ? 'Exit Studio' : 'Studio'}
               </MenuItem>
             )}
-            {ssoSession && (
-              <MenuItem onClick={() => handleLogout({ everywhere: false })}>
-                <ListItemIcon><LogoutRoundedIcon fontSize="small" /></ListItemIcon>
-                <ListItemText primary="Sign out of EdunexusAI only" secondary="Other university apps stay signed in" />
+            {/* View-As: the tokens are the administrator's own session; this tab can only end its View-As session. */}
+            {isViewAs && (
+              <MenuItem onClick={() => { setIsUserMenuOpen(false); endViewAs(); }} sx={{ color: 'warning.dark', '&:hover': { bgcolor: 'warning.lighter' } }}>
+                <ListItemIcon sx={{ color: 'warning.dark' }}><LogoutRoundedIcon fontSize="small" /></ListItemIcon>
+                <ListItemText primary="End Impersonation" secondary="Closes this read-only View-As session" />
               </MenuItem>
             )}
-            <MenuItem onClick={() => handleLogout({ everywhere: true })} sx={{ color: 'error.main', '&:hover': { bgcolor: 'error.lighter' } }}>
-              <ListItemIcon sx={{ color: 'error.main' }}><LogoutRoundedIcon fontSize="small" /></ListItemIcon>
-              {ssoSession ? <ListItemText primary="Sign out of all university apps" secondary="Ends your Feddrick University ID sign-in" /> : 'Sign Out'}
-            </MenuItem>
+            {!isViewAs && [
+              ssoSession && (
+                <MenuItem key="local" onClick={() => handleLogout({ everywhere: false })}>
+                  <ListItemIcon><LogoutRoundedIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText primary="Sign out of EdunexusAI only" secondary="Other university apps stay signed in" />
+                </MenuItem>
+              ),
+              <MenuItem key="all" onClick={() => handleLogout({ everywhere: true })} sx={{ color: 'error.main', '&:hover': { bgcolor: 'error.lighter' } }}>
+                <ListItemIcon sx={{ color: 'error.main' }}><LogoutRoundedIcon fontSize="small" /></ListItemIcon>
+                {ssoSession ? <ListItemText primary="Sign out of all university apps" secondary="Ends your Feddrick University ID sign-in" /> : 'Sign Out'}
+              </MenuItem>,
+            ]}
           </Menu>
         </Stack>
       </Toolbar>

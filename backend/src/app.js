@@ -7,6 +7,7 @@ import { env } from './config/env.js';
 import { apiV1 } from './routes/index.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
 import { apiRateLimiter } from './middleware/rateLimit.js';
+import { viewAsRequestGate } from './modules/viewAs/viewAsGate.js';
 import { openApiDocument } from './docs/openapi.js';
 import { sendSuccess } from './utils/apiResponse.js';
 
@@ -53,13 +54,15 @@ export function createApp() {
       },
       credentials: true,
       methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization'],
+      // X-View-As-Session: the View-As tab's session secret (modules/viewAs), sent alongside the administrator's token.
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-View-As-Session'],
       maxAge: 86400,
     }),
   );
 
   // Analytics batches are small by design; this parser runs first, so the larger limit below never applies to them.
   app.use('/api/v1/analytics/events', express.json({ limit: '64kb' }));
+  app.use('/api/v1/analytics/presence', express.json({ limit: '1kb' }));
   // Large enough for up to three 1 MB supporting documents sent as base64.
   app.use(express.json({ limit: '5mb' }));
   app.use(express.urlencoded({ extended: true, limit: '1mb' }));
@@ -67,10 +70,13 @@ export function createApp() {
   if (!env.isTest) {
     // The analytics tracker is not request-logged: the log format carries the client address and user agent,
     // which analytics must never keep.
-    app.use(morgan(env.logLevel, { skip: (req) => req.originalUrl.startsWith('/api/v1/analytics/events') }));
+    app.use(morgan(env.logLevel, { skip: (req) => req.originalUrl.startsWith('/api/v1/analytics/events') || req.originalUrl.startsWith('/api/v1/analytics/presence') }));
   }
 
   app.use('/api', apiRateLimiter);
+  // View-As tabs are read-only: every non-read request carrying a View-As session is refused here, before any route
+  // (mounted for every path, so no spelling of a path can route around it).
+  app.use(viewAsRequestGate);
 
   // Service index, so hitting the root tells a developer where to go.
   app.get('/', (_req, res) =>

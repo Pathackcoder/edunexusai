@@ -105,3 +105,33 @@ export function niceMax(value) {
 }
 
 export const PRESETS = [{ id: '7d', label: '7 days' }, { id: '30d', label: '30 days' }, { id: '90d', label: '90 days' }, { id: 'custom', label: 'Custom' }];
+
+/** An instant as a chart label in the institution's time zone: "3 PM" (24 hours), "Mon 3 PM" (7 days), "Nov 3" (30 days). */
+export function formatBucket(value, timeZone, window) {
+  const options = window === '24h' ? { hour: 'numeric', minute: '2-digit' } : window === '7d' ? { weekday: 'short', hour: 'numeric' } : { month: 'short', day: 'numeric', hour: 'numeric' };
+  try {
+    return new Intl.DateTimeFormat('en-US', { ...options, timeZone }).format(new Date(value));
+  } catch {
+    return new Date(value).toLocaleString('en-US', options);
+  }
+}
+
+/** "Thu, Nov 12, 3:45 PM" in the institution's time zone. */
+export function formatDateTime(value, timeZone) {
+  if (!value) return DASH;
+  try {
+    return new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone }).format(new Date(value));
+  } catch {
+    return new Date(value).toLocaleString('en-US');
+  }
+}
+
+/** A calendar date of an instant in the institution's time zone: "Nov 12, 2026". */
+export function formatDate(value, timeZone) {
+  if (!value) return DASH;
+  try {
+    return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone }).format(new Date(value));
+  } catch {
+    return new Date(value).toLocaleDateString('en-US');
+  }
+}

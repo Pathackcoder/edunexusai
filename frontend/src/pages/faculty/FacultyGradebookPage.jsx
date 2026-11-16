@@ -38,6 +38,7 @@ import { FilterChips } from '../../components/common/FilterChips';
 import { useToast } from '../../components/common/Toast';
 import { useApiQuery } from '../../hooks/useApiQuery';
 import { facultyApi } from '../../services/api';
+import { ReadOnlyGate } from '../../viewAs/ReadOnly';
 
 const keyOf = (studentProfileId, assignmentId) => `${studentProfileId}:${assignmentId}`;
 const fmtDate = (value) => (value ? new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—');
@@ -127,22 +128,24 @@ function SettingsDialog({ open, onClose, book, onSave }) {
       </DialogContent>
       <DialogActions>
         <MuiButton onClick={onClose}>Cancel</MuiButton>
-        <MuiButton
-          variant="contained"
-          disabled={invalid || saving}
-          onClick={async () => {
-            setSaving(true);
-            await onSave({
-              gradingMethod: method,
-              missingWorkPolicy: policy,
-              atRiskThreshold: thresholdValue,
-              weights: Object.entries(weights).map(([assignmentId, w]) => ({ assignmentId, weight: w === '' ? null : Number(w) })),
-            });
-            setSaving(false);
-          }}
-        >
-          Save settings
-        </MuiButton>
+        <ReadOnlyGate>
+          <MuiButton
+            variant="contained"
+            disabled={invalid || saving}
+            onClick={async () => {
+              setSaving(true);
+              await onSave({
+                gradingMethod: method,
+                missingWorkPolicy: policy,
+                atRiskThreshold: thresholdValue,
+                weights: Object.entries(weights).map(([assignmentId, w]) => ({ assignmentId, weight: w === '' ? null : Number(w) })),
+              });
+              setSaving(false);
+            }}
+          >
+            Save settings
+          </MuiButton>
+        </ReadOnlyGate>
       </DialogActions>
     </Dialog>
   );
@@ -285,12 +288,16 @@ export const FacultyGradebookPage = () => {
           <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
             <MuiButton startIcon={<TuneRoundedIcon />} onClick={() => setSettingsOpen(true)} disabled={!book}>Grading settings</MuiButton>
             <MuiButton startIcon={<UndoRoundedIcon />} onClick={() => setEdits({})} disabled={!unsavedCount || saving}>Discard</MuiButton>
-            <MuiButton variant="outlined" startIcon={<SaveOutlinedIcon />} onClick={save} disabled={!unsavedCount || saving}>
-              {saving ? 'Saving…' : `Save drafts${unsavedCount ? ` (${unsavedCount})` : ''}`}
-            </MuiButton>
-            <MuiButton variant="contained" startIcon={<PublishRoundedIcon />} onClick={() => setPublishTarget({ label: 'all draft grades in this course' })} disabled={!book?.summary.pendingDrafts || unsavedCount > 0}>
-              Publish{book?.summary.pendingDrafts ? ` (${book.summary.pendingDrafts})` : ''}
-            </MuiButton>
+            <ReadOnlyGate>
+              <MuiButton variant="outlined" startIcon={<SaveOutlinedIcon />} onClick={save} disabled={!unsavedCount || saving}>
+                {saving ? 'Saving…' : `Save drafts${unsavedCount ? ` (${unsavedCount})` : ''}`}
+              </MuiButton>
+            </ReadOnlyGate>
+            <ReadOnlyGate>
+              <MuiButton variant="contained" startIcon={<PublishRoundedIcon />} onClick={() => setPublishTarget({ label: 'all draft grades in this course' })} disabled={!book?.summary.pendingDrafts || unsavedCount > 0}>
+                Publish{book?.summary.pendingDrafts ? ` (${book.summary.pendingDrafts})` : ''}
+              </MuiButton>
+            </ReadOnlyGate>
           </Stack>
         }
       />
@@ -379,9 +386,11 @@ export const FacultyGradebookPage = () => {
                               </Typography>
                               <Typography variant="caption" component="div">Avg {pct(stats?.average)}</Typography>
                               {draftsFor(a.id) > 0 && (
-                                <MuiButton size="small" onClick={() => setPublishTarget({ assignmentId: a.id, label: `draft grades for “${a.title}”` })} disabled={unsavedCount > 0} sx={{ mt: 0.25 }}>
-                                  Publish {draftsFor(a.id)}
-                                </MuiButton>
+                                <ReadOnlyGate>
+                                  <MuiButton size="small" onClick={() => setPublishTarget({ assignmentId: a.id, label: `draft grades for “${a.title}”` })} disabled={unsavedCount > 0} sx={{ mt: 0.25 }}>
+                                    Publish {draftsFor(a.id)}
+                                  </MuiButton>
+                                </ReadOnlyGate>
                               )}
                             </TableCell>
                           );
@@ -468,7 +477,7 @@ export const FacultyGradebookPage = () => {
         </DialogContent>
         <DialogActions>
           <MuiButton onClick={() => setPublishTarget(null)}>Cancel</MuiButton>
-          <MuiButton variant="contained" startIcon={<PublishRoundedIcon />} onClick={publish}>Publish</MuiButton>
+          <ReadOnlyGate><MuiButton variant="contained" startIcon={<PublishRoundedIcon />} onClick={publish}>Publish</MuiButton></ReadOnlyGate>
         </DialogActions>
       </Dialog>
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} book={book} onSave={saveSettings} />

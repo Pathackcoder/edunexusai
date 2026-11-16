@@ -16,6 +16,8 @@ const LAZY_DEPS = [
   '@puckeditor/core',
   '@emotion/cache',
   'react-markdown',
+  // Nexora (lazily loaded): Markdown tables in answers.
+  'remark-gfm',
   'react-dom/server',
   '@tiptap/core',
   '@tiptap/pm/history',

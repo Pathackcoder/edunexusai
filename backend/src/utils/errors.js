@@ -17,6 +17,12 @@ export const ErrorCode = {
   OPERATION_NOT_SUPPORTED: 'OPERATION_NOT_SUPPORTED',
   PROFILE_NOT_FOUND: 'PROFILE_NOT_FOUND',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
+  // View-As (read-only administrator support access): the action is not allowed while viewing as someone, or the
+  // View-As session is unknown, belongs to someone else, or has ended. Never 401: the administrator's own sign-in is fine.
+  VIEW_AS_READ_ONLY: 'VIEW_AS_READ_ONLY',
+  VIEW_AS_SESSION_INVALID: 'VIEW_AS_SESSION_INVALID',
+  VIEW_AS_SESSION_ENDED: 'VIEW_AS_SESSION_ENDED',
+  VIEW_AS_NOT_ALLOWED: 'VIEW_AS_NOT_ALLOWED',
 };
 
 export class AppError extends Error {

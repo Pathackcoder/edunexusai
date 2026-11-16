@@ -148,7 +148,7 @@ export const PersonalInfoPage = () => {
               subtitle="Official student identity verified under FERPA and university registrar bylaws."
               icon={BadgeOutlinedIcon}
               headerAction={
-                <Button size="sm" variant="outline" icon={DescriptionOutlinedIcon} onClick={() => setIsNameModalOpen(true)}>
+                <Button size="sm" variant="outline" icon={DescriptionOutlinedIcon} onClick={() => setIsNameModalOpen(true)} mutates>
                   Request Name Change
                 </Button>
               }
@@ -180,7 +180,7 @@ export const PersonalInfoPage = () => {
               tone="info"
               headerAction={
                 !isEditingContact && (
-                  <Button size="sm" variant="outline" icon={EditOutlinedIcon} onClick={() => setIsEditingContact(true)}>
+                  <Button size="sm" variant="outline" icon={EditOutlinedIcon} onClick={() => setIsEditingContact(true)} mutates>
                     Edit Contact Info
                   </Button>
                 )
@@ -209,7 +209,7 @@ export const PersonalInfoPage = () => {
                     <Button size="sm" variant="ghost" type="button" onClick={() => setIsEditingContact(false)}>
                       Cancel
                     </Button>
-                    <Button size="sm" variant="primary" type="submit">
+                    <Button size="sm" variant="primary" type="submit" mutates>
                       Save Contact Info
                     </Button>
                   </Stack>
@@ -230,7 +230,7 @@ export const PersonalInfoPage = () => {
               icon={HomeWorkOutlinedIcon}
               tone="purple"
               headerAction={
-                <Button size="sm" variant="outline" icon={EditLocationAltOutlinedIcon} onClick={() => setIsAddressModalOpen(true)}>
+                <Button size="sm" variant="outline" icon={EditLocationAltOutlinedIcon} onClick={() => setIsAddressModalOpen(true)} mutates>
                   Request Address Change
                 </Button>
               }

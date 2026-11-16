@@ -136,7 +136,7 @@ export const SubmitModal = ({ isOpen, onClose, assignment, onSubmitSuccess }) =>
               <Button variant="secondary" onClick={onClose} disabled={isSubmitting}>
                 Cancel
               </Button>
-              <Button type="submit" variant="primary" loading={isSubmitting}>
+              <Button type="submit" variant="primary" loading={isSubmitting} mutates>
                 Submit Assignment
               </Button>
             </Stack>

@@ -1,7 +1,8 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../db/prisma.js';
-import { ROLE_KEYS } from '../../../../shared/analyticsCatalog.js';
+import { FEATURES, NAV_EXTERNAL_TARGETS, ROLE_KEYS } from '../../../../shared/analyticsCatalog.js';
 import { addDays, localDateSql, startOfLocalDate } from './rollupService.js';
+import { loginTotals, meta, src } from './reportService.js';
 
 /**
  * Reports built from records the portal already keeps (no new tracking, so they work before collection is
@@ -15,11 +16,24 @@ const ratio = (part, whole) => (whole > 0 && part !== null && part !== undefined
 const window = (ctx, column) => Prisma.sql`${column} >= ${startOfLocalDate(ctx.from, ctx.tz)} AND ${column} < ${startOfLocalDate(addDays(ctx.to, 1), ctx.tz)}`;
 const day = (ctx, column) => Prisma.sql`to_char(${localDateSql(column, ctx.tz)}, 'YYYY-MM-DD')`;
 
+/**
+ * Notifications with their recipient's roles. With demo data included, the synthetic people's notifications are
+ * added (analytics_demo_notifications); broadcasts and course announcements stay real records only.
+ */
+const notificationSource = (ctx) => {
+  const real = Prisma.sql`
+    SELECT x."tenantId", x."userId", x."isRead", x."readAt", x."createdAt", x."sourceType", x."category",
+      COALESCE((SELECT array_agg(r."key"::text) FROM "user_roles" ur JOIN "roles" r ON r."id" = ur."roleId" WHERE ur."userId" = x."userId"), '{}') AS roles
+    FROM "notifications" x WHERE x."tenantId" = ${ctx.tenantId}`;
+  if (!ctx.demo) return real;
+  return Prisma.sql`${real} UNION ALL
+    SELECT d."tenantId", d."userId", d."isRead", d."readAt", d."createdAt", d."sourceType", d."category", p."rolesHeld"::text[]
+    FROM "analytics_demo_notifications" d JOIN "analytics_demo_people" p ON p."id" = d."userId" WHERE d."tenantId" = ${ctx.tenantId}`;
+};
+
 export async function communicationReport(ctx) {
-  const recipientRole = ctx.role
-    ? Prisma.sql`AND EXISTS (SELECT 1 FROM "user_roles" ur JOIN "roles" r ON r."id" = ur."roleId" WHERE ur."userId" = n."userId" AND r."key" = ${ctx.role}::"RoleKey")`
-    : Prisma.empty;
-  const base = Prisma.sql`FROM "notifications" n WHERE n."tenantId" = ${ctx.tenantId} AND ${window(ctx, Prisma.sql`n."createdAt"`)} ${recipientRole}`;
+  const recipientRole = ctx.role ? Prisma.sql`AND ${ctx.role} = ANY(n.roles)` : Prisma.empty;
+  const base = Prisma.sql`FROM (${notificationSource(ctx)}) n WHERE n."tenantId" = ${ctx.tenantId} AND ${window(ctx, Prisma.sql`n."createdAt"`)} ${recipientRole}`;
   const measures = Prisma.sql`count(*)::float8 AS sent, count(*) FILTER (WHERE n."isRead")::float8 AS read, count(DISTINCT n."userId")::int AS recipients`;
 
   const [totals] = await prisma.$queryRaw`
@@ -33,8 +47,7 @@ export async function communicationReport(ctx) {
   const roleRows = [];
   if (!ctx.role) {
     const rows = await prisma.$queryRaw`
-      SELECT r."key"::text AS key, ${measures}
-      FROM "notifications" n JOIN "user_roles" ur ON ur."userId" = n."userId" JOIN "roles" r ON r."id" = ur."roleId"
+      SELECT r AS key, ${measures} FROM (${notificationSource(ctx)}) n CROSS JOIN LATERAL unnest(n.roles) r
       WHERE n."tenantId" = ${ctx.tenantId} AND ${window(ctx, Prisma.sql`n."createdAt"`)} GROUP BY 1`;
     for (const role of ROLE_KEYS) {
       const row = rows.find((entry) => entry.key === role);
@@ -73,7 +86,9 @@ export async function communicationReport(ctx) {
     FROM "announcements" a WHERE a."tenantId" = ${ctx.tenantId} AND ${window(ctx, Prisma.sql`a."postedAt"`)}`;
 
   return {
-    meta: { timezone: ctx.tz, from: ctx.from, to: ctx.to, days: ctx.days, role: ctx.role, today: ctx.today, includesToday: ctx.to === ctx.today },
+    meta: { timezone: ctx.tz, from: ctx.from, to: ctx.to, days: ctx.days, role: ctx.role, today: ctx.today, includesToday: ctx.to === ctx.today, demo: meta(ctx).demo },
+    // Which parts include the synthetic dataset while demo data is on.
+    demoScope: ctx.demo ? ['notifications'] : [],
     totals: { sent: totals.sent, read: totals.read, readRate: ratio(totals.read, totals.sent), unread: totals.sent - totals.read, recipients: totals.recipients,
           averageMsToRead: totals.averageMsToRead, readWithinDayRate: ratio(totals.readWithinDay, totals.sent) },
     daily: daily.map((row) => ({ date: row.date, sent: row.sent, read: row.read })),
@@ -124,7 +139,10 @@ export async function integrationsReport(ctx) {
   const activeSessions = await prisma.ssoSession.count({ where: { tenantId: ctx.tenantId, endedAt: null, expiresAt: { gt: new Date() } } });
 
   return {
-    meta: { timezone: ctx.tz, from: ctx.from, to: ctx.to, days: ctx.days, today: ctx.today, includesToday: ctx.to === ctx.today },
+    meta: { timezone: ctx.tz, from: ctx.from, to: ctx.to, days: ctx.days, today: ctx.today, includesToday: ctx.to === ctx.today, demo: meta(ctx).demo },
+    // How people use the connected services from the portal (usage: includes demo data while it is on). Everything
+    // else in this report is the systems' real recorded status, which demo data never changes.
+    usage: await connectedServiceUsage(ctx),
     integrations: integrations.map((integration) => {
       const stats = logs.find((row) => row.id === integration.id);
       const ops = operations.filter((row) => row.id === integration.id);
@@ -155,5 +173,31 @@ export async function integrationsReport(ctx) {
     },
     // Not monitored: nothing in the portal records the CMS's availability, so none is reported.
     notMonitored: ['Strapi CMS availability', 'Uptime of CampusCore, Moodle or the identity provider between sync attempts'],
+  };
+}
+
+/** Opening Moodle and CampusCore from the portal, and institutional (SSO) sign-ins: usage, not system health. */
+const SERVICE_FEATURES = FEATURES.filter((feature) => ['moodle.opened', 'campuscore.opened'].includes(feature.key));
+async function connectedServiceUsage(ctx) {
+  const scoped = { ...ctx, role: null, device: null };
+  const rows = await prisma.$queryRaw`
+    SELECT "fact", "subjectKey" AS key, sum("count")::float8 AS count FROM ${src(scoped, 'rollups')}
+    WHERE "tenantId" = ${ctx.tenantId} AND "role" = 'ALL' AND "device" = 'ALL' AND ${Prisma.sql`"localDate" BETWEEN ${ctx.from}::date AND ${ctx.to}::date`}
+      AND (("fact" = 'FEATURE' AND "subjectKey" IN (${Prisma.join(SERVICE_FEATURES.map((feature) => feature.key))})) OR ("fact" = 'NAV' AND "subjectKey" IN (${Prisma.join(Object.keys(NAV_EXTERNAL_TARGETS))})))
+    GROUP BY 1, 2`;
+  const users = await prisma.$queryRaw`
+    SELECT "subjectKey" AS key, count(DISTINCT "userId")::int AS users FROM ${src(scoped, 'events')}
+    WHERE "tenantId" = ${ctx.tenantId} AND "occurredAt" >= ${startOfLocalDate(ctx.from, ctx.tz)} AND "occurredAt" < ${startOfLocalDate(addDays(ctx.to, 1), ctx.tz)}
+      AND (("name" = 'feature.use' AND "subjectKey" IN (${Prisma.join(SERVICE_FEATURES.map((feature) => feature.key))})) OR ("name" = 'nav.click' AND "subjectKey" IN (${Prisma.join(Object.keys(NAV_EXTERNAL_TARGETS))})))
+    GROUP BY 1`;
+  const count = (key) => rows.filter((row) => row.key === key).reduce((sum, row) => sum + row.count, 0);
+  const people = (key) => users.find((row) => row.key === key)?.users ?? 0;
+  const logins = await loginTotals(scoped);
+  return {
+    services: [
+      ...SERVICE_FEATURES.map((feature) => ({ key: feature.key, label: feature.label, group: feature.group, uses: count(feature.key), users: people(feature.key) })),
+      ...Object.entries(NAV_EXTERNAL_TARGETS).map(([key, label]) => ({ key, label: `Opened ${label} from the sidebar`, group: 'CampusCore', uses: count(key), users: people(key) })),
+    ],
+    signIns: { total: logins.total, sso: logins.sso, password: logins.password },
   };
 }

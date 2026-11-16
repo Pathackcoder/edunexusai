@@ -27,6 +27,7 @@ export const AnnouncementModal = ({ isOpen, onClose, announcement, onMarkRead })
                 variant="outline"
                 size="sm"
                 icon={DoneAllRoundedIcon}
+                mutates
                 onClick={() => {
                   if (onMarkRead) onMarkRead(announcement.id);
                   onClose();

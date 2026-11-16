@@ -267,7 +267,7 @@ export const FacultyCourseDetailPage = () => {
                   <Button type="button" variant="ghost" size="sm" onClick={() => setIsNotifyOpen(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit" variant="primary" size="sm" loading={sending} icon={SendRoundedIcon}>
+                  <Button type="submit" variant="primary" size="sm" loading={sending} icon={SendRoundedIcon} mutates>
                     Send to {data?.enrolledCount ?? 0} students
                   </Button>
                 </Stack>
@@ -314,7 +314,7 @@ export const FacultyCourseDetailPage = () => {
                   <Button type="button" variant="ghost" size="sm" onClick={() => setIsAnnounceOpen(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit" variant="primary" size="sm" loading={sending} icon={CampaignOutlinedIcon}>
+                  <Button type="submit" variant="primary" size="sm" loading={sending} icon={CampaignOutlinedIcon} mutates>
                     Post announcement
                   </Button>
                 </Stack>

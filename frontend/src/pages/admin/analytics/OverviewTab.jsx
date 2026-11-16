@@ -1,160 +1,151 @@
-import React, { useState } from 'react';
+import React from 'react';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import MuiButton from '@mui/material/Button';
-import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined';
-import TodayOutlinedIcon from '@mui/icons-material/TodayOutlined';
-import DateRangeOutlinedIcon from '@mui/icons-material/DateRangeOutlined';
-import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
-import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import LoginOutlinedIcon from '@mui/icons-material/LoginOutlined';
-import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
-import PersonSearchOutlinedIcon from '@mui/icons-material/PersonSearchOutlined';
+import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded';
 import LightbulbOutlinedIcon from '@mui/icons-material/LightbulbOutlined';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
-import { FilterChips } from '../../../components/common/FilterChips';
 import { ChartTable } from '../../../components/charts/Charts';
-import { ENTITY_COLORS, SERIES, ShareBars, TrendChart } from '../../../components/analytics/charts';
-import { Grid2, Kpi, KpiGroup, NoData, Panel, RankTable } from '../../../components/analytics/parts';
-import { formatDay, formatDuration, formatNumber, formatPercent, formatRange } from '../../../components/analytics/format.js';
-import { ReportState, deviceLabel, trendPoints, useReport } from './shared';
+import { ENTITY_COLORS, ShareBars } from '../../../components/analytics/charts';
+import { Kpi, Panel, RankTable } from '../../../components/analytics/parts';
+import { formatDateTime, formatNumber, formatPercent, formatRange } from '../../../components/analytics/format.js';
+import { ReportState, deviceLabel, useReport } from './shared';
+import { ConcurrencyTimeline, LiveUsersCard } from './LivePanels';
+import { InactiveUsersPanel } from './InactiveUsersPanel';
+import { BROWSER_INFO, OS_INFO, UsageSplitPanel } from './UsageSplitPanel';
 
-const TREND_METRICS = [
-  { id: 'users', label: 'Active people', info: 'People with at least one page view, navigation click, widget interaction or feature use that day. Each person counts once a day, whatever roles they hold.' },
-  { id: 'pageViews', label: 'Page views', info: 'Portal pages opened that day.' },
-  { id: 'visits', label: 'Visits', info: 'Browser visits that started that day. A visit ends after 30 minutes without activity.' },
-];
+/**
+ * A responsive row of cards that all take the height of the tallest one; content that does not fit scrolls inside
+ * its card (see `Scroll`), so one long list never stretches the page.
+ */
+const Row = ({ columns, children }) => (
+  <Box sx={{ display: 'grid', gap: 2, alignItems: 'stretch', gridTemplateColumns: columns, '& > *': { minWidth: 0, height: '100%' } }}>{children}</Box>
+);
+const Scroll = ({ max = 360, children }) => <Box sx={{ maxHeight: max, overflowY: 'auto', mx: -0.5, px: 0.5 }}>{children}</Box>;
 
-/** Plain-language observations drawn from the figures on this tab: where an administrator might look next. */
+const EmptyNote = ({ children }) => (
+  <Stack alignItems="center" justifyContent="center" sx={{ py: 5, px: 2, textAlign: 'center', height: '100%' }}>
+    <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 320 }}>{children}</Typography>
+  </Stack>
+);
+
+/** Plain-language observations drawn from the figures on this page: where an administrator might look next. */
 function observations(data) {
   const notes = [];
   const { kpis } = data;
+  if (kpis.peakConcurrent.value && kpis.peakConcurrent.at) notes.push({ text: `The busiest moment was ${formatDateTime(kpis.peakConcurrent.at, data.meta.timezone)}, with ${formatNumber(kpis.peakConcurrent.value)} people online at once.`, tab: 'people', action: 'See activity by hour' });
   if (data.unusedPages > 0) notes.push({ text: `${data.unusedPages} of ${data.trackedPages} portal pages had no visits in this period.`, tab: 'pages', action: 'See unused pages' });
   if (data.unusedFeatures.length) notes.push({ text: `${data.unusedFeatures.length} tracked feature actions were not used at all, including "${data.unusedFeatures[0]}".`, tab: 'features', action: 'See feature use' });
-  const mobile = data.devices.find((row) => row.device === 'MOBILE');
-  if (mobile && mobile.share != null && mobile.visits > 0) {
-    const what = 'phones';
-    notes.push({ text: mobile.share >= 0.4 ? `${formatPercent(mobile.share)} of visits come from ${what}: check that the most-visited pages work well on a small screen.` : `${formatPercent(mobile.share)} of visits come from ${what}.`, tab: 'devices', action: 'See devices' });
-  }
-  if (kpis.stickiness.value != null) {
-    notes.push({ text: `On a typical day, ${formatPercent(kpis.stickiness.value)} of the people active in the last 30 days use the portal${kpis.stickiness.value < 0.2 ? ': most people come only occasionally.' : '.'}`, tab: 'people', action: 'See activity' });
-  }
+  const mobile = data.devices.rows.find((row) => row.key === 'MOBILE');
+  if (mobile?.visits > 0) notes.push({ text: mobile.share >= 0.4 ? `${formatPercent(mobile.share)} of visits come from phones: check that the most-visited pages work well on a small screen.` : `${formatPercent(mobile.share)} of visits come from phones.`, tab: 'devices', action: 'See devices' });
   if (kpis.returningRate.value != null) notes.push({ text: `${formatPercent(kpis.returningRate.value)} of active users came back on a second day in this period.`, tab: 'people', action: 'See activity' });
   return notes.slice(0, 4);
 }
 
-export function OverviewTab({ filters, refreshKey, goTo }) {
+export function OverviewTab({ filters, refreshKey, goTo, live }) {
   const query = useReport('overview', filters, refreshKey);
-  const [metric, setMetric] = useState('users');
   return (
     <ReportState query={query}>
       {(data) => {
-        const { kpis, meta, basis } = data;
-        if (!data.hasData) return <Panel title="Overview"><NoData meta={meta} onOpenHealth={() => goTo('health')} /></Panel>;
-        const selected = TREND_METRICS.find((item) => item.id === metric);
-        const points = trendPoints(data.series, { value: metric });
-        const notes = observations(data);
+        const { kpis, meta } = data;
         const comparison = data.previousComparable ? `vs ${formatRange(meta.previousFrom, meta.previousTo)}` : undefined;
+        const notes = observations(data);
+        const noUsage = !data.hasData;
+        const emptyUsage = !meta.collectingSince ? 'Usage collection has not been switched on, so nothing has been measured yet.' : 'No visits were recorded in this period for the filters chosen.';
         return (
           <Stack spacing={2}>
-            <KpiGroup label="Audience">
-              <Kpi title="Active users" kpi={kpis.activeUsers} format={formatNumber} icon={PeopleAltOutlinedIcon} comparison={comparison}
-                info="Distinct people who used the portal at least once in the selected period: a page view, a navigation click, a widget interaction or a feature use. Each person counts once, whatever roles they hold. Signing in alone, or a page refreshing itself in the background, does not count."
-                context={kpis.returningUsers.value != null && kpis.activeUsers.value ? `${formatNumber(kpis.returningUsers.value)} of them active on 2 or more days (${formatPercent(kpis.returningRate.value)})` : `In ${formatRange(meta.from, meta.to)}`} />
-              <Kpi title="Average daily active users" kpi={kpis.averageDailyUsers} format={formatNumber} icon={TodayOutlinedIcon} comparison={comparison}
-                info="The number of people active on a typical day: each day's active users added up (person-days), divided by the number of measured days in the period. Days before collection began are not measured, so they are left out rather than counted as days with nobody active. Today is included even though it is not over."
-                context={basis.measuredDays ? `${formatNumber(basis.personDays)} person-days over ${formatNumber(basis.measuredDays)} measured ${basis.measuredDays === 1 ? 'day' : 'days'}` : 'No measured days in this period'} />
-              <Kpi title="Weekly active users" kpi={kpis.weeklyActiveUsers} format={formatNumber} icon={DateRangeOutlinedIcon}
-                info={`Distinct people active in the 7 days ending ${formatDay(meta.to)}, counted person by person (not by adding up daily figures). Always the last 7 days of the period, whatever range is selected.`}
-                context={`7 days to ${formatDay(meta.to)}`} />
-              <Kpi title="Monthly active users" kpi={kpis.monthlyActiveUsers} format={formatNumber} icon={CalendarMonthOutlinedIcon}
-                info={`Distinct people active in the 30 days ending ${formatDay(meta.to)}. Stickiness is average daily active users over those 30 days ÷ monthly active users: how much of the monthly audience uses the portal on a typical day.`}
-                context={kpis.stickiness.value != null ? `30 days to ${formatDay(meta.to)} · stickiness ${formatPercent(kpis.stickiness.value)}` : `30 days to ${formatDay(meta.to)}`} />
-            </KpiGroup>
-            <KpiGroup label="Engagement">
-              <Kpi title="Page views" kpi={kpis.pageViews} format={formatNumber} icon={VisibilityOutlinedIcon} tone="info" comparison={comparison}
-                info="Every time a portal page is opened: one person opening the same page ten times is ten page views. A page opened in a background tab counts once it is first looked at. Compare with Unique page visitors, which counts people."
-                context={kpis.pageViewsPerVisit.value != null ? `${formatNumber(kpis.pageViewsPerVisit.value)} pages per visit` : undefined} />
-              <Kpi title="Unique page visitors" kpi={kpis.pageVisitors} format={formatNumber} icon={PersonSearchOutlinedIcon} tone="info" comparison={comparison}
-                info="Distinct people who opened at least one portal page in the period. One person opening ten pages is one visitor and ten page views."
-                context={kpis.pageVisitors.value ? `${formatNumber(kpis.pageViews.value / kpis.pageVisitors.value)} page views per visitor` : undefined} />
-              <Kpi title="Visits" kpi={kpis.visits} format={formatNumber} icon={LoginOutlinedIcon} tone="info" comparison={comparison}
-                info="Browser visits: continuous use of the portal with no gap longer than 30 minutes, shared across a person's tabs. Not the same as a sign-in: one sign-in can cover several visits. A visit belongs to the day it started."
-                context={kpis.averageVisitMs.value != null ? `Average visit ${formatDuration(kpis.averageVisitMs.value)}` : undefined} />
-              <Kpi title="Average time on page" kpi={kpis.averageVisibleMs} format={formatDuration} icon={TimerOutlinedIcon} tone="teal" comparison={comparison}
-                info="Average time a page was on screen and in use, per page view. Time in a background tab, or after 5 minutes without any input, is not counted. Page views shorter than one second are left out of the average; each view counts at most 4 hours."
-                context="Visible, active time per page view" />
-            </KpiGroup>
-            {!data.previousComparable && (
-              <Typography variant="caption" color="text.secondary" sx={{ mt: -0.75 }}>
-                No comparison with the previous period: collection began on {formatDay(meta.collectingSince, { year: true })}, so there is no complete earlier period yet.
-              </Typography>
-            )}
+            {/* Row 1: the headline figures. */}
+            <Row columns={{ xs: 'minmax(0, 1fr)', sm: 'repeat(3, minmax(0, 1fr))' }}>
+              <LiveUsersCard live={live} />
+              <Kpi title="Total logins" kpi={kpis.logins} format={formatNumber} icon={LoginOutlinedIcon} comparison={comparison}
+                info="Successful sign-ins in the selected period: each password or university (SSO) sign-in that opened a portal session counts once. Refreshing a session in the background, reopening a tab or visiting pages never counts as a login. Failed attempts are not counted. The role filter applies; the device filter does not (a sign-in carries no device)."
+                context={meta.sources?.demoIncluded
+                  ? `${formatNumber(meta.sources.real.logins)} real + ${formatNumber(meta.sources.demo.logins)} demo`
+                  : kpis.logins.value ? `${formatNumber(kpis.logins.sso)} university sign-in · ${formatNumber(kpis.logins.password)} password${kpis.logins.users != null ? ` · ${formatNumber(kpis.logins.users)} people` : ''}` : `In ${formatRange(meta.from, meta.to)}`} />
+              <Kpi title="Peak concurrent users" kpi={kpis.peakConcurrent} format={formatNumber} icon={TrendingUpRoundedIcon} tone="info" comparison={comparison}
+                info="The highest number of people online at the same moment during the selected period (same definition as Concurrent active users, sampled every minute). Unlike the live figure, this is the record for the whole period. Role and device filters do not apply."
+                context={kpis.peakConcurrent.at ? `${formatDateTime(kpis.peakConcurrent.at, meta.timezone)}${meta.demo.included ? ` · ${kpis.peakConcurrent.real == null ? 'real not measured' : `${formatNumber(kpis.peakConcurrent.real)} real`} + ${formatNumber(kpis.peakConcurrent.demo)} demo` : ''}` : 'Nothing measured in this period'} />
+            </Row>
 
-            <Panel
-              title={`${selected.label} per day`}
-              subtitle={`${formatRange(meta.from, meta.to)}${meta.includesToday ? ' · today is not over yet (hollow point)' : ''}`}
-              info={selected.info}
-              action={<FilterChips ariaLabel="Trend metric" options={TREND_METRICS.map(({ id, label }) => ({ id, label }))} value={metric} onChange={setMetric} sx={{ display: { xs: 'none', sm: 'flex' } }} />}
-              table={<ChartTable columns={[{ key: 'tip', label: 'Day' }, { key: 'shown', label: selected.label }]} rows={points.map((point) => ({ tip: point.tip, shown: point.value == null ? point.note ?? '—' : formatNumber(point.value) }))} />}
-            >
-              <FilterChips ariaLabel="Trend metric" options={TREND_METRICS.map(({ id, label }) => ({ id, label }))} value={metric} onChange={setMetric} sx={{ display: { xs: 'flex', sm: 'none' }, mb: 1.5 }} />
-              <TrendChart data={points} width={1100} height={220} series={[{ key: 'value', label: selected.label, color: SERIES[0] }]} ariaLabel={`${selected.label} per day, ${formatRange(meta.from, meta.to)}`} />
-            </Panel>
+            {/* Row 2: concurrency over time. */}
+            <ConcurrencyTimeline refreshKey={refreshKey} liveTotal={live.data && (live.data.collecting || live.data.demoIncluded || live.data.real > 0) ? live.data.total : null} />
 
-            <Grid2 align="start">
-              <Panel title="Most visited pages" info="Pages ranked by views in the period. People is the number of distinct people who opened the page."
-                action={<MuiButton size="small" endIcon={<ArrowForwardRoundedIcon />} onClick={() => goTo('pages')}>All pages</MuiButton>}>
-                <RankTable
-                  ariaLabel="Most visited pages"
-                  pageSize={6}
-                  rows={data.topPages}
-                  columns={[
-                    { key: 'label', label: 'Page', primary: true, sortable: false },
-                    { key: 'users', label: 'People', align: 'right', format: formatNumber, sortable: false },
-                    { key: 'views', label: 'Views', align: 'right', format: formatNumber, bar: true, sortable: false },
-                  ]}
-                  emptyText="No page views recorded in this period."
-                />
-              </Panel>
+            {/* Row 3: technical usage. */}
+            <Row columns={{ xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(3, minmax(0, 1fr))' }}>
+              <UsageSplitPanel kind="browser" split={data.browsers} emptyText={emptyUsage} info={BROWSER_INFO} />
+              <UsageSplitPanel kind="os" split={data.operatingSystems} emptyText={emptyUsage} info={OS_INFO} />
+              <Box sx={{ gridColumn: { md: '1 / -1', xl: 'auto' } }}>
+                <Panel sx={{ height: '100%' }} title="Usage by Device" subtitle="Share of visits" info="Each visit comes from one kind of device, judged from the screen size and the kind of pointer (touch or mouse). Shares add up to 100% and use the same visit total as the browser and system charts."
+                  action={<MuiButton size="small" endIcon={<ArrowForwardRoundedIcon />} onClick={() => goTo('devices')}>Details</MuiButton>}
+                  table={<ChartTable columns={[{ key: 'label', label: 'Device' }, { key: 'visits', label: 'Visits' }, { key: 'share', label: 'Share' }]} rows={data.devices.rows.map((row) => ({ label: deviceLabel(row.key), visits: formatNumber(row.visits), share: formatPercent(row.share) }))} />}>
+                  {data.devices.total > 0 ? (
+                    <Stack spacing={2} justifyContent="center" sx={{ height: '100%', py: 1 }}>
+                      <ShareBars format={formatPercent} rows={data.devices.rows.map((row) => ({
+                        label: deviceLabel(row.key), value: row.share, color: ENTITY_COLORS[row.key],
+                        suffix: `${formatNumber(row.visits)} ${row.visits === 1 ? 'visit' : 'visits'}`,
+                        tip: `${deviceLabel(row.key)}: ${formatNumber(row.visits)} of ${formatNumber(data.devices.total)} visits (${formatPercent(row.share)})`,
+                      }))} />
+                      <Typography variant="caption" color="text.secondary">
+                        {formatNumber(data.devices.total)} visits in {formatRange(meta.from, meta.to)}
+                        {meta.sources?.demoIncluded ? ` (${formatNumber(meta.sources.real.visits)} real + ${formatNumber(meta.sources.demo.visits)} demo)` : ''}
+                      </Typography>
+                    </Stack>
+                  ) : <EmptyNote>{emptyUsage}</EmptyNote>}
+                </Panel>
+              </Box>
+            </Row>
+
+            {/* Row 4: what people use. */}
+            <Row columns={{ xs: 'minmax(0, 1fr)', lg: 'repeat(2, minmax(0, 1fr))' }}>
               <Panel title="Most used features" info="Named portal features, ranked by the number of distinct people who used them. Adoption is that number as a share of everyone active in the period."
-                action={<MuiButton size="small" endIcon={<ArrowForwardRoundedIcon />} onClick={() => goTo('engagement')}>All features</MuiButton>}>
-                <RankTable
-                  ariaLabel="Most used features"
-                  pageSize={6}
-                  rows={[...data.topFeatures].sort((a, b) => b.users - a.users)}
-                  columns={[
-                    { key: 'label', label: 'Feature', primary: true, sortable: false, render: (row) => <><Box component="span" sx={{ color: 'text.secondary', fontWeight: 500 }}>{row.group} · </Box>{row.label}</> },
-                    { key: 'users', label: 'People', align: 'right', format: formatNumber, sortable: false },
-                    { key: 'adoptionRate', label: 'Adoption', align: 'right', format: formatPercent, bar: true, sortable: false },
-                  ]}
-                  emptyText="No feature use recorded in this period."
-                />
-              </Panel>
-            </Grid2>
-
-            <Grid2 ratio="2fr 3fr" align="start">
-              <Panel title="Devices" subtitle="Share of visits" info="Each visit comes from one kind of device, so these shares add up to 100%. The device is judged from the screen and pointer only; no browser details are kept."
-                action={<MuiButton size="small" endIcon={<ArrowForwardRoundedIcon />} onClick={() => goTo('devices')}>Details</MuiButton>}>
-                <ShareBars rows={data.devices.map((row) => ({ label: deviceLabel(row.device), value: row.share, color: ENTITY_COLORS[row.device], suffix: `${formatNumber(row.visits)} ${row.visits === 1 ? 'visit' : 'visits'}` }))} format={formatPercent} />
-              </Panel>
-              <Panel title="Worth a look" subtitle="Observations from this period's figures">
-                {notes.length === 0 ? <Typography variant="body2" color="text.secondary">Nothing stands out yet. Observations appear as more activity is recorded.</Typography> : (
-                  <Stack component="ul" spacing={1.5} sx={{ listStyle: 'none', p: 0, m: 0 }}>
-                    {notes.map((note) => (
-                      <Stack component="li" key={note.text} direction="row" spacing={1.25} alignItems="flex-start">
-                        <LightbulbOutlinedIcon sx={{ fontSize: 18, color: 'warning.main', mt: 0.25, flexShrink: 0 }} />
-                        <Box>
-                          <Typography variant="body2">{note.text}</Typography>
-                          <MuiButton size="small" onClick={() => goTo(note.tab)} sx={{ ml: -0.75, mt: 0.25 }}>{note.action}</MuiButton>
-                        </Box>
-                      </Stack>
-                    ))}
-                  </Stack>
+                action={<MuiButton size="small" endIcon={<ArrowForwardRoundedIcon />} onClick={() => goTo('features')}>All features</MuiButton>}>
+                {noUsage ? <EmptyNote>{emptyUsage}</EmptyNote> : (
+                  <Scroll>
+                    <RankTable ariaLabel="Most used features" pageSize={8} rows={[...data.topFeatures].sort((a, b) => b.users - a.users)} emptyText="No feature use recorded in this period."
+                      columns={[
+                        { key: 'label', label: 'Feature', primary: true, sortable: false, render: (row) => <><Box component="span" sx={{ color: 'text.secondary', fontWeight: 500 }}>{row.group} · </Box>{row.label}</> },
+                        { key: 'users', label: 'People', align: 'right', format: formatNumber, sortable: false },
+                        { key: 'adoptionRate', label: 'Adoption', align: 'right', format: formatPercent, bar: true, sortable: false },
+                      ]} />
+                  </Scroll>
                 )}
               </Panel>
-            </Grid2>
+              <Panel title="Most visited pages" info="Pages ranked by how often they were opened in the period. People is the number of distinct people who opened the page."
+                action={<MuiButton size="small" endIcon={<ArrowForwardRoundedIcon />} onClick={() => goTo('pages')}>All pages</MuiButton>}>
+                {noUsage ? <EmptyNote>{emptyUsage}</EmptyNote> : (
+                  <Scroll>
+                    <RankTable ariaLabel="Most visited pages" pageSize={8} rows={data.topPages} emptyText="No pages opened in this period."
+                      columns={[
+                        { key: 'label', label: 'Page', primary: true, sortable: false },
+                        { key: 'users', label: 'People', align: 'right', format: formatNumber, sortable: false },
+                        { key: 'views', label: 'Opened', align: 'right', format: formatNumber, bar: true, sortable: false },
+                      ]} />
+                  </Scroll>
+                )}
+              </Panel>
+            </Row>
+
+            {/* Row 5: who has stopped signing in. */}
+            <InactiveUsersPanel timezone={meta.timezone} refreshKey={refreshKey} />
+
+            {/* Row 6: observations. */}
+            {notes.length > 0 && (
+              <Panel title="Worth a look" subtitle="Observations from this period's figures">
+                <Box component="ul" sx={{ listStyle: 'none', p: 0, m: 0, display: 'grid', gap: 1.5, gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' } }}>
+                  {notes.map((note) => (
+                    <Stack component="li" key={note.text} direction="row" spacing={1.25} alignItems="flex-start" sx={{ p: 1.25, borderRadius: 2, bgcolor: 'action.hover' }}>
+                      <LightbulbOutlinedIcon sx={{ fontSize: 18, color: 'warning.main', mt: 0.25, flexShrink: 0 }} />
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="body2">{note.text}</Typography>
+                        <MuiButton size="small" onClick={() => goTo(note.tab)} sx={{ ml: -0.75, mt: 0.25 }}>{note.action}</MuiButton>
+                      </Box>
+                    </Stack>
+                  ))}
+                </Box>
+              </Panel>
+            )}
           </Stack>
         );
       }}

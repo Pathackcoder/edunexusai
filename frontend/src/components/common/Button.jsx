@@ -1,12 +1,16 @@
 import React from 'react';
 import MuiButton from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
+import Tooltip from '@mui/material/Tooltip';
+import { READ_ONLY_HINT, useReadOnly } from '../../viewAs/ReadOnly';
 
 /**
  * Legacy button API mapped onto MUI Button, so existing call sites keep working:
  *   variant: primary | secondary | outline | ghost | danger
  *   size:    sm | md | lg
  *   loading, disabled, icon, type, onClick
+ *   mutates: the button changes something (submit, save, pay, book…); in a read-only View-As tab it is disabled and
+ *            says why. Buttons that only navigate, filter or open a view leave it off.
  */
 const VARIANTS = {
   primary: { variant: 'contained', color: 'primary' },
@@ -28,18 +32,21 @@ export const Button = ({
   className = '',
   type = 'button',
   onClick,
+  mutates = false,
   ...props
 }) => {
   const mapped = VARIANTS[variant] ?? VARIANTS.primary;
+  const readOnly = useReadOnly();
+  const blocked = mutates && readOnly;
 
-  return (
+  const button = (
     <MuiButton
       type={type}
       className={className}
       variant={mapped.variant}
       color={mapped.color}
       size={SIZES[size] ?? 'medium'}
-      disabled={disabled || loading}
+      disabled={disabled || loading || blocked}
       onClick={onClick}
       startIcon={
         loading ? <CircularProgress size={16} color="inherit" thickness={5} /> : Icon ? <Icon fontSize="small" /> : undefined
@@ -49,6 +56,7 @@ export const Button = ({
       {children}
     </MuiButton>
   );
+  return blocked ? <Tooltip title={READ_ONLY_HINT}><span style={{ display: 'inline-flex' }}>{button}</span></Tooltip> : button;
 };
 
 export default Button;

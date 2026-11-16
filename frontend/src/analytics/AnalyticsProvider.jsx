@@ -3,10 +3,12 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { isMultiRole, resolveView, viewStorageKey } from '../context/roleContexts';
 import { pageKeyForPath } from '../../../shared/analyticsCatalog.js';
+import { classifyBrowser, classifyOs } from '../../../shared/analyticsAgent.js';
 import { tokenStore, apiClient } from '../services/api';
 import { useStudioMode } from '../pages/studio/studioMode';
 import { HEARTBEAT_MS, TICK_MS, classifyDevice, createTracker } from './core.js';
-import { setTracker } from './index.js';
+import { PRESENCE_HEARTBEAT_MS, createPresence } from './presence.js';
+import { setPresence, setTracker } from './index.js';
 
 // Random ids only (never derived from the person or the device).
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g, () => Math.floor(Math.random() * 16).toString(16)));
@@ -15,6 +17,35 @@ const deviceClass = () => classifyDevice({
   coarsePointer: window.matchMedia?.('(pointer: coarse)').matches ?? false,
   shortSide: Math.min(window.screen?.width ?? window.innerWidth, window.screen?.height ?? window.innerHeight),
 });
+
+/** Browser and operating-system categories, worked out once per page load; only the category keys are sent. */
+let agentCategories = null;
+const agent = () => {
+  if (!agentCategories) {
+    const nav = window.navigator ?? {};
+    agentCategories = {
+      browser: classifyBrowser(nav.userAgent, nav.userAgentData?.brands ?? null),
+      os: classifyOs(nav.userAgent, nav.userAgentData?.platform ?? null, nav.maxTouchPoints ?? 0),
+    };
+  }
+  return agentCategories;
+};
+
+/** The live-users heartbeat: an empty body; like send() below, it never refreshes a token. */
+async function sendPresence() {
+  const token = tokenStore.getAccessToken();
+  if (!token) return 'auth';
+  const response = await fetch(`${apiClient.baseUrl}/analytics/presence`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${token}` },
+    body: '{}',
+    keepalive: true,
+  });
+  if (response.status === 401) return 'auth';
+  if (!response.ok) return 'error';
+  const body = await response.json().catch(() => null);
+  return body?.data?.enabled === false ? 'disabled' : 'ok';
+}
 
 /**
  * The one request the tracker makes. It deliberately does not go through the API client: an expired sign-in must
@@ -46,7 +77,9 @@ function endSession() {
   clearTimeout(session.pendingEnd);
   session.tracker.closing();
   session.tracker.stop();
+  session.presence.stop();
   setTracker(null);
+  setPresence(null);
   session = null;
 }
 
@@ -68,12 +101,17 @@ export function AnalyticsProvider() {
       return undefined;
     }
     let tracker = session?.userId === userId ? session.tracker : null;
+    const isVisible = () => document.visibilityState === 'visible';
     if (!tracker) {
       endSession();
-      tracker = createTracker({ userId, now: () => Date.now(), uuid, storage: window.localStorage, send, isVisible: () => document.visibilityState === 'visible', deviceClass });
-      session = { userId, tracker, pendingEnd: null };
+      tracker = createTracker({ userId, now: () => Date.now(), uuid, storage: window.localStorage, send, isVisible, deviceClass, agent });
+      const presence = createPresence({ userId, now: () => Date.now(), storage: window.localStorage, send: sendPresence, isVisible });
+      session = { userId, tracker, presence, pendingEnd: null };
       setTracker(tracker);
+      setPresence(presence);
+      presence.start();
     }
+    const { presence } = session;
     clearTimeout(session.pendingEnd);
     trackerRef.current = tracker;
 
@@ -84,19 +122,25 @@ export function AnalyticsProvider() {
       if (time - lastInput < 1000) return;
       lastInput = time;
       tracker.input();
+      presence.input();
     };
-    const onVisibility = () => tracker.visibilityChanged();
+    const onVisibility = () => {
+      tracker.visibilityChanged();
+      presence.visibilityChanged();
+    };
     const onClose = () => tracker.closing();
     let ticks = 0;
     const timer = setInterval(() => {
       ticks += 1;
       tracker.tick(ticks % Math.round(HEARTBEAT_MS / TICK_MS) === 0);
     }, TICK_MS);
+    const presenceTimer = setInterval(() => presence.tick(), PRESENCE_HEARTBEAT_MS);
     INPUT_EVENTS.forEach((name) => window.addEventListener(name, onInput, { passive: true, capture: true }));
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('pagehide', onClose);
     return () => {
       clearInterval(timer);
+      clearInterval(presenceTimer);
       INPUT_EVENTS.forEach((name) => window.removeEventListener(name, onInput, { capture: true }));
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('pagehide', onClose);

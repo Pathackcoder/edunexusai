@@ -395,8 +395,9 @@ describe('aggregation and reports', () => {
   it('counts each person once overall, and under every role they hold', async () => {
     const overview = (await api('/admin/analytics/overview?range=7d', { token: adminToken })).body.data;
     assert.equal(overview.kpis.activeUsers.value, 7);
-    assert.equal(overview.kpis.pageViews.value, 16);
     assert.equal(overview.kpis.visits.value, 7);
+    // The Overview no longer carries DAU/WAU/MAU, page-view or unique-visitor cards.
+    for (const removed of ['averageDailyUsers', 'weeklyActiveUsers', 'monthlyActiveUsers', 'pageViews', 'pageVisitors']) assert.ok(!(removed in overview.kpis), removed);
     assert.equal(overview.meta.timezone, 'America/New_York');
     assert.equal(overview.meta.includesToday, true);
     const activity = (await api('/admin/analytics/activity?range=7d', { token: adminToken })).body.data;
@@ -410,35 +411,27 @@ describe('aggregation and reports', () => {
     assert.equal(filtered.kpis.activeUsers.value, 7);
   });
 
-  it('averages daily active users over measured days only, and tells unique visitors from page views', async () => {
+  it('averages daily active users over measured days only (People & activity)', async () => {
     const tenantRow = await prisma.tenant.findUnique({ where: { id: tenant.id } });
     const { localDateOf } = await import('../src/modules/analytics/rollupService.js');
     const today = localDateOf(new Date(), tenantRow.timezone);
     const started = localDateOf(tenantRow.analyticsStartedAt, tenantRow.timezone);
     const measured = Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${started}T00:00:00Z`)) / 86_400_000) + 1;
     for (const range of ['7d', '30d']) {
-      const { kpis, basis } = (await api(`/admin/analytics/overview?range=${range}`, { token: adminToken })).body.data;
+      const activity = (await api(`/admin/analytics/activity?range=${range}&role=STUDENT`, { token: adminToken })).body.data;
       // 7 people active today = 7 person-days, whatever the range: days before collection are not counted.
-      assert.equal(basis.personDays, 7);
-      assert.equal(basis.measuredDays, measured, range);
-      assert.ok(Math.abs(kpis.averageDailyUsers.value - 7 / measured) < 1e-9, `${range}: ${kpis.averageDailyUsers.value}`);
-      assert.equal(kpis.pageVisitors.value, 7);
-      assert.equal(kpis.pageViews.value, 16);
-      assert.ok(Math.abs(kpis.pageViewsPerVisit.value - 16 / 7) < 1e-9);
-      assert.equal(kpis.weeklyActiveUsers.value, 7);
-      assert.equal(kpis.monthlyActiveUsers.value, 7);
-      assert.ok(Math.abs(kpis.stickiness.value - (7 / measured) / 7) < 1e-9);
+      const students = activity.roles.find((row) => row.role === 'STUDENT');
+      assert.ok(Math.abs(students.averageDailyUsers - 7 / measured) < 1e-9, `${range}: ${students.averageDailyUsers}`);
+      assert.equal(students.pageViews, 16);
     }
     // A period entirely before collection began has no measured days and no average (never a zero).
     const activity = (await api('/admin/analytics/activity?range=30d', { token: adminToken })).body.data;
-    const startedLocal = started;
     for (const row of activity.rolling) {
-      if (row.date < startedLocal) assert.ok(row.wau === null && row.mau === null && row.beforeCollection, row.date);
+      if (row.date < started) assert.ok(row.wau === null && row.mau === null && row.beforeCollection, row.date);
       else assert.equal(typeof row.wau, 'number');
     }
-    const before = (await api('/admin/analytics/overview?from=2026-01-01&to=2026-01-31', { token: adminToken })).body.data;
-    assert.equal(before.basis.measuredDays, 0);
-    assert.equal(before.kpis.averageDailyUsers.value, null);
+    const before = (await api('/admin/analytics/activity?from=2026-01-01&to=2026-01-31&role=STUDENT', { token: adminToken })).body.data;
+    assert.ok(!before.roles.some((row) => row.averageDailyUsers));
   });
 
   it('re-running the aggregation gives exactly the same figures', async () => {
@@ -479,7 +472,7 @@ describe('aggregation and reports', () => {
 
     const mobile = (await api('/admin/analytics/overview?range=7d&device=MOBILE', { token: adminToken })).body.data;
     assert.equal(mobile.kpis.activeUsers.value, 1);
-    assert.equal(mobile.kpis.pageViews.value, 3);
+    assert.equal((await api('/admin/analytics/pages?range=7d&device=MOBILE', { token: adminToken })).body.data.totalViews, 3);
     const { distribution, byRole } = (await api('/admin/analytics/devices?range=7d', { token: adminToken })).body.data;
     const phone = distribution.find((row) => row.device === 'MOBILE');
     assert.equal(phone.visits, 1);

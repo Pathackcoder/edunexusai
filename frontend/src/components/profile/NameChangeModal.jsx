@@ -209,7 +209,7 @@ export const NameChangeModal = ({ isOpen, onClose, currentLegalName = '', onSubm
               <Button variant="secondary" onClick={onClose}>
                 Cancel
               </Button>
-              <Button type="submit" variant="primary" disabled={!requestedName || !attachedDocument}>
+              <Button type="submit" variant="primary" disabled={!requestedName || !attachedDocument} mutates>
                 Submit Name Change
               </Button>
             </Stack>
