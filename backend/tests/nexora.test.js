@@ -314,8 +314,9 @@ describe('nexora: actions need explicit confirmation', () => {
   });
 
   it('booking re-checks availability at confirmation', async () => {
-    // The faculty member publishes one slot through the existing advising API.
-    const startsAt = new Date(Date.now() + 3 * 86_400_000);
+    // The faculty member publishes one slot through the existing advising API. It starts within the next hour or so,
+    // ahead of any seeded slot: the availability tool lists only the next 12 open slots.
+    const startsAt = new Date(Date.now() + 90 * 60_000);
     startsAt.setUTCMinutes(0, 0, 0);
     const published = await api('/advising/slots', { method: 'POST', token: tokens.faculty, body: { startsAt: startsAt.toISOString(), durationMinutes: 30, count: 1 } });
     assert.equal(published.status, 201);
