@@ -54,7 +54,7 @@ admin.use(requireRole('ADMIN'));
 
 admin.get('/health', asyncHandler(async (_req, res) => sendSuccess(res, await sis.health())));
 admin.get('/capabilities', asyncHandler(async (req, res) => sendSuccess(res, await sis.capabilities(req.auth))));
-const OPERATIONS = ['student.create', 'student.update', 'student.contact', 'student.academic', 'student.deactivate', 'registration.write', 'attendance.write', 'grade.write', 'identity.link'];
+const OPERATIONS = ['student.create', 'student.update', 'student.contact', 'student.academic', 'student.deactivate', 'registration.write', 'attendance.write', 'grade.write', 'announcement.write', 'identity.link'];
 admin.put(
   '/write-preferences',
   validate({ body: z.object({ disabledOperations: z.array(z.enum(OPERATIONS)).max(OPERATIONS.length), profileFields: z.array(z.string().max(40)).max(20).nullable().default(null), academicFields: z.array(z.string().max(40)).max(5).nullable().default(null) }) }),

@@ -22,6 +22,10 @@ export class SisAdapter {
   async listAnnouncements() { throw new Error('not implemented'); }
   /** Class announcements of the sections a student is registered in. */
   async listStudentAnnouncements(_id) { throw new Error('not implemented'); }
+  /** Class announcements on the sections a faculty member teaches. */
+  async listFacultyAnnouncements(_facultyId, _termId) { throw new Error('not implemented'); }
+  /** Publish a class announcement to a section on behalf of an instructor assigned to it. */
+  async createSectionAnnouncement(_sectionId, _input, _options) { throw new Error('not implemented'); }
   // Writes — adapters throw SisError('not_supported') when the connection lacks permission.
   async enroll(_studentId, _sectionId) { throw new Error('not implemented'); }
   async drop(_enrollmentId, _reason) { throw new Error('not implemented'); }

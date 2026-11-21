@@ -94,6 +94,20 @@ export class CampusCoreAdapter extends SisAdapter {
     return (await this.client.get(`/students/${encodeURIComponent(id)}/announcements`)).data.map((a) => ({ source: ref(a.id), title: a.title, body: a.body, pinned: a.pinned, author: a.author, publishedAt: a.publishedAt, section: { source: ref(a.section.id), label: a.section.label, courseCode: a.section.courseCode, courseTitle: a.section.courseTitle, termCode: a.section.term } }));
   }
 
+  mapSectionAnnouncement = (a) => ({ source: ref(a.id), title: a.title, body: a.body, pinned: a.pinned, author: a.author, publishedAt: a.publishedAt, expiresAt: a.expiresAt ?? null, section: { source: ref(a.section.id), label: a.section.label, courseCode: a.section.courseCode, courseTitle: a.section.courseTitle, termCode: a.section.term } });
+
+  // Class announcements on the sections a faculty member teaches, all terms unless termId is given (read only).
+  async listFacultyAnnouncements(facultyId, termId) {
+    return (await this.client.get(`/faculty/${encodeURIComponent(facultyId)}/announcements`, { termId })).data.map(this.mapSectionAnnouncement);
+  }
+
+  // Publish a class announcement on behalf of an instructor of the section (announcements:write; CampusCore checks
+  // the policy and the assignment). The idempotency key makes a retried publish replay instead of posting twice.
+  async createSectionAnnouncement(sectionId, { actingFacultyId, title, body, pinned = false }, { idempotencyKey, actingUser } = {}) {
+    this.#require('announcements:write');
+    return this.mapSectionAnnouncement((await this.client.post(`/sections/${encodeURIComponent(sectionId)}/announcements`, { actingFacultyId, title, body, pinned }, { idempotencyKey, actingUser })).data);
+  }
+
   async getAcademicSummary(id) {
     const d = (await this.client.get(`/students/${encodeURIComponent(id)}/academic-record`)).data;
     return { studentRef: ref(d.studentId), gpa: d.cumulativeGpa, creditsEarned: d.creditsEarned, creditsInProgress: d.creditsInProgress, standing: d.academicStanding.toLowerCase(), level: d.classLevel.toLowerCase(), terms: d.terms.map((t) => ({ termCode: t.term, gpa: t.termGpa })) };

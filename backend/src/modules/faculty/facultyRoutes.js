@@ -3,8 +3,9 @@ import { z } from 'zod';
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { sendSuccess } from '../../utils/apiResponse.js';
 import { validate } from '../../middleware/validate.js';
-import { requireAuth, requireFacultyProfile } from '../../middleware/auth.js';
+import { requireAuth, requireFacultyProfile, requireRole } from '../../middleware/auth.js';
 import * as service from './facultyService.js';
+import * as teaching from './teachingService.js';
 import * as gradebook from '../gradebook/gradebookService.js';
 import { getFacultyDashboard } from '../dashboard/dashboardService.js';
 
@@ -16,11 +17,15 @@ const notificationSchema = z.object({
   priority: z.enum(['low', 'normal', 'high']).default('normal'),
 });
 
-const announcementSchema = z.object({
-  title: z.string().trim().min(3, 'Title must be at least 3 characters.').max(200),
-  content: z.string().trim().min(3, 'Content must be at least 3 characters.').max(5000),
-  tags: z.array(z.string().trim().max(40)).max(6).default([]),
-});
+const sisSectionParamSchema = z.object({ sectionId: z.string().trim().min(1).max(64).regex(/^[A-Za-z0-9-]+$/, 'Expected a CampusCore section id.') });
+
+// As CampusCore's class announcement limits. A fresh idempotency key per composed announcement makes a retry safe.
+const publishAnnouncementSchema = z.object({
+  title: z.string().trim().min(3, 'Title must be at least 3 characters.').max(150),
+  body: z.string().trim().min(3, 'Message must be at least 3 characters.').max(5000),
+  pinned: z.boolean().default(false),
+  idempotencyKey: z.string().uuid('A fresh idempotency key (UUID) is required for each announcement.'),
+}).strict();
 
 export const facultyRoutes = Router();
 facultyRoutes.use(requireAuth, requireFacultyProfile);
@@ -31,10 +36,33 @@ const opts = (req) => ({ roles: req.auth.roles });
 facultyRoutes.get(
   '/dashboard',
   asyncHandler(async (req, res) =>
-    sendSuccess(res, await getFacultyDashboard({ tenantId: req.auth.tenantId, userId: req.auth.userId })),
+    // The full session context: the CampusCore teaching panels resolve the faculty member's SIS record from it.
+    sendSuccess(res, await getFacultyDashboard(req.auth)),
   ),
 );
 
+/** Teaching assignments from CampusCore, each with its announcement owner (CampusCore or Moodle). */
+facultyRoutes.get(
+  '/sections',
+  asyncHandler(async (req, res) => sendSuccess(res, await teaching.teachingSections(req.auth, { withPublishing: true }))),
+);
+
+/**
+ * Publish a class announcement in the system that owns the section (CampusCore, or the mapped Moodle course), as the
+ * signed-in faculty member. Faculty role only
+ * (administrators have no teaching assignment to act on); View-As sessions are read-only before this is reached.
+ */
+facultyRoutes.post(
+  '/sections/:sectionId/announcements',
+  requireRole('FACULTY'),
+  validate({ params: sisSectionParamSchema, body: publishAnnouncementSchema }),
+  asyncHandler(async (req, res) => {
+    const { idempotencyKey, ...input } = req.body;
+    return sendSuccess(res, await teaching.publishAnnouncement(req.auth, req.params.sectionId, input, { idempotencyKey }), { status: 201 });
+  }),
+);
+
+/** Local EduNexusAI course records (demo data); used by the local gradebook and follow-ups. */
 facultyRoutes.get(
   '/courses',
   asyncHandler(async (req, res) => {
@@ -67,23 +95,19 @@ facultyRoutes.post(
   ),
 );
 
-facultyRoutes.post(
-  '/courses/:courseId/announcements',
-  validate({ params: courseParamSchema, body: announcementSchema }),
-  asyncHandler(async (req, res) =>
-    sendSuccess(
-      res,
-      await service.createAnnouncement(...ctx(req), req.params.courseId, req.body, opts(req)),
-      { status: 201 },
-    ),
-  ),
-);
-
+/**
+ * Class announcements on the sections this faculty member teaches, read from the owning system. Without
+ * CampusCore the local course records are the only source, so their announcements are listed instead.
+ */
 facultyRoutes.get(
   '/announcements',
   asyncHandler(async (req, res) => {
-    const announcements = await service.listMyAnnouncements(...ctx(req));
-    return sendSuccess(res, announcements, { count: announcements.length });
+    const result = await teaching.myAnnouncements(req.auth, { teaching: await teaching.teachingSections(req.auth, { withPublishing: true }) });
+    if (result.state === 'SIS_NOT_CONFIGURED') {
+      const items = (await service.listMyAnnouncements(...ctx(req))).map((a) => ({ ...a, source: 'local' }));
+      return sendSuccess(res, { ...result, items, sources: { local: { state: 'OK' } } }, { count: items.length });
+    }
+    return sendSuccess(res, result, { count: result.items.length });
   }),
 );
 

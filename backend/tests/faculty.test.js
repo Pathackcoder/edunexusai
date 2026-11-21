@@ -76,22 +76,21 @@ describe('faculty experience', () => {
     assert.equal(body.error.code, 'VALIDATION_ERROR');
   });
 
-  it('posts a course announcement that students then see', async () => {
+  it('has no local course-announcement write path (announcements belong to the system that owns each section)', async () => {
     const facultyToken = await login('faculty');
-    const studentToken = await login('student');
-
     const { body: courses } = await api('/faculty/courses', { token: facultyToken });
     const course = courses.data.find((item) => item.code === 'CS 501');
+    const { prisma } = await import('../src/db/prisma.js');
+    const before = await prisma.announcement.count();
 
     const posted = await api(`/faculty/courses/${course.id}/announcements`, {
       method: 'POST',
       token: facultyToken,
       body: { title: 'Test suite announcement', content: 'Posted by the test suite.', tags: ['Test'] },
     });
-    assert.equal(posted.status, 201);
-
-    const { body: announcements } = await api('/announcements', { token: studentToken });
-    assert.ok(announcements.data.some((item) => item.title === 'Test suite announcement'));
+    // No such route: refused by whichever router answers unknown paths (403/404), never created.
+    assert.ok([403, 404].includes(posted.status), `status ${posted.status}`);
+    assert.equal(await prisma.announcement.count(), before);
   });
 
   it('refuses a roster for a course the faculty member does not teach', async () => {
@@ -112,5 +111,14 @@ describe('faculty experience', () => {
     // An admin may still inspect it, for support purposes.
     const asAdmin = await api(`/faculty/courses/${other.id}/students`, { token: adminToken });
     assert.equal(asAdmin.status, 200);
+  });
+});
+
+describe('publishing class announcements without CampusCore', () => {
+  it('is refused as not configured (there is no section owner to publish to)', async () => {
+    const token = await login('faculty');
+    const res = await api('/faculty/sections/any-section/announcements', { method: 'POST', token, body: { title: 'Hello class', body: 'Welcome.', idempotencyKey: '7f1c9a52-3d4e-4b8a-9c21-5e6f7a8b9c0d' } });
+    assert.equal(res.status, 409);
+    assert.equal(res.body.error.code, 'INTEGRATION_NOT_CONFIGURED');
   });
 });

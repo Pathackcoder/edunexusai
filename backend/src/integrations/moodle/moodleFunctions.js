@@ -11,6 +11,7 @@
  *   group OPTIONAL       useful later; not needed for the MVP
  *   group NOT_RECOMMENDED available in Moodle but deliberately not used by default
  *   group FACULTY_GRADING required for the faculty submission review and grading view
+ *   group COURSE_ANNOUNCEMENTS required to read and publish a course's Announcements (news) forum
  *   group UNSUPPORTED_WITH_SERVICE_TOKEN listed so the checklist explains what cannot be
  *         done through a shared service token, and why
  *
@@ -151,6 +152,30 @@ export const MOODLE_FUNCTIONS = {
     group: 'UNSUPPORTED_WITH_SERVICE_TOKEN',
     purpose: 'Moodle core has no web service that creates an assignment with its settings (name, instructions, due date, submission types). Faculty create assignments in Moodle; they appear here automatically.',
     capabilities: [],
+    liveVerified: false,
+  },
+  mod_forum_get_forums_by_courses: {
+    group: 'COURSE_ANNOUNCEMENTS',
+    purpose: "Find a course's Announcements (news) forum, the only place course announcements are published.",
+    capabilities: ['mod/forum:viewdiscussion'],
+    liveVerified: false,
+  },
+  mod_forum_get_forum_discussions: {
+    group: 'COURSE_ANNOUNCEMENTS',
+    purpose: 'Read the announcements in a course’s Announcements forum for faculty and students.',
+    capabilities: ['mod/forum:viewdiscussion'],
+    liveVerified: false,
+  },
+  mod_forum_can_add_discussion: {
+    group: 'COURSE_ANNOUNCEMENTS',
+    purpose: 'Check, before publishing, that the token’s account may post in that Announcements forum (and may pin).',
+    capabilities: [],
+    liveVerified: false,
+  },
+  mod_forum_add_discussion: {
+    group: 'COURSE_ANNOUNCEMENTS',
+    purpose: 'Publish a faculty member’s announcement to the course’s Announcements forum. Moodle records the token’s account as the author; the faculty member is named in the message.',
+    capabilities: ['mod/forum:addnews', 'mod/forum:startdiscussion', 'mod/forum:pindiscussions (pinning only)'],
     liveVerified: false,
   },
   core_completion_get_activities_completion_status: {

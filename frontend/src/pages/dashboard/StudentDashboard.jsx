@@ -163,8 +163,8 @@ export const StudentDashboard = () => {
       );
       return next;
     });
-    // CampusCore class announcements have no local read record; the change is for this view only.
-    if (item?.source === 'campuscore') return;
+    // CampusCore and Moodle announcements have no local read record; the change is for this view only.
+    if (item?.source === 'campuscore' || item?.source === 'moodle') return;
     try {
       await academicApi.markAnnouncementRead(id);
       showToast('Announcement marked as read');

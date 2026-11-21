@@ -45,6 +45,7 @@ const GROUP_LABEL = {
   LEARNER_DETAIL: 'Assignments & grades',
   OPTIONAL: 'Optional',
   NOT_RECOMMENDED: 'Not recommended',
+  COURSE_ANNOUNCEMENTS: 'Course announcements',
 };
 const MAPPING = {
   LINKED: ['success', 'Linked'],

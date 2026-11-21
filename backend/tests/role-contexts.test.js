@@ -19,7 +19,8 @@ import {
 const { prisma } = await import('../src/db/prisma.js');
 
 const STUDENT_DASHBOARD_KEYS = ['entitlements', 'greetingName', 'layout', 'panels', 'persona', 'term', 'tier', 'widgets'];
-const FACULTY_DASHBOARD_KEYS = ['announcements', 'courses', 'entitlements', 'layout', 'persona', 'totals', 'upcomingAssignments'];
+// `sources` names the system behind each panel; `localCourses` (local demo records) feeds the follow-up form.
+const FACULTY_DASHBOARD_KEYS = ['announcements', 'courses', 'entitlements', 'layout', 'localCourses', 'persona', 'sources', 'totals', 'upcomingAssignments'];
 const ADMIN_WIDGETS = ['admin.users', 'admin.roles', 'admin.tiers', 'admin.entitlements', 'admin.integrations', 'admin.integration_health'];
 
 let rahul;

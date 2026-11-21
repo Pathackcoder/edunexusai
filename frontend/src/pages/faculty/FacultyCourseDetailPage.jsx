@@ -16,7 +16,6 @@ import TableContainer from '@mui/material/TableContainer';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
-import CampaignOutlinedIcon from '@mui/icons-material/CampaignOutlined';
 import MailOutlineRoundedIcon from '@mui/icons-material/MailOutlineRounded';
 import GradingRoundedIcon from '@mui/icons-material/GradingRounded';
 import { useApiQuery } from '../../hooks/useApiQuery';
@@ -32,12 +31,15 @@ import { DataState } from '../../components/common/DataState';
 import { useAuth } from '../../context/AuthContext';
 
 /**
- * Course roster and class messaging.
+ * Roster and class messaging for a local EduNexusAI demo course (not a CampusCore section).
  *
  * "Send notification" is the demonstrable write: it creates one Notification row per
  * enrolled student in PostgreSQL, and those rows show up in each student's notification
  * centre. The response reports how many were created, so the count on screen is the
  * number the database actually accepted.
+ *
+ * Class announcements are not posted from here: they belong to the system that owns each
+ * section (CampusCore or Moodle), and a local row would reach no student reading those.
  */
 export const FacultyCourseDetailPage = () => {
   const { courseId } = useParams();
@@ -50,9 +52,7 @@ export const FacultyCourseDetailPage = () => {
   );
 
   const [isNotifyOpen, setIsNotifyOpen] = useState(false);
-  const [isAnnounceOpen, setIsAnnounceOpen] = useState(false);
   const [form, setForm] = useState({ title: '', message: '', priority: 'normal' });
-  const [announcement, setAnnouncement] = useState({ title: '', content: '', tags: '' });
   const [sending, setSending] = useState(false);
   const [lastResult, setLastResult] = useState(null);
   const [formError, setFormError] = useState(null);
@@ -75,30 +75,6 @@ export const FacultyCourseDetailPage = () => {
       showToast(`Notification delivered to ${result.recipientCount} enrolled students.`);
       setIsNotifyOpen(false);
       resetNotify();
-    } catch (caught) {
-      setFormError(caught);
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const handlePostAnnouncement = async (event) => {
-    event.preventDefault();
-    setSending(true);
-    setFormError(null);
-    try {
-      await facultyApi.postAnnouncement(courseId, {
-        title: announcement.title,
-        content: announcement.content,
-        tags: announcement.tags
-          .split(',')
-          .map((tag) => tag.trim())
-          .filter(Boolean)
-          .slice(0, 6),
-      });
-      showToast('Announcement posted to the course.');
-      setIsAnnounceOpen(false);
-      setAnnouncement({ title: '', content: '', tags: '' });
     } catch (caught) {
       setFormError(caught);
     } finally {
@@ -138,9 +114,6 @@ export const FacultyCourseDetailPage = () => {
                     Open gradebook
                   </Button>
                 )}
-                <Button variant="secondary" size="sm" icon={CampaignOutlinedIcon} onClick={() => setIsAnnounceOpen(true)}>
-                  Post announcement
-                </Button>
                 <Button variant="primary" size="sm" icon={SendRoundedIcon} onClick={() => setIsNotifyOpen(true)}>
                   Send notification
                 </Button>
@@ -149,6 +122,11 @@ export const FacultyCourseDetailPage = () => {
           />
 
           <Stack spacing={2.5}>
+            <Alert severity="info" action={<MuiButton component={RouterLink} to="/faculty/announcements" size="small">My Announcements</MuiButton>}>
+              This is a local EduNexusAI demo course, not a CampusCore section. Notifications sent here reach only the
+              students enrolled in this demo course. Class announcements are published in the system that owns each of
+              your sections (CampusCore or Moodle).
+            </Alert>
             {lastResult && (
               <Alert severity="success" role="status">
                 <strong>{lastResult.notificationsCreated}</strong> notification records written for{' '}
@@ -269,53 +247,6 @@ export const FacultyCourseDetailPage = () => {
                   </Button>
                   <Button type="submit" variant="primary" size="sm" loading={sending} icon={SendRoundedIcon} mutates>
                     Send to {data?.enrolledCount ?? 0} students
-                  </Button>
-                </Stack>
-              </Stack>
-            </Box>
-          </Modal>
-
-          {/* Post announcement */}
-          <Modal
-            isOpen={isAnnounceOpen}
-            onClose={() => setIsAnnounceOpen(false)}
-            title={`Post to ${course?.code ?? 'this course'}`}
-            subtitle="Visible on the course announcements page"
-          >
-            <Box component="form" onSubmit={handlePostAnnouncement}>
-              <Stack spacing={2.25}>
-                <TextField
-                  id="ann-title"
-                  label="Title"
-                  value={announcement.title}
-                  onChange={(e) => setAnnouncement({ ...announcement, title: e.target.value })}
-                  required
-                />
-                <TextField
-                  id="ann-content"
-                  label="Content"
-                  multiline
-                  rows={5}
-                  value={announcement.content}
-                  onChange={(e) => setAnnouncement({ ...announcement, content: e.target.value })}
-                  required
-                />
-                <TextField
-                  id="ann-tags"
-                  label="Tags (comma separated)"
-                  value={announcement.tags}
-                  onChange={(e) => setAnnouncement({ ...announcement, tags: e.target.value })}
-                  placeholder="Exam, Important"
-                />
-
-                {formError && <Alert severity="error">{formError.message}</Alert>}
-
-                <Stack direction="row" justifyContent="flex-end" spacing={1}>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setIsAnnounceOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" variant="primary" size="sm" loading={sending} icon={CampaignOutlinedIcon} mutates>
-                    Post announcement
                   </Button>
                 </Stack>
               </Stack>

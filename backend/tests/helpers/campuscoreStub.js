@@ -10,7 +10,7 @@ export async function startCampusCoreStub({ clientId, clientSecret }) {
   const S = {
     institution: { id: 'inst-feddrick', slug: 'feddrick', name: 'Feddrick University', shortName: 'FU' },
     scopes: ['institution:read', 'terms:read', 'calendar:read', 'programs:read', 'sections:read', 'students:read', 'students:create', 'students:update', 'students:deactivate', 'identity:read', 'identity:write', 'audit:read', 'integration:configure', 'faculty:read', 'registrations:read', 'schedules:read', 'grades:read', 'people:read'],
-    policies: { 'student.create': true, 'student.update': true, 'student.contact': true, 'student.academic': false, 'student.deactivate': true, 'registration.write': false, 'attendance.write': false, 'grade.write': false, 'identity.link': true },
+    policies: { 'student.create': true, 'student.update': true, 'student.contact': true, 'student.academic': false, 'student.deactivate': true, 'registration.write': false, 'attendance.write': false, 'grade.write': false, 'announcement.write': false, 'identity.link': true },
     disabled: [],
     expiresIn: 900,
     tokens: new Map(),
@@ -31,6 +31,10 @@ export async function startCampusCoreStub({ clientId, clientSecret }) {
       { id: 'sec-2', termCode: '2026FA', course: { id: 'c2', code: 'MATH 201', title: 'Linear Algebra', credits: 4 }, sectionNumber: '01', status: 'OPEN', capacity: 30, meetings: [], instructors: [{ facultyId: 'fac-2', name: 'Other Teacher', isPrimary: true }], facultyId: 'fac-2' },
     ],
     registrations: [],
+    // Class announcements: { id, sectionId, title, body, pinned, author, publishedAt, expiresAt }.
+    announcements: [],
+    announcementIdempotency: new Map(),
+    announcementWrites: [], // { sectionId, actingFacultyId, actingUser, idempotencyKey }
   };
   const addStudent = (s) => {
     const id = s.id ?? `stu-${S.seq++}`;
@@ -47,7 +51,7 @@ export async function startCampusCoreStub({ clientId, clientSecret }) {
   S.registrations.push({ id: 'reg-1', studentId: 'stu-maya', sectionId: 'sec-1', status: 'REGISTERED', credits: 3, waitlistPosition: null });
   S.registrations.push({ id: 'reg-2', studentId: 'stu-jordan', sectionId: 'sec-2', status: 'REGISTERED', credits: 4, waitlistPosition: null });
 
-  const OPS = { 'student.create': 'students:create', 'student.update': 'students:update', 'student.contact': 'students:write', 'student.academic': 'students:academic', 'student.deactivate': 'students:deactivate', 'registration.write': 'registrations:write', 'attendance.write': 'attendance:write', 'grade.write': 'grades:write', 'identity.link': 'identity:write' };
+  const OPS = { 'student.create': 'students:create', 'student.update': 'students:update', 'student.contact': 'students:write', 'student.academic': 'students:academic', 'student.deactivate': 'students:deactivate', 'registration.write': 'registrations:write', 'attendance.write': 'attendance:write', 'grade.write': 'grades:write', 'announcement.write': 'announcements:write', 'identity.link': 'identity:write' };
   // As CampusCore: a token keeps the scopes it was issued with (effective = token ∩ client).
   let currentTokenScopes = null;
   const capabilities = () => Object.entries(OPS).map(([operation, scope]) => {
@@ -181,6 +185,40 @@ export async function startCampusCoreStub({ clientId, clientSecret }) {
       // As CampusCore's registrationDto: a compact section summary.
       if (m[2] === 'registrations') return { body: { data: regs.map((r) => { const sec = S.sections.find((x) => x.id === r.sectionId); return { ...r, section: { id: sec.id, termCode: sec.termCode, courseCode: sec.course.code, courseTitle: sec.course.title, sectionNumber: sec.sectionNumber } }; }) } };
       return { body: paged([{ id: 'aud-1', action: 'student.updated' }], q) };
+    }
+    // As CampusCore: announcements:read; a student's registered sections, or the sections a faculty member teaches.
+    if (method === 'GET' && (m = path.match(/^\/(students|faculty)\/([^/]+)\/announcements$/))) {
+      if (!S.scopes.includes('announcements:read')) return err(403, 'insufficient_scope', 'This operation requires the scope(s): announcements:read.');
+      const id = decodeURIComponent(m[2]);
+      if (!(m[1] === 'students' ? S.students : S.faculty).get(id)) return err(404, 'not_found', m[1] === 'students' ? 'Student not found.' : 'Faculty member not found.');
+      const sectionIds = new Set(m[1] === 'students'
+        ? S.registrations.filter((r) => r.studentId === id && r.status === 'REGISTERED').map((r) => r.sectionId)
+        : S.sections.filter((x) => x.facultyId === id).map((x) => x.id));
+      const now = Date.now();
+      // Students see published, unexpired ones; the instructor sees their whole history.
+      const rows = S.announcements.filter((a) => sectionIds.has(a.sectionId) && (m[1] === 'faculty' || (new Date(a.publishedAt) <= now && (!a.expiresAt || new Date(a.expiresAt) > now))));
+      return { body: { data: rows.map((a) => { const sec = S.sections.find((x) => x.id === a.sectionId); return { id: a.id, title: a.title, body: a.body, audience: 'STUDENTS', pinned: a.pinned ?? false, author: a.author, publishedAt: a.publishedAt, expiresAt: a.expiresAt ?? null, section: { id: sec.id, label: `${sec.course.code}-${sec.sectionNumber}`, courseCode: sec.course.code, courseTitle: sec.course.title, term: sec.termCode } }; }) } };
+    }
+    // As CampusCore: announcements:write × policy × client preference, Idempotency-Key required, the acting faculty
+    // member must teach the section, strict body; the instructor is the author.
+    if (method === 'POST' && (m = path.match(/^\/sections\/([^/]+)\/announcements$/))) {
+      if (!S.scopes.includes('announcements:write')) return err(403, 'insufficient_scope', 'This operation requires the scope(s): announcements:write.');
+      if (!effective('announcement.write')) return err(422, 'policy_disabled', 'Publish class announcements via the API is disabled by institutional policy.');
+      const key = headers['idempotency-key'];
+      if (!key) return err(400, 'idempotency_key_required', 'This operation requires an Idempotency-Key header.');
+      const prior = S.announcementIdempotency.get(key);
+      if (prior) return prior.body === JSON.stringify(body) ? { ...prior.res, replayed: true } : err(422, 'idempotency_key_reused', 'Key reused with a different body.');
+      const sec = S.sections.find((x) => x.id === decodeURIComponent(m[1]));
+      if (!sec) return err(404, 'not_found', 'Section not found.');
+      if (Object.keys(body).some((k) => !['actingFacultyId', 'title', 'body', 'pinned'].includes(k))) return err(400, 'validation_error', 'Unknown field.');
+      if (sec.facultyId !== body.actingFacultyId) return err(403, 'not_section_instructor', 'The acting faculty member is not assigned to this section.');
+      const f = S.faculty.get(body.actingFacultyId);
+      const a = { id: `ann-${S.seq++}`, sectionId: sec.id, title: body.title, body: body.body, pinned: body.pinned ?? false, author: `${f.firstName} ${f.lastName}`, publishedAt: new Date().toISOString(), expiresAt: null };
+      S.announcements.push(a);
+      S.announcementWrites.push({ sectionId: sec.id, actingFacultyId: body.actingFacultyId, actingUser: headers['x-acting-user'], idempotencyKey: key });
+      const res = { status: 201, body: { data: { ...a, audience: 'STUDENTS', section: { id: sec.id, label: `${sec.course.code}-${sec.sectionNumber}`, courseCode: sec.course.code, courseTitle: sec.course.title, term: sec.termCode } } } };
+      S.announcementIdempotency.set(key, { body: JSON.stringify(body), res });
+      return res;
     }
     if (method === 'GET' && path === '/faculty') {
       const search = norm(q.get('search'));

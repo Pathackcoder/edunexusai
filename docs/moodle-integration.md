@@ -434,3 +434,52 @@ automate Moodle's login form or store Moodle passwords. The safe path:
 - Getting a student's token needs their Moodle password, which EduNexusAI would have to relay. MoodleCloud's front end also returns 403 to non-browser clients on that endpoint.
 - This is not implemented, and it should not be worked around.
 - The recommended path is SSO (see `sso-plan.md`): the *Submit in Moodle* deep link then opens without a second login.
+
+## Course announcements (Announcements forum)
+
+Each CampusCore section has one announcement owner. A section an administrator mapped to a Moodle course
+(`sis_section_moodle_courses`) is **Moodle-owned**: its announcements live only in that course's Announcements
+(news) forum. EduNexusAI reads and publishes them there and stores no copy. Unmapped sections are CampusCore-owned
+(`docs/campuscore-integration.md`). A section is never published to the other system as a fallback.
+
+**Status (checked live 2026-11-20, Moodle 5.3, MoodleCloud): blocked by configuration.** The service exposes none
+of the forum functions below, `MOODLE_WRITES_ENABLED=false`, and the token's account (`edunexus_integration`, not a
+site administrator) has no role in the courses. Faculty see the exact reason in My Courses and My Announcements;
+students simply see no Moodle announcements until it is set up. The parameter and response shapes follow the Moodle
+web service documentation and have only been exercised against the test stub so far.
+
+| Operation | Function | Needed for |
+|---|---|---|
+| Find the course's Announcements forum | `mod_forum_get_forums_by_courses` | read and publish |
+| List announcements | `mod_forum_get_forum_discussions` | faculty and student views; reconciling an uncertain publish |
+| Check the token account may post / pin | `mod_forum_can_add_discussion` | publish |
+| Publish | `mod_forum_add_discussion` | publish |
+
+**To enable (Moodle administrator, then EduNexusAI):**
+
+1. Add the four functions to the external service (Site administration → Server → Web services → External services → Functions).
+2. Give the token's account, in the courses that own announcements (e.g. a category-level role), `mod/forum:viewdiscussion`,
+   `mod/forum:startdiscussion` and `mod/forum:addnews`; add `mod/forum:pindiscussions` only if pinning should work.
+   Without `mod/forum:viewdiscussion`, `mod_forum_get_forums_by_courses` silently returns no forums for the course (no
+   error). EduNexusAI compares that with the course outline and reports "Moodle hides this course's forums from the
+   integration account" rather than "no Announcements forum". Seen live on 2026-11-20 for course 9: the account had no
+   role in any course. Only the course's built-in Announcements forum (type `news`) is used; extra forums such as a
+   manually added "New Announcements" are ignored and are not needed.
+3. Set `MOODLE_WRITES_ENABLED=true` in the backend environment and restart. The MoodleCloud site is shared with production.
+
+**Who may publish:** a FACULTY account (not View-As, not administrators) whose CampusCore record teaches the section in a
+current or upcoming term, where the section is mapped to the Moodle course, *and* whose linked Moodle account holds a
+teaching role in that course (checked live). Moodle must also answer `mod_forum_can_add_discussion` positively.
+
+**Limits, stated in the composer:**
+
+- **Author:** web services act as the token's account, so Moodle shows *EduNexus Integration* as the author. The faculty
+  member's name is added at the end of the message ("Posted by … via EduNexusAI").
+- **Edit / delete:** not offered in EduNexusAI. Teachers edit or delete the post in the Moodle course.
+- **E-mail:** Moodle notifies the forum's subscribers according to the course's subscription settings, normally after its
+  editing window (30 minutes by default; not verified on this site). EduNexusAI sends nothing itself.
+- **Duplicates:** each composed announcement carries an idempotency key; the operation ledger (`integration_operations`,
+  ids only, never the text) replays a retry. After an uncertain outcome (timeout, lost reply) the retry first looks for
+  the post in the forum and posts only if it is not there; without `mod_forum_get_forum_discussions` it asks the faculty
+  member to check Moodle instead of posting again.
+- **Read state:** students' read/unread for Moodle announcements is not tracked in EduNexusAI.

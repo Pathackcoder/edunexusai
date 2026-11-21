@@ -24,6 +24,7 @@ import { ReadOnlyGate } from '../../viewAs/ReadOnly';
  * independent, draggable cards.
  */
 
+/** `courses`: CampusCore sections (with `href`, the roster lives in My Courses) or local demo courses (own page). */
 export function RosterWidget({ courses }) {
   const students = courses.reduce((sum, course) => sum + (course.enrolledCount ?? 0), 0);
   return (
@@ -45,7 +46,7 @@ export function RosterWidget({ courses }) {
               eyebrow={course.code}
               title={`${course.enrolledCount} student${course.enrolledCount === 1 ? '' : 's'} enrolled`}
               subtitle={course.name}
-              action={<Button component={RouterLink} to={`/faculty/courses/${course.id}`} size="small" variant="outlined">Open roster & message class</Button>}
+              action={<Button component={RouterLink} to={course.href ?? `/faculty/courses/${course.id}`} size="small" variant="outlined">{course.href ? 'Open roster' : 'Open roster & message class'}</Button>}
             />
           )}
           renderItem={(course) => (
@@ -55,7 +56,7 @@ export function RosterWidget({ courses }) {
                 <Chip size="small" label={`${course.enrolledCount} enrolled`} />
               </Stack>
               <Typography variant="body2" color="text.secondary">{course.name}</Typography>
-              <Button component={RouterLink} to={`/faculty/courses/${course.id}`} size="small" sx={{ mt: 0.5, ml: -1 }}>Open roster & message class</Button>
+              <Button component={RouterLink} to={course.href ?? `/faculty/courses/${course.id}`} size="small" sx={{ mt: 0.5, ml: -1 }}>{course.href ? 'Open roster' : 'Open roster & message class'}</Button>
             </Box>
           )}
         />
