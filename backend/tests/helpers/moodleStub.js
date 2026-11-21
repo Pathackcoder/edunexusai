@@ -31,6 +31,9 @@ const ALL_FUNCTIONS = [
   'mod_assign_save_grade',
 ];
 
+/** Announcements (news) forum functions: not enabled by default, as on the real site; tests switch them on. */
+export const FORUM_FUNCTIONS = ['mod_forum_get_forums_by_courses', 'mod_forum_get_forum_discussions', 'mod_forum_can_add_discussion', 'mod_forum_add_discussion'];
+
 /** Rebuild PHP-style keys (users[0][email]) into nested objects/arrays. */
 export function parseForm(text) {
   const out = {};
@@ -70,6 +73,13 @@ export async function startMoodleStub({ token }) {
     credentials: new Map(), // moodle user id -> { password, emailed, forceChange } (test-only)
     nextUserId: 100,
     nextCourseId: 200,
+    // Forums ({ id, course, type, name }), discussions per forum, and whether the token account may post / pin.
+    forums: [],
+    discussions: {},
+    canAdd: {}, // forumId -> { status, canpindiscussions }
+    // Courses where the token account lacks mod/forum:viewdiscussion: like Moodle, their forums are silently left out.
+    forumsHiddenIn: new Set(),
+    nextDiscussionId: 900,
   };
 
   const userOut = (u) => ({ ...u, fullname: `${u.firstname} ${u.lastname}` });
@@ -83,6 +93,7 @@ export async function startMoodleStub({ token }) {
       siteurl: state.url,
       userid: 2,
       username: 'integration',
+      fullname: 'EduNexus Integration',
       userissiteadmin: false,
       functions: [...state.functions].map((name) => ({ name, version: '2026100500' })),
     }),
@@ -217,6 +228,21 @@ export async function startMoodleStub({ token }) {
       feedback: { grade: { grade: '99.00' }, gradefordisplay: '99.00' },
       warnings: [],
     }),
+    mod_forum_get_forums_by_courses: (p) => state.forums.filter((f) => (p.courseids ?? []).map(Number).includes(f.course) && !state.forumsHiddenIn.has(f.course)).map((f) => ({ intro: '', cmid: f.id + 1000, ...f })),
+    mod_forum_get_forum_discussions: (p) => ({ discussions: state.discussions[Number(p.forumid)] ?? [], warnings: [] }),
+    mod_forum_can_add_discussion: (p) => ({ status: true, canpindiscussions: false, cancreateattachment: true, ...(state.canAdd[Number(p.forumid)] ?? {}), warnings: [] }),
+    // As Moodle: the post is authored by the token's account (id 2), stored as HTML.
+    mod_forum_add_discussion: (p) => {
+      const forumId = Number(p.forumid);
+      const forum = state.forums.find((f) => f.id === forumId);
+      if (!forum) throw exception('invalidrecord', "Can't find data record in database table forum.", 'dml_missing_record_exception');
+      const can = { status: true, canpindiscussions: false, ...(state.canAdd[forumId] ?? {}) };
+      if (!can.status) throw exception('cannotcreatediscussion', 'Could not create new discussion');
+      const pinned = (p.options ?? []).some((o) => o.name === 'discussionpinned' && Number(o.value) === 1);
+      const id = state.nextDiscussionId++;
+      (state.discussions[forumId] ??= []).unshift({ id, discussion: id, name: p.subject, subject: p.subject, message: p.message, messageformat: 1, userid: 2, userfullname: 'EduNexus Integration', created: Math.floor(Date.now() / 1000), modified: Math.floor(Date.now() / 1000), timestart: 0, timeend: 0, pinned });
+      return { discussionid: id, warnings: [] };
+    },
     gradereport_user_get_grade_items: (p) => ({
       usergrades: [{ courseid: Number(p.courseid), userid: Number(p.userid), gradeitems: state.grades[`${p.courseid}:${p.userid}`] ?? [] }],
       warnings: [],

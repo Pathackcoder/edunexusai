@@ -102,6 +102,22 @@ export class SisPortalService {
     const fid = await this.#facultyId(user);
     return { schedule: await settle(this.sis.getFacultySchedule(fid, termId)), sections: await settle(this.sis.listFacultySections(fid, termId)) };
   }
+  /** Class announcements on the signed-in faculty member's own sections. The SIS id comes from the verified link. */
+  async facultyAnnouncements(user, { termId } = {}) {
+    const found = await this.#relationship(user, 'FACULTY');
+    if (found.missing) return { state: found.missing === 'OTHER_ROLE' ? 'NOT_FACULTY' : 'UNMAPPED', items: [] };
+    return { state: 'OK', items: await this.sis.listFacultyAnnouncements(found.identity.sisId, termId) };
+  }
+  /**
+   * Publish a class announcement to one of the signed-in faculty member's own sections, as that faculty member. The
+   * acting faculty id comes from the verified link, never from the request; CampusCore re-checks the assignment.
+   */
+  async facultyPublishAnnouncement(user, sectionId, { title, body, pinned = false }, { idempotencyKey } = {}) {
+    const fid = await this.#facultyId(user);
+    const sections = await this.sis.listFacultySections(fid);
+    if (!sections.some((s) => s.source.id === sectionId)) throw new SisError('You are not assigned to this section.', { status: 403, code: 'not_section_instructor' });
+    return this.sis.createSectionAnnouncement(sectionId, { actingFacultyId: fid, title, body, pinned }, { idempotencyKey, actingUser: this.actingUser(user) });
+  }
   async facultyRoster(user, sectionId) {
     const fid = await this.#facultyId(user);
     const sections = await this.sis.listFacultySections(fid);

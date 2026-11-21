@@ -323,6 +323,41 @@ export async function facultyTeaching(auth, { termId } = {}) {
   }
 }
 
+/** Class announcements on the signed-in faculty member's own sections (announcements:read). Read only. */
+export async function facultyAnnouncements(auth, { termId } = {}) {
+  assertTenant(auth);
+  return withSis((s) => s.portal.facultyAnnouncements(portalUser(auth), { termId }));
+}
+
+/**
+ * Publish a class announcement to one of the signed-in faculty member's own sections, as that faculty member
+ * (announcements:write). Both outcomes are audited. The caller decides that CampusCore owns the section.
+ */
+export async function facultyPublishAnnouncement(auth, sectionId, input, { idempotencyKey }) {
+  assertTenant(auth);
+  return auditedWrite(
+    auth,
+    'SIS_ANNOUNCEMENT_PUBLISH',
+    `Class announcement "${input.title}" to CampusCore section ${sectionId}`,
+    () => withSis((s) => s.portal.facultyPublishAnnouncement(portalUser(auth), sectionId, input, { idempotencyKey })),
+    sectionId,
+  );
+}
+
+/** Whether this connection may publish class announcements: scope × CampusCore policy × client preference. */
+export async function announcementPublishing(auth) {
+  assertTenant(auth);
+  let operations;
+  try {
+    operations = (await withSis((s) => s.adapter.getCapabilities())).operations ?? [];
+  } catch {
+    return { enabled: false, reason: 'CampusCore is unavailable, so publishing could not be checked.' };
+  }
+  const op = operations.find((o) => o.operation === 'announcement.write');
+  if (!op) return { enabled: false, reason: 'This CampusCore version does not support publishing class announcements.' };
+  return { enabled: Boolean(op.effective), reason: op.effective ? null : op.reason };
+}
+
 /** Roster of one section, only if the SIS says this faculty member teaches it. */
 export async function facultyRoster(auth, sectionId) {
   return withSis((s) => s.portal.facultyRoster(portalUser(auth), sectionId));

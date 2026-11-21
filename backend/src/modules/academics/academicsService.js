@@ -17,6 +17,7 @@ import {
 import { publishedCourseworkFor } from '../gradebook/gradebookService.js';
 import { logger } from '../../utils/logger.js';
 import * as sis from '../sis/sisService.js';
+import * as moodle from '../lms/moodleService.js';
 import { formatTimeAgo, formatTimestamp } from '../../utils/format.js';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -252,14 +253,28 @@ function presentSisAnnouncement(a) {
   };
 }
 
+// Course announcements in the Announcements forum of a Moodle course the student is enrolled in (for sections whose
+// announcements Moodle owns). Read state is not tracked locally, as for CampusCore.
+function presentMoodleAnnouncement(a) {
+  return {
+    id: a.id, source: 'moodle', courseId: `moodle:${a.moodleCourse.moodleCourseId}`, courseCode: a.moodleCourse.shortName, courseName: a.moodleCourse.fullName, section: null,
+    title: a.title, author: a.author, postedAt: formatTimeAgo(a.publishedAt), date: formatTimestamp(a.publishedAt), publishedAt: a.publishedAt,
+    isRead: Date.now() - new Date(a.publishedAt).getTime() > NEW_FOR_MS, content: a.content, tags: a.pinned ? ['Pinned'] : [], url: a.url,
+  };
+}
+
 /**
  * Course announcements for a student. With CampusCore connected: their instructors' class announcements for the
- * sections they are registered in, read live (auth = the signed-in student). Otherwise the local records.
+ * sections they are registered in, read live (auth = the signed-in student), plus the announcements of the
+ * Moodle-owned courses they are enrolled in, read live from Moodle. Otherwise the local records.
  */
 export async function listAnnouncements(tenantId, { userId, studentProfileId, auth }) {
   if (auth && sis.sisConfigured()) {
     const r = await sis.studentAnnouncements(auth);
-    return r.items.map(presentSisAnnouncement);
+    // Moodle being unavailable (or its forum functions not enabled) never hides the CampusCore announcements.
+    const fromMoodle = await moodle.studentCourseAnnouncements(auth).catch(() => ({ items: [] }));
+    return [...r.items.map(presentSisAnnouncement), ...fromMoodle.items.map(presentMoodleAnnouncement)]
+      .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
   }
   const enrollments = await prisma.enrollment.findMany({
     where: { tenantId, studentProfileId },

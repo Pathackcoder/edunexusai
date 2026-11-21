@@ -19,6 +19,7 @@ import {
   studentAssignmentState,
   mapUser,
 } from '../../integrations/mappers/moodleMapper.js';
+import { stripHtml } from '../../integrations/mappers/canvasMapper.js';
 import { recordAudit } from '../audit/auditService.js';
 import { AppError, ErrorCode, badRequest, conflict, forbidden, notFound } from '../../utils/errors.js';
 import { logger } from '../../utils/logger.js';
@@ -1912,4 +1913,233 @@ export async function saveStudentGrade(auth, moodleCourseId, assignmentId, moodl
       return { externalId: assignmentId, result: { saved: true, verified, moodleUserId: Number(moodleUserId), assignmentId: Number(assignmentId) } };
     },
   });
+}
+
+/* ------------------------------------------------- course announcements (news forum) */
+
+// Course announcements live in each course's Announcements (news) forum; Moodle is their only store. Publishing posts
+// a forum discussion through the shared service token, so Moodle records the TOKEN'S account as the author; the
+// faculty member is named in the message. Edits, deletions and e-mail delivery follow Moodle's own forum rules.
+const ANNOUNCEMENT_READ = ['mod_forum_get_forums_by_courses', 'mod_forum_get_forum_discussions'];
+const ANNOUNCEMENT_PUBLISH = ['mod_forum_get_forums_by_courses', 'mod_forum_can_add_discussion', 'mod_forum_add_discussion'];
+
+const missingFunctions = (info, names) => names.filter((name) => !info.functions.has(name));
+const forumNotEnabled = (missing) => `Moodle does not expose ${missing.join(', ')} to EduNexusAI. A Moodle administrator must add ${missing.length === 1 ? 'it' : 'them'} to the external service (Site administration → Server → Web services → External services → Functions).`;
+
+/**
+ * Whether course announcements can be read and published through this Moodle connection right now, for the site
+ * as a whole: { read: { available, reason }, publish: { available, reason }, postsAs }.
+ */
+export async function announcementSupport(tenantId) {
+  const down = (reason) => ({ read: { available: false, reason }, publish: { available: false, reason }, postsAs: null });
+  if (!moodleConfig().valid) return down('Moodle is not configured for EduNexusAI.');
+  try {
+    const { connector } = await connect(tenantId);
+    const info = await connector.siteInfo();
+    const missingRead = missingFunctions(info, ANNOUNCEMENT_READ);
+    const missingPublish = missingFunctions(info, ANNOUNCEMENT_PUBLISH);
+    return {
+      read: missingRead.length ? { available: false, reason: forumNotEnabled(missingRead) } : { available: true, reason: null },
+      publish: missingPublish.length
+        ? { available: false, reason: forumNotEnabled(missingPublish) }
+        : !connector.config.writesEnabled
+          ? { available: false, reason: 'Changes to Moodle are switched off on this EduNexusAI server (MOODLE_WRITES_ENABLED is not true).' }
+          : { available: true, reason: null },
+      postsAs: info.tokenUserFullName ?? info.tokenUsername ?? null,
+    };
+  } catch (error) {
+    return down(`Moodle could not be reached (${error.message}).`);
+  }
+}
+
+/**
+ * Per Moodle course, whether the signed-in faculty member may publish there: publishing must be available, their
+ * Moodle account linked, and Moodle must report a teaching role for them in that course (live).
+ */
+export async function announcementPublishingFor(auth, moodleCourseIds) {
+  const support = await announcementSupport(auth.tenantId);
+  const all = (allowed, reason) => new Map(moodleCourseIds.map((id) => [Number(id), { allowed, reason }]));
+  if (!support.publish.available) return { support, courses: all(false, support.publish.reason) };
+  try {
+    const ctx = await facultyContext(auth);
+    if (ctx.status !== 'CONNECTED') return { support, courses: all(false, 'Your Moodle account is not linked (or is suspended), so you cannot publish to Moodle courses.') };
+    const courses = new Map();
+    for (const id of moodleCourseIds) {
+      const me = (await ctx.connector.getEnrolledUsers(id)).find((u) => Number(u.id) === ctx.moodleUserId);
+      const teaches = (me?.roles ?? []).some((r) => TEACHING_ROLES.has(r.shortname));
+      courses.set(Number(id), teaches ? { allowed: true, reason: null } : { allowed: false, reason: 'Moodle does not list you as a teacher in this course, so you cannot publish to its Announcements forum.' });
+    }
+    // Where they teach, the course's Announcements forum must also be visible to the integration account.
+    const teaching = [...courses].filter(([, c]) => c.allowed).map(([id]) => id);
+    if (teaching.length) {
+      for (const [id, found] of await newsForums(ctx.connector, teaching)) {
+        if (!found.forum) courses.set(id, { allowed: false, reason: forumProblem(found.problem, id, support.postsAs) });
+      }
+    }
+    return { support, courses };
+  } catch (error) {
+    return { support, courses: all(false, `Moodle could not be checked (${error.message}).`) };
+  }
+}
+
+/**
+ * Each course's Announcements (news) forum, as the token's account sees it. mod_forum_get_forums_by_courses silently
+ * leaves out forums that account may not view (no mod/forum:viewdiscussion in the course), so an empty answer is
+ * checked against the course outline: forums listed there but not returned are HIDDEN from the integration account,
+ * which is a Moodle permission to grant, not a missing forum. Only a forum of type "news" is ever used.
+ * Map courseId -> { forum } | { problem: 'HIDDEN' | 'NO_NEWS_FORUM' | 'UNKNOWN' }.
+ */
+async function newsForums(connector, moodleCourseIds) {
+  const forums = await connector.getForumsByCourses(moodleCourseIds);
+  const out = new Map();
+  for (const id of moodleCourseIds.map(Number)) {
+    const inCourse = forums.filter((f) => Number(f.course) === id);
+    const news = inCourse.find((f) => f.type === 'news');
+    if (news) out.set(id, { forum: news });
+    else if (inCourse.length) out.set(id, { problem: 'NO_NEWS_FORUM' });
+    else if (!(await connector.has('core_course_get_contents'))) out.set(id, { problem: 'UNKNOWN' });
+    else {
+      const outline = await connector.getCourseContents(id);
+      out.set(id, { problem: outline.some((section) => (section.modules ?? []).some((m) => m.modname === 'forum')) ? 'HIDDEN' : 'NO_NEWS_FORUM' });
+    }
+  }
+  return out;
+}
+
+function forumProblem(problem, moodleCourseId, postsAs) {
+  const account = postsAs ? `the EduNexusAI integration account (${postsAs})` : 'the EduNexusAI integration account';
+  if (problem === 'NO_NEWS_FORUM') return 'This Moodle course has no Announcements forum to publish to (a forum of another type is not used).';
+  if (problem === 'HIDDEN') return `Moodle hides this course’s forums from ${account}: it has no role in Moodle course ${moodleCourseId} that grants mod/forum:viewdiscussion. A Moodle administrator must give it a role with the forum capabilities (viewdiscussion, startdiscussion, addnews) in this course or its category.`;
+  return `Moodle returned no forums for this course to ${account}; it may lack mod/forum:viewdiscussion there.`;
+}
+
+async function newsForum(connector, moodleCourseId, postsAs) {
+  const found = (await newsForums(connector, [moodleCourseId])).get(Number(moodleCourseId));
+  if (found.forum) return found.forum;
+  if (found.problem === 'NO_NEWS_FORUM') throw notFound(forumProblem(found.problem, moodleCourseId, postsAs));
+  throw moodleError(MoodleErrorKind.NOT_CONFIGURED, forumProblem(found.problem, moodleCourseId, postsAs), { reason: 'FORUM_HIDDEN_FROM_INTEGRATION', moodleCourseId: Number(moodleCourseId) });
+}
+
+const escapeHtml = (text) => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const discussionUrl = (baseUrl, discussionId) => `${baseUrl}/mod/forum/discuss.php?d=${discussionId}`;
+// Moodle stores the post as HTML; the faculty member's text is escaped, and they are named because Moodle's author
+// field will show the integration account.
+export function announcementHtml({ body, authorName, sectionLabel }) {
+  const paragraphs = String(body).trim().split(/\n{2,}/).map((p) => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`).join('');
+  return `${paragraphs}<p><em>Posted by ${escapeHtml(authorName)}${sectionLabel ? ` for ${escapeHtml(sectionLabel)}` : ''} via EduNexusAI.</em></p>`;
+}
+
+/** A Moodle news-forum discussion as the portal shows it. */
+function presentDiscussion(d, { baseUrl, course }) {
+  const at = (seconds) => (seconds ? new Date(Number(seconds) * 1000).toISOString() : null);
+  return {
+    id: `moodle:${d.discussion ?? d.id}`,
+    source: 'moodle',
+    title: d.subject ?? d.name,
+    content: stripHtml(d.message) ?? '',
+    author: d.userfullname ?? null,
+    pinned: Boolean(d.pinned),
+    publishedAt: at(d.timestart) ?? at(d.created),
+    expiresAt: Number(d.timeend) ? at(d.timeend) : null,
+    moodleCourse: { moodleCourseId: Number(course.moodleCourseId), shortName: course.shortName ?? null, fullName: course.fullName ?? null },
+    url: discussionUrl(baseUrl, d.discussion ?? d.id),
+  };
+}
+
+/**
+ * Announcements in the given Moodle courses' Announcements forums, newest first. Read with the service token, so
+ * Moodle shows what that account may see. Returns { state: OK | NOT_AVAILABLE, reason?, items }.
+ */
+export async function courseAnnouncements(tenantId, courses) {
+  if (!courses.length) return { state: 'OK', items: [] };
+  const support = await announcementSupport(tenantId);
+  if (!support.read.available) return { state: 'NOT_AVAILABLE', reason: support.read.reason, items: [] };
+  const { connector } = await connect(tenantId);
+  const forums = await newsForums(connector, courses.map((c) => c.moodleCourseId));
+  const items = [];
+  const unreadable = [];
+  for (const course of courses) {
+    const found = forums.get(Number(course.moodleCourseId));
+    if (!found.forum) {
+      if (found.problem !== 'NO_NEWS_FORUM') unreadable.push(forumProblem(found.problem, course.moodleCourseId, support.postsAs));
+      continue;
+    }
+    for (const d of await connector.getForumDiscussions(found.forum.id)) items.push(presentDiscussion(d, { baseUrl: connector.baseUrl, course }));
+  }
+  // Courses whose forums Moodle hides from the integration account are reported, never shown as "no announcements".
+  if (unreadable.length === courses.length) return { state: 'NOT_AVAILABLE', reason: unreadable[0], items: [] };
+  return { state: 'OK', items: items.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)), ...(unreadable.length ? { warnings: unreadable } : {}) };
+}
+
+/** Announcements of the Moodle-owned courses the signed-in student is enrolled in (published, not expired). */
+export async function studentCourseAnnouncements(auth) {
+  if (!auth.studentProfileId || !moodleConfig().valid) return { state: 'OK', items: [] };
+  const link = await studentLink(auth.tenantId, auth.studentProfileId);
+  if (!link || link.status === 'SUSPENDED') return { state: 'OK', items: [] };
+  const { connector } = await connect(auth.tenantId);
+  const enrolled = await connector.getUserCourses(Number(link.externalId));
+  // Only courses that own announcements for a section (an administrator's section → course mapping).
+  const owned = new Set((await prisma.sisSectionMoodleCourse.findMany({ where: { tenantId: auth.tenantId, moodleCourseId: { in: enrolled.map((c) => Number(c.id)) } }, select: { moodleCourseId: true } })).map((r) => r.moodleCourseId));
+  const courses = enrolled.filter((c) => owned.has(Number(c.id))).map((c) => ({ moodleCourseId: Number(c.id), shortName: c.shortname, fullName: c.fullname }));
+  const result = await courseAnnouncements(auth.tenantId, courses);
+  const now = Date.now();
+  return { ...result, items: result.items.filter((a) => new Date(a.publishedAt).getTime() <= now && (!a.expiresAt || new Date(a.expiresAt).getTime() > now)) };
+}
+
+/**
+ * Publish a faculty member's announcement to one Moodle course's Announcements forum. The caller has already
+ * established that CampusCore assigns them the section and that the section is mapped to this course; here Moodle
+ * must also list them as a teacher, publishing must be enabled, and Moodle must let the token's account post there.
+ * Idempotent per key (the operation ledger keeps ids, not the text); an uncertain earlier attempt is looked up in the
+ * forum before anything is posted again.
+ */
+export async function publishCourseAnnouncement(auth, moodleCourseId, { title, body, pinned = false, authorName, sectionLabel }, { idempotencyKey }) {
+  const support = await announcementSupport(auth.tenantId);
+  if (!support.publish.available) throw moodleError(MoodleErrorKind.NOT_CONFIGURED, support.publish.reason, { reason: 'MOODLE_PUBLISHING_UNAVAILABLE' });
+  const { connector, course } = await assertTeaches(auth, moodleCourseId);
+  const forum = await newsForum(connector, moodleCourseId, support.postsAs);
+  const can = await connector.canAddDiscussion(forum.id);
+  if (!can.status) throw forbidden(`Moodle does not allow the EduNexusAI integration account (${support.postsAs ?? 'the service token'}) to post in this course’s Announcements forum. A Moodle administrator must give it mod/forum:addnews there.`);
+  if (pinned && !can.canpindiscussions) throw badRequest('Moodle does not allow the EduNexusAI integration account to pin announcements in this course. Publish without pinning, or pin it in Moodle.', { field: 'pinned' });
+
+  const integration = await moodleIntegration(auth.tenantId);
+  const key = `ANNOUNCEMENT.PUBLISH:${auth.userId}:${idempotencyKey}`;
+  const prior = await prisma.integrationOperation.findUnique({ where: { tenantId_idempotencyKey: { tenantId: auth.tenantId, idempotencyKey: siteScoped(key, integration.baseUrl) } } });
+  const { result, replayed } = await runOperation({
+    auth,
+    integration,
+    operation: 'ANNOUNCEMENT.PUBLISH',
+    idempotencyKey: key,
+    entityType: 'MOODLE_FORUM',
+    internalId: auth.facultyProfileId ?? null,
+    // Ids only: the announcement itself lives in Moodle, not in EduNexusAI.
+    request: { moodleCourseId: Number(moodleCourseId), forumId: Number(forum.id) },
+    handler: async () => {
+      if (prior?.status === 'NEEDS_RECONCILIATION') {
+        if (!(await connector.has('mod_forum_get_forum_discussions'))) {
+          throw conflict('The earlier attempt to publish this announcement may have reached Moodle. Check the course’s Announcements forum; if it is not there, compose it again.');
+        }
+        const since = Math.floor(prior.createdAt.getTime() / 1000) - 60;
+        const info = await connector.siteInfo();
+        const found = (await connector.getForumDiscussions(forum.id, { perpage: 50 })).find((d) => (d.subject ?? d.name) === title && Number(d.userid) === Number(info.tokenUserId) && Number(d.created) >= since);
+        if (found) return { externalId: found.discussion ?? found.id, result: { discussionId: Number(found.discussion ?? found.id), forumId: Number(forum.id), reconciled: true } };
+      }
+      const { discussionId } = await writeOnce(() => connector.addDiscussion({ forumId: forum.id, subject: title, message: announcementHtml({ body, authorName, sectionLabel }), pinned }));
+      await recordAudit({ tenantId: auth.tenantId, actorUserId: auth.userId, action: 'MOODLE_ANNOUNCEMENT_PUBLISHED', entityType: 'MoodleForumDiscussion', entityId: String(discussionId), summary: `Published announcement "${title}" to Moodle course ${moodleCourseId}${sectionLabel ? ` (${sectionLabel})` : ''}` });
+      return { externalId: discussionId, result: { discussionId, forumId: Number(forum.id) } };
+    },
+  });
+  return {
+    id: `moodle:${result.discussionId}`,
+    source: 'moodle',
+    title,
+    content: body,
+    author: support.postsAs,
+    postedBy: authorName,
+    pinned,
+    publishedAt: new Date().toISOString(),
+    moodleCourse: { moodleCourseId: Number(moodleCourseId), shortName: course.shortname ?? null, fullName: course.fullname ?? null },
+    url: discussionUrl(connector.baseUrl, result.discussionId),
+    replayed,
+  };
 }

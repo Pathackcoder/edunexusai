@@ -18,9 +18,11 @@ export const AnnouncementsPage = () => {
   const { showToast } = useToast();
 
   // Read state is a per-user database row, not browser state, so it follows the student
-  // to another device.
+  // to another device. CampusCore and Moodle announcements have none; they change in this view only.
+  const hasLocalReadState = (a) => a && a.source !== 'campuscore' && a.source !== 'moodle';
   const handleAnnouncementRead = async (id) => {
     setData((prev) => (prev ?? []).map((a) => (a.id === id ? { ...a, isRead: true } : a)));
+    if (!hasLocalReadState(announcements.find((a) => a.id === id))) return;
     try {
       await academicApi.markAnnouncementRead(id);
       showToast('Announcement marked as read');
@@ -31,7 +33,7 @@ export const AnnouncementsPage = () => {
   };
 
   const handleMarkAllRead = async () => {
-    const unread = announcements.filter((a) => !a.isRead);
+    const unread = announcements.filter((a) => !a.isRead && hasLocalReadState(a));
     setData((prev) => (prev ?? []).map((a) => ({ ...a, isRead: true })));
     try {
       await Promise.all(unread.map((a) => academicApi.markAnnouncementRead(a.id)));

@@ -8,6 +8,7 @@ import * as campus from '../campus/campusService.js';
 import { toNumber } from '../../utils/format.js';
 import * as planning from '../planning/planningService.js';
 import * as sis from '../sis/sisService.js';
+import * as teaching from '../faculty/teachingService.js';
 import { listMyRequests } from '../workflows/requestService.js';
 import { listMyTickets } from '../workflows/ticketService.js';
 import { listMyAppointments } from '../success/advisingService.js';
@@ -148,8 +149,52 @@ export async function getStudentDashboard(sessionAuth) {
   };
 }
 
-/** Faculty dashboard: the courses they teach and the state of each roster. */
-export async function getFacultyDashboard({ tenantId, userId }) {
+/**
+ * Faculty dashboard panels from CampusCore: the sections it assigns this faculty member (with registration counts)
+ * and the class announcements on them. Each source reports its own state, so an unlinked account or an outage is
+ * never shown as "no courses". Coursework lives in Moodle (Moodle Teaching), not here.
+ */
+async function sisTeachingPanels(auth) {
+  let sections;
+  try {
+    sections = await teaching.teachingSections(auth);
+  } catch (error) {
+    sections = { state: 'UNAVAILABLE', message: error.message, sections: [] };
+  }
+  const announcements = sections.state === 'OK' ? await teaching.myAnnouncements(auth, { teaching: sections }) : { items: [], sources: {} };
+  const courses = sections.sections.map(teaching.dashboardCourse);
+  return {
+    courses,
+    totals: { courses: courses.length, students: courses.reduce((sum, course) => sum + course.enrolledCount, 0) },
+    announcements: announcements.items.slice(0, 5).map((a) => ({
+      id: a.id,
+      title: a.title,
+      content: a.content,
+      courseCode: a.section.label,
+      postedAt: a.publishedAt,
+      tags: a.pinned ? ['Pinned'] : [],
+    })),
+    upcomingAssignments: [],
+    sources: {
+      courses: { system: 'CAMPUSCORE', state: sections.state, message: sections.message ?? null },
+      announcements: { system: 'CAMPUSCORE', state: announcements.sources.campuscore?.state ?? sections.state, moodle: announcements.sources.moodle?.state ?? null },
+      coursework: { system: 'MOODLE', state: 'NOT_SHOWN' },
+    },
+  };
+}
+
+/**
+ * Faculty dashboard: the sections they teach and the state of each roster. With CampusCore connected the sections
+ * and announcements are CampusCore's; otherwise the local course records. `localCourses` (local records only) feeds
+ * the follow-up form, whose course field refers to local courses.
+ */
+export async function getFacultyDashboard(auth) {
+  const { tenantId, userId } = auth;
+  const base = {
+    persona: 'FACULTY',
+    entitlements: (await resolveContextEntitlements({ tenantId, context: 'faculty' })).widgets,
+    layout: (await getLayout({ userId }, 'faculty')).order,
+  };
   const courses = await prisma.course.findMany({
     where: { tenantId, instructorUserId: userId },
     include: {
@@ -158,6 +203,9 @@ export async function getFacultyDashboard({ tenantId, userId }) {
     },
     orderBy: { code: 'asc' },
   });
+
+  const localCourses = courses.map((course) => ({ id: course.id, code: course.code, name: course.name }));
+  if (sis.sisConfigured()) return { ...base, ...(await sisTeachingPanels(auth)), localCourses };
 
   const courseIds = courses.map((course) => course.id);
 
@@ -177,9 +225,13 @@ export async function getFacultyDashboard({ tenantId, userId }) {
   ]);
 
   return {
-    persona: 'FACULTY',
-    entitlements: (await resolveContextEntitlements({ tenantId, context: 'faculty' })).widgets,
-    layout: (await getLayout({ userId }, 'faculty')).order,
+    ...base,
+    localCourses,
+    sources: {
+      courses: { system: 'LOCAL_DEMO', state: 'OK' },
+      announcements: { system: 'LOCAL_DEMO', state: 'OK' },
+      coursework: { system: 'LOCAL_DEMO', state: 'OK' },
+    },
     courses: courses.map((course) => ({
       id: course.id,
       code: course.code,

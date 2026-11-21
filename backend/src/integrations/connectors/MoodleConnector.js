@@ -98,6 +98,7 @@ export class MoodleConnector extends BaseConnector {
       siteUrl: site.siteurl ?? null,
       tokenUserId: site.userid ?? null,
       tokenUsername: site.username ?? null,
+      tokenUserFullName: site.fullname ?? null,
       tokenUserIsSiteAdmin: Boolean(site.userissiteadmin),
       functions: new Set((site.functions ?? []).map((fn) => fn.name)),
       durationMs,
@@ -308,6 +309,33 @@ export class MoodleConnector extends BaseConnector {
   async deleteCourse(moodleCourseId) {
     const payload = await this.call('core_course_delete_courses', { courseids: [moodleCourseId] }, { write: true });
     failOnWarnings(payload, 'core_course_delete_courses');
+  }
+
+  /* ---------- course announcements (Announcements / news forum) ---------- */
+
+  async getForumsByCourses(moodleCourseIds) {
+    return expectArray(await this.call('mod_forum_get_forums_by_courses', { courseids: moodleCourseIds.map(Number) }), 'mod_forum_get_forums_by_courses');
+  }
+
+  async getForumDiscussions(forumId, { perpage = 20 } = {}) {
+    const payload = expectObject(await this.call('mod_forum_get_forum_discussions', { forumid: Number(forumId), page: 0, perpage }), 'mod_forum_get_forum_discussions');
+    return payload.discussions ?? [];
+  }
+
+  /** As the token's account: { status, canpindiscussions, cancreateattachment }. */
+  async canAddDiscussion(forumId) {
+    return expectObject(await this.call('mod_forum_can_add_discussion', { forumid: Number(forumId) }), 'mod_forum_can_add_discussion');
+  }
+
+  /** Posts a new discussion as the token's account. `message` is HTML. Never retried automatically. */
+  async addDiscussion({ forumId, subject, message, pinned = false }) {
+    const payload = expectObject(
+      await this.call('mod_forum_add_discussion', { forumid: Number(forumId), subject, message, options: pinned ? [{ name: 'discussionpinned', value: 1 }] : [] }, { write: true }),
+      'mod_forum_add_discussion',
+    );
+    failOnWarnings(payload, 'mod_forum_add_discussion');
+    if (!payload.discussionid) throw moodleError(MoodleErrorKind.MALFORMED_RESPONSE, 'Moodle did not return the new discussion id.', { wsfunction: 'mod_forum_add_discussion', reconcile: true });
+    return { discussionId: Number(payload.discussionid) };
   }
 
   async enrol({ roleid, userid, courseid, suspend }) {

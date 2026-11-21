@@ -333,7 +333,7 @@ describe('View-As: read-only, enforced by the server', () => {
     ['PUT', `/faculty/courses/${UUID}/gradebook/scores`, { scores: [] }],
     ['POST', `/faculty/courses/${UUID}/gradebook/publish`, {}],
     ['PUT', `/faculty/courses/${UUID}/gradebook/settings`, {}],
-    ['POST', `/faculty/courses/${UUID}/announcements`, { title: 'x', body: 'y' }],
+    ['POST', '/faculty/sections/sec-1/announcements', { title: 'x', body: 'y', idempotencyKey: UUID }],
     ['POST', `/faculty/courses/${UUID}/notifications`, { title: 'x', message: 'y' }],
     ['POST', '/advising/slots', { startsAt: new Date().toISOString() }],
     ['DELETE', `/advising/slots/${UUID}`],

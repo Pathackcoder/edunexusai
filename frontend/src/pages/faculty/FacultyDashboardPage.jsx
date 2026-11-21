@@ -30,6 +30,7 @@ import { Badge } from '../../components/common/Badge';
 import { DataState } from '../../components/common/DataState';
 import { DashboardSkeleton, HeroBanner, HeroStats, heroChipSx } from '../../components/dashboard/HeroBanner';
 import Chip from '@mui/material/Chip';
+import { teachingNotice } from './teachingState';
 
 /** Placeholder composition that mirrors the default faculty layout. */
 const FACULTY_SKELETON = [
@@ -56,6 +57,10 @@ const rowSx = {
  * An experience layer over the LMS and SIS, not a replacement for either: the courses a
  * faculty member teaches, how many students are in each, and a route to reach them.
  * Grading and coursework authoring stay in the LMS.
+ *
+ * With CampusCore connected, sections and class announcements are CampusCore's (`sources`
+ * says which system each panel came from and its state); coursework is in Moodle Teaching.
+ * Without it, the local demo course records are shown.
  */
 export const FacultyDashboardPage = () => {
   const cmsLayout = useCmsDashboardLayout('faculty');
@@ -69,12 +74,20 @@ export const FacultyDashboardPage = () => {
   const totals = data?.totals ?? { courses: 0, students: 0 };
   const announcements = data?.announcements ?? [];
   const upcoming = data?.upcomingAssignments ?? [];
+  const sources = data?.sources ?? {};
+  const fromSis = sources.courses?.system === 'CAMPUSCORE';
+  const coursesNotice = sources.courses ? teachingNotice(sources.courses.state, sources.courses.message) : null;
+  const announcementsDown = fromSis && sources.announcements?.state === 'UNAVAILABLE';
+  const courseworkInMoodle = sources.coursework?.system === 'MOODLE';
+  const courseLink = (course) => course.href ?? `/faculty/courses/${course.id}`;
 
   const stats = [
-    { label: 'Courses taught', value: totals.courses, hint: 'Current term', icon: MenuBookOutlinedIcon, tone: 'primary' },
-    { label: 'Students enrolled', value: totals.students, hint: 'Across all sections', icon: GroupsOutlinedIcon, tone: 'purple' },
-    { label: 'Announcements posted', value: announcements.length, hint: 'Most recent first', icon: CampaignOutlinedIcon, tone: 'warning' },
-    { label: 'Coursework upcoming', value: upcoming.length, hint: 'Due next', icon: EventNoteOutlinedIcon, tone: 'success' },
+    { label: fromSis ? 'Sections taught' : 'Courses taught', value: coursesNotice ? '—' : totals.courses, hint: fromSis ? 'CampusCore · current & upcoming' : 'Current term', icon: MenuBookOutlinedIcon, tone: 'primary' },
+    { label: 'Students enrolled', value: coursesNotice ? '—' : totals.students, hint: 'Across all sections', icon: GroupsOutlinedIcon, tone: 'purple' },
+    { label: 'Recent announcements', value: announcementsDown || coursesNotice ? '—' : announcements.length, hint: fromSis ? 'CampusCore class announcements' : 'Most recent first', icon: CampaignOutlinedIcon, tone: 'warning' },
+    courseworkInMoodle
+      ? { label: 'Coursework', value: '—', hint: 'In Moodle Teaching', icon: EventNoteOutlinedIcon, tone: 'success', to: '/faculty/moodle' }
+      : { label: 'Coursework upcoming', value: upcoming.length, hint: 'Due next', icon: EventNoteOutlinedIcon, tone: 'success' },
   ];
 
 
@@ -87,11 +100,15 @@ export const FacultyDashboardPage = () => {
                   actionLabel="All courses"
                   actionTo="/faculty/courses"
                 >
-                  {courses.length === 0 && (
-                    <WidgetEmpty icon={MenuBookOutlinedIcon} title="No courses this term">
-                      You are not listed as instructor of record for any course this term.
+                  {courses.length === 0 && (coursesNotice ? (
+                    <WidgetEmpty icon={MenuBookOutlinedIcon} title={coursesNotice.severity === 'warning' ? 'Teaching assignments unavailable' : 'No teaching assignments to show'}>
+                      {coursesNotice.text}
                     </WidgetEmpty>
-                  )}
+                  ) : (
+                    <WidgetEmpty icon={MenuBookOutlinedIcon} title="No courses this term">
+                      {fromSis ? 'CampusCore lists no sections for you in the current or upcoming terms.' : 'You are not listed as instructor of record for any course this term.'}
+                    </WidgetEmpty>
+                  ))}
                   <FitList
                     items={courses}
                     max={4}
@@ -109,8 +126,8 @@ export const FacultyDashboardPage = () => {
                           course.time && { icon: ScheduleRoundedIcon, label: course.time },
                         ]}
                         action={
-                          <MuiButton size="small" component={RouterLink} to={`/faculty/courses/${course.id}`} endIcon={<ArrowForwardRoundedIcon />} sx={{ ml: -1 }}>
-                            Open course & roster
+                          <MuiButton size="small" component={RouterLink} to={courseLink(course)} endIcon={<ArrowForwardRoundedIcon />} sx={{ ml: -1 }}>
+                            {course.href ? 'Open roster in My Courses' : 'Open course & roster'}
                           </MuiButton>
                         }
                       />
@@ -118,7 +135,7 @@ export const FacultyDashboardPage = () => {
                     renderItem={(course) => (
                       <ButtonBase
                         component={RouterLink}
-                        to={`/faculty/courses/${course.id}`}
+                        to={courseLink(course)}
                         sx={{
                           ...rowSx,
                           display: 'flex',
@@ -138,7 +155,7 @@ export const FacultyDashboardPage = () => {
                           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>{course.name}</Typography>
                           <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 0.5, color: 'text.secondary' }}>
                             <PlaceOutlinedIcon sx={{ fontSize: 14 }} />
-                            <Typography variant="caption">{course.room} · {course.time}</Typography>
+                            <Typography variant="caption">{[course.room, course.time].filter(Boolean).join(' · ') || 'Time and room to be confirmed'}</Typography>
                           </Stack>
                         </Box>
                         <ArrowForwardRoundedIcon className="row-arrow" sx={{ fontSize: 18, color: 'primary.main', flexShrink: 0, transition: 'transform 160ms ease' }} />
@@ -147,23 +164,27 @@ export const FacultyDashboardPage = () => {
                   />
                   {courses.length > 0 && (
                     <CardFootnote icon={GroupsOutlinedIcon}>
-                      <strong>{totals.students} student{totals.students === 1 ? '' : 's'}</strong> enrolled across {totals.courses} course{totals.courses === 1 ? '' : 's'}
+                      <strong>{totals.students} student{totals.students === 1 ? '' : 's'}</strong> enrolled across {totals.courses} {fromSis ? 'section' : 'course'}{totals.courses === 1 ? '' : 's'}{fromSis ? ' · CampusCore' : ''}
                     </CardFootnote>
                   )}
                 </WidgetCard>) },
     { key: 'faculty.announcements', label: 'Recent announcements', span: { md: 6, lg: 4 }, size: 'standard', node: (<WidgetCard
                   title="Recent announcements"
-                  subtitle="Posted to your sections"
+                  subtitle={fromSis ? 'CampusCore class announcements on your sections' : 'Posted to your sections'}
                   icon={CampaignOutlinedIcon}
                   tone="warning"
-                  actionLabel="Manage"
+                  actionLabel="View all"
                   actionTo="/faculty/announcements"
                 >
-                  {announcements.length === 0 && (
-                    <WidgetEmpty icon={CampaignOutlinedIcon} tone="warning" title="No announcements posted yet">
-                      Announcements you post reach every student enrolled in the section.
+                  {announcements.length === 0 && (announcementsDown ? (
+                    <WidgetEmpty icon={CampaignOutlinedIcon} tone="warning" title="Announcements unavailable">
+                      CampusCore class announcements could not be loaded right now.
                     </WidgetEmpty>
-                  )}
+                  ) : coursesNotice ? null : (
+                    <WidgetEmpty icon={CampaignOutlinedIcon} tone="warning" title={fromSis ? 'No class announcements yet' : 'No announcements posted yet'}>
+                      {fromSis ? 'Class announcements posted in CampusCore for your sections appear here.' : 'Announcements you post reach every student enrolled in the section.'}
+                    </WidgetEmpty>
+                  ))}
                   <FitList
                     items={announcements}
                     max={4}
@@ -205,6 +226,9 @@ export const FacultyDashboardPage = () => {
                       <strong>{announcements.length} announcement{announcements.length === 1 ? '' : 's'}</strong> posted to your sections
                     </CardFootnote>
                   )}
+                  {sources.announcements?.moodle === 'NOT_CONNECTED' && (
+                    <CardFootnote icon={CampaignOutlinedIcon}>Sections delivered in Moodle have their announcements in Moodle (not shown here yet)</CardFootnote>
+                  )}
                 </WidgetCard>) },
     { key: 'faculty.coursework', label: 'Upcoming coursework', span: { md: 6, lg: 4 }, size: 'standard', node: (<WidgetCard
                   title="Upcoming coursework"
@@ -212,11 +236,20 @@ export const FacultyDashboardPage = () => {
                   icon={AssignmentOutlinedIcon}
                   tone="success"
                 >
-                  {upcoming.length === 0 && (
+                  {upcoming.length === 0 && (courseworkInMoodle ? (
+                    <WidgetEmpty
+                      icon={AssignmentOutlinedIcon}
+                      tone="success"
+                      title="Coursework is in Moodle"
+                      action={<MuiButton size="small" variant="outlined" component={RouterLink} to="/faculty/moodle">Open Moodle Teaching</MuiButton>}
+                    >
+                      Assignments, submissions and grading for your Moodle courses are under Moodle Teaching.
+                    </WidgetEmpty>
+                  ) : (
                     <WidgetEmpty icon={AssignmentOutlinedIcon} tone="success" title="Nothing due in your sections">
                       Coursework due dates from your sections appear here as they approach.
                     </WidgetEmpty>
-                  )}
+                  ))}
                   <FitList
                     items={upcoming}
                     max={4}
@@ -249,7 +282,7 @@ export const FacultyDashboardPage = () => {
                 </WidgetCard>) },
     { key: 'faculty.roster', label: 'My students & groups', span: { md: 6, lg: 4 }, size: 'standard', node: <RosterWidget courses={courses} /> },
     { key: 'faculty.schedule', label: 'Teaching schedule', span: { md: 6, lg: 4 }, size: 'standard', node: <TeachingScheduleWidget courses={courses} /> },
-    { key: 'faculty.tasks', label: 'Tasks & follow-ups', span: { md: 12, lg: 8 }, size: 'large', node: <FollowUpsWidget courses={courses} /> },
+    { key: 'faculty.tasks', label: 'Tasks & follow-ups', span: { md: 12, lg: 8 }, size: 'large', node: <FollowUpsWidget courses={data?.localCourses ?? courses} /> },
     { key: 'faculty.advising', label: 'Advising appointments', span: { md: 6, lg: 4 }, size: 'standard', node: <FacultyAdvisingWidget /> },
     { key: 'faculty.resources', label: 'Teaching resources', span: { md: 12, lg: 8 }, size: 'large', node: <AdminDocumentsWidget faculty /> },
     { key: 'faculty.requests', label: 'My requests', span: { md: 6, lg: 4 }, size: 'standard', node: <FacultyRequestsWidget /> },

@@ -49,7 +49,7 @@ const LEGACY_ME_KEYS = {
 
 const DASHBOARD_KEYS = {
   student: ['entitlements', 'greetingName', 'layout', 'panels', 'persona', 'term', 'tier', 'widgets'],
-  faculty: ['announcements', 'courses', 'entitlements', 'layout', 'persona', 'totals', 'upcomingAssignments'],
+  faculty: ['announcements', 'courses', 'entitlements', 'layout', 'localCourses', 'persona', 'sources', 'totals', 'upcomingAssignments'],
   admin: ['counts', 'integrationHealth', 'operations', 'persona', 'recentSyncLogs', 'tenant', 'tiers'],
 };
 

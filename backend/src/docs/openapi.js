@@ -490,11 +490,14 @@ tenant id, so one institution's data can never be requested from another's sessi
         responses: { 201: ok('Sent', object({ notificationsCreated: num(2), recipientCount: num(2) })), 403: responses[403] },
       },
     },
-    '/faculty/courses/{courseId}/announcements': {
-      post: { tags: ['Faculty'], summary: 'Post a course announcement', parameters: [uuidParam('courseId', 'Course id')], requestBody: jsonBody(object({ title: str(), content: str(), tags: arrayOf(str()) })), responses: { 201: ok('Posted', object({})) } },
+    '/faculty/sections': {
+      get: { tags: ['Faculty'], summary: 'CampusCore teaching assignments (current and upcoming terms), each with its announcement owner (CampusCore or Moodle) and whether it can take an announcement now', responses: { 200: ok('Sections', object({})) } },
+    },
+    '/faculty/sections/{sectionId}/announcements': {
+      post: { tags: ['Faculty'], summary: 'Publish a class announcement in the system that owns the section (CampusCore class announcement, or the mapped Moodle course’s Announcements forum). FACULTY role only; never falls back to the other system; nothing is stored locally.', requestBody: jsonBody(object({ title: str(), body: str(), pinned: { type: 'boolean' }, idempotencyKey: str('a fresh UUID per announcement') })), responses: { 201: ok('Published', object({})), 403: responses[403] } },
     },
     '/faculty/announcements': {
-      get: { tags: ['Faculty'], summary: 'Announcements authored by this faculty member', responses: { 200: ok('Announcements', arrayOf(object({}))) } },
+      get: { tags: ['Faculty'], summary: 'Class announcements on this faculty member’s sections, read from CampusCore and Moodle, with each source’s state', responses: { 200: ok('Announcements', object({})) } },
     },
     '/faculty/schedule': {
       get: { tags: ['Faculty'], summary: 'Teaching timetable', responses: { 200: ok('Schedule', arrayOf(object({}))) } },

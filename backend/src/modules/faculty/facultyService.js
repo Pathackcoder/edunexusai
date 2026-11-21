@@ -7,6 +7,10 @@ import { toNumber } from '../../utils/format.js';
  * Faculty experience — an experience layer over the LMS/SIS, not a replacement for one.
  * Faculty see what they teach and can reach their class. Grading lives in the gradebook
  * module (../gradebook), with draft and publish states; coursework is authored in the LMS.
+ *
+ * The functions here work on local EduNexusAI course records (demo data). With CampusCore
+ * connected, the authoritative teaching assignments and class announcements come from
+ * ./teachingService.js instead.
  */
 
 /** A faculty member may only act on a course they are the instructor of record for. */
@@ -117,42 +121,11 @@ export async function sendClassNotification(
   };
 }
 
-/** Post a course announcement, visible to everyone enrolled. */
-export async function createAnnouncement(
-  tenantId,
-  userId,
-  courseId,
-  { title, content, tags },
-  { roles = [] } = {},
-) {
-  const course = await assertTeaches(tenantId, userId, courseId, { allowAdmin: true, roles });
-  const author = await prisma.user.findUnique({ where: { id: userId } });
-
-  const announcement = await prisma.announcement.create({
-    data: {
-      tenantId,
-      courseId,
-      authorUserId: userId,
-      authorName: `Dr. ${author.firstName} ${author.lastName}`,
-      title,
-      content,
-      tags: tags ?? [],
-      audience: 'COURSE',
-      postedAt: new Date(),
-    },
-  });
-
-  return {
-    id: announcement.id,
-    courseId: course.id,
-    courseCode: course.code,
-    title: announcement.title,
-    content: announcement.content,
-    tags: announcement.tags,
-    postedAt: announcement.postedAt,
-  };
-}
-
+/**
+ * Announcements this user posted to local courses in the past (only meaningful without CampusCore). New class
+ * announcements are published only in the system that owns the section (./teachingService.js); there is no local
+ * write path.
+ */
 export async function listMyAnnouncements(tenantId, userId) {
   const announcements = await prisma.announcement.findMany({
     where: { tenantId, authorUserId: userId },
